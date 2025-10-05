@@ -65,7 +65,7 @@ const opts = {
   explosionSheetCols: 7,
   explosionSheetRows: 3,
   explosionSheetFps: 24,
-  explosionSheetScaleFit: 0.8,
+  explosionSheetScaleFit: 1.0,
   explosionSheetOpacity: 0.75,
 
   // Sounds
