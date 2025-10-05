@@ -2,6 +2,7 @@ import { createMinesGame } from "./mines.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
+import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.ogg";
 import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
 import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
@@ -69,6 +70,7 @@ const opts = {
   explosionSheetOpacity: 0.75,
 
   // Sounds
+  tileTapDownSoundPath: tileTapDownSoundUrl,
   tileTappedSoundPath: tileTappedSoundUrl,
   tileSelectedSoundPath: tileSelectedSoundUrl,
   tileFlipSoundPath: tileFlipSoundUrl,

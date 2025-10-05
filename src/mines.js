@@ -16,6 +16,7 @@ import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
+import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.ogg";
 import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
 import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
@@ -30,13 +31,13 @@ const PALETTE = {
   tileBase: 0x363636, // main tile face
   tileInset: 0x363636, // inner inset
   tileStroke: 0x232323, // subtle outline
-  tileStrokeFlipped: 0x0F0F0F, // subtle outline
+  tileStrokeFlipped: 0x0f0f0f, // subtle outline
   tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
   tileElevationShadow: 0x000000, // soft drop shadow
   hover: 0xfbff43, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x2B3D2B, // outer
+  safeA: 0x2b3d2b, // outer
   safeAUnrevealed: 0x081610,
   safeB: 0x243324, // inner
   safeBUnrevealed: 0x081c13,
@@ -139,6 +140,7 @@ export async function createMinesGame(mount, opts = {}) {
   const explosionSheetOpacity = opts.explosionSheetOpacity ?? 0.75;
 
   /* Sound effects */
+  const tileTapDownSoundPath = opts.tileTapDownSoundPath ?? tileTapDownSoundUrl;
   const tileTappedSoundPath = opts.tileTappedSoundPath ?? tileTappedSoundUrl;
   const tileSelectedSoundPath =
     opts.tileSelectedSoundPath ?? tileSelectedSoundUrl;
@@ -152,6 +154,7 @@ export async function createMinesGame(mount, opts = {}) {
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
 
   const soundEffectPaths = {
+    tileTapDown: tileTapDownSoundPath,
     tileTapped: tileTappedSoundPath,
     tileSelected: tileSelectedSoundPath,
     tileFlip: tileFlipSoundPath,
@@ -169,10 +172,11 @@ export async function createMinesGame(mount, opts = {}) {
   );
 
   const SOUND_ALIASES = {
+    tileHover: "mines.tileHover",
+    tileTapDown: "mines.tileTapDown",
     tileTapped: "mines.tileTapped",
     tileSelected: "mines.tileSelected",
     tileFlip: "mines.tileFlip",
-    tileHover: "mines.tileHover",
     diamondRevealed: "mines.diamondRevealed",
     bombRevealed: "mines.bombRevealed",
     win: "mines.win",
@@ -291,7 +295,7 @@ export async function createMinesGame(mount, opts = {}) {
       h: initialSize,
       dpr: window.devicePixelRatio || 1,
     });
-    debugOverlay("PIXI OK");
+    // debugOverlay("PIXI OK");
   } catch (e) {
     console.error("PIXI init failed", e);
     debugOverlay("PIXI init failed");
@@ -924,6 +928,8 @@ export async function createMinesGame(mount, opts = {}) {
         untapedCount <= mines
       )
         return;
+
+      playSoundEffect("tileTapDown");
       t._inset.tint = PALETTE.pressedTint;
       t._card.tint = PALETTE.pressedTint;
       t._pressed = true;
@@ -1154,9 +1160,9 @@ export async function createMinesGame(mount, opts = {}) {
             //   gap,
             // });
 
-            try {
-              debugOverlay(`Tiles: ${tiles.length}`);
-            } catch {}
+            // try {
+            //   debugOverlay(`Tiles: ${tiles.length}`);
+            // } catch {}
 
             onChange(getState());
           }
@@ -1252,9 +1258,9 @@ export async function createMinesGame(mount, opts = {}) {
       rw: app.renderer.width,
       rh: app.renderer.height,
     });
-    try {
-      debugOverlay(`Tiles: ${tiles.length}`);
-    } catch {}
+    // try {
+    //   debugOverlay(`Tiles: ${tiles.length}`);
+    // } catch {}
 
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
