@@ -34,7 +34,7 @@ const PALETTE = {
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
   tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
   tileElevationShadow: 0x000000, // soft drop shadow
-  hover: 0xfbff43, // hover
+  hover: 0xFFF001, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
   safeA: 0x2b3d2b, // outer
@@ -201,78 +201,34 @@ export async function createMinesGame(mount, opts = {}) {
     root.style.width = `${initialSize}px`;
     root.style.maxWidth = "100%";
   }
-  // Debug helpers
-  function debugOverlay(msg) {
-    try {
-      let el = root.querySelector(".mines-debug");
-      if (!el) {
-        el = document.createElement("div");
-        el.className = "mines-debug";
-        Object.assign(el.style, {
-          position: "absolute",
-          left: "8px",
-          top: "8px",
-          zIndex: 9999,
-          background: "rgba(0,0,0,0.6)",
-          color: "#0f0",
-          font: "12px monospace",
-          padding: "4px 6px",
-          borderRadius: "4px",
-          pointerEvents: "none",
-        });
-        root.appendChild(el);
-      }
-      el.textContent = String(msg);
-    } catch {}
-  }
-  function dlog(label, data) {
-    try {
-      console.log("[MINES]", label, data ?? "");
-    } catch {}
-  }
 
   let explosionFrames = null;
   let explosionFrameW = 0;
   let explosionFrameH = 0;
   try {
-    dlog("load: explosion sheet start");
     await loadExplosionFrames();
-    dlog("load: explosion sheet ok", {
-      frameW: explosionFrameW,
-      frameH: explosionFrameH,
-    });
   } catch (e) {
     console.error("loadExplosionFrames failed", e);
-    debugOverlay("Explosion sheet load failed");
   }
 
   let diamondTexture = null;
   try {
-    dlog("load: diamond start");
     await loadDiamondTexture();
-    dlog("load: diamond ok");
   } catch (e) {
     console.error("loadDiamondTexture failed", e);
-    debugOverlay("Diamond texture load failed");
   }
 
   let bombTexture = null;
   try {
-    dlog("load: bomb start");
     await loadBombTexture();
-    dlog("load: bomb ok");
   } catch (e) {
     console.error("loadBombTexture failed", e);
-    debugOverlay("Bomb texture load failed");
   }
 
   try {
-    dlog("load: sounds start");
     await loadSoundEffects();
-    dlog("load: sounds ok");
   } catch (e) {
     console.warn("loadSoundEffects failed (non-fatal)", e);
-    debugOverlay("Sounds failed (ok)");
   }
 
   // PIXI app
@@ -292,15 +248,8 @@ export async function createMinesGame(mount, opts = {}) {
     // Append canvas
     root.appendChild(app.canvas);
 
-    dlog("pixi init ok", {
-      w: initialSize,
-      h: initialSize,
-      dpr: window.devicePixelRatio || 1,
-    });
-    // debugOverlay("PIXI OK");
   } catch (e) {
     console.error("PIXI init failed", e);
-    debugOverlay("PIXI init failed");
     throw e;
   }
 
@@ -1167,16 +1116,6 @@ export async function createMinesGame(mount, opts = {}) {
               }
             }
 
-            // dlog("buildBoard: tiles", {
-            //   count: tiles.length,
-            //   size: tileSize,
-            //   gap,
-            // });
-
-            // try {
-            //   debugOverlay(`Tiles: ${tiles.length}`);
-            // } catch {}
-
             onChange(getState());
           }
         },
@@ -1261,19 +1200,8 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function resizeSquare() {
-    dlog("resizeSquare", { cw: root.clientWidth, ch: root.clientHeight });
-
     const cw = Math.max(1, root.clientWidth || initialSize);
     const ch = Math.max(1, root.clientHeight || cw);
-    dlog("centerBoard", {
-      x: board.position.x,
-      y: board.position.y,
-      rw: app.renderer.width,
-      rh: app.renderer.height,
-    });
-    // try {
-    //   debugOverlay(`Tiles: ${tiles.length}`);
-    // } catch {}
 
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
