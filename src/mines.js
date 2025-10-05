@@ -922,7 +922,7 @@ export async function createMinesGame(mount, opts = {}) {
       )
         return;
 
-      playSoundEffect("tileTapped");
+      // playSoundEffect("tileTapped");
       t.taped = true;
       hoverTile(t, false);
       enterWaitingState(t);
