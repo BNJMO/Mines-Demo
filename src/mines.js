@@ -1136,7 +1136,7 @@ export async function createMinesGame(mount, opts = {}) {
                         Math.max(0, revealedSafe / Math.max(totalSafe - 1, 1))
                       );
                 const pitch =
-                  minPitch + (maxPitch - minPitch) * safeProgress;
+                  minPitch + (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
                 playSoundEffect("diamondRevealed", { speed: pitch });
               }
             }
