@@ -150,6 +150,8 @@ export async function createMinesGame(mount, opts = {}) {
     opts.bombRevealedSoundPath ?? bombRevealedSoundUrl;
   const winSoundPath = opts.winSoundPath ?? winSoundUrl;
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
+  const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
+  const diamondRevealPitchMax = Number(opts.diamondRevealPitchMax ?? 1.5);
 
   const soundEffectPaths = {
     tileTapped: tileTappedSoundPath,
@@ -622,14 +624,14 @@ export async function createMinesGame(mount, opts = {}) {
     await Promise.all(loaders);
   }
 
-  function playSoundEffect(key) {
+  function playSoundEffect(key, options = {}) {
     if (!enabledSoundKeys.has(key)) return;
 
     const alias = SOUND_ALIASES[key];
     if (!alias) return;
 
     try {
-      sound.play(alias);
+      sound.play(alias, options);
     } catch (err) {
       // Ignore playback errors so they don't interrupt gameplay
     }
@@ -1124,7 +1126,18 @@ export async function createMinesGame(mount, opts = {}) {
               flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
               if (revealedByPlayer) {
-                playSoundEffect("diamondRevealed");
+                const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
+                const maxPitch = Math.max(0.01, Number(diamondRevealPitchMax));
+                const safeProgress =
+                  totalSafe <= 1
+                    ? 1
+                    : Math.min(
+                        1,
+                        Math.max(0, revealedSafe / Math.max(totalSafe - 1, 1))
+                      );
+                const pitch =
+                  minPitch + (maxPitch - minPitch) * safeProgress;
+                playSoundEffect("diamondRevealed", { speed: pitch });
               }
             }
           }
