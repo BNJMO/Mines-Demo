@@ -80,7 +80,7 @@ const opts = {
   winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
   diamondRevealPitchMin: 1.0,
-  diamondRevealPitchMax: 1.5,
+  diamondRevealPitchMax: 1.25,
 
   // Win pop-up
   winPopupShowDuration: 260,
