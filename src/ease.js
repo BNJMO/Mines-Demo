@@ -36,4 +36,8 @@ export default class Ease {
   static easeOutQuad(x) {
     return 1 - (1 - x) * (1 - x);
   }
+
+  static easeInQuad(x) {
+    return x * x;
+  }
 }
