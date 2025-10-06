@@ -432,7 +432,7 @@ export async function createMinesGame(mount, opts = {}) {
         align: "center",
       },
     });
-    amountText.anchor.set(0, 0.5);
+    amountText.anchor.set(0.5);
     amountRow.addChild(amountText);
 
     const coinContainer = new Container();
@@ -455,8 +455,12 @@ export async function createMinesGame(mount, opts = {}) {
 
     const layoutAmountRow = () => {
       const spacing = 12;
-      coinContainer.position.set(amountText.width + spacing + coinRadius, 0);
-      amountRow.pivot.set(amountRow.width / 2, amountRow.height / 2);
+      const coinDiameter = coinRadius * 2;
+      const totalWidth = amountText.width + spacing + coinDiameter;
+
+      amountText.position.set(-(spacing / 2 + coinRadius), 0);
+      coinContainer.position.set(totalWidth / 2 - coinRadius, 0);
+
       amountRow.position.set(0, amountRowVerticalOffset);
     };
 
