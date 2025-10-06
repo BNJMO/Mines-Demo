@@ -660,7 +660,12 @@ export async function createMinesGame(mount, opts = {}) {
   }
 
   function bombShakeTile(tile) {
-    if (!explosionShakeEnabled || tile._bombShaking) return;
+    if (!explosionShakeEnabled || !tile || tile.destroyed || tile._bombShaking)
+      return;
+
+    if (!tile.transform?.position) {
+      return;
+    }
     tile._bombShaking = true;
 
     const duration = explosionShakeDuration;
@@ -691,12 +696,22 @@ export async function createMinesGame(mount, opts = {}) {
         const dy =
           (Math.cos(w1 + phiY1) + 0.5 * Math.sin(w2 + phiY2)) * amp * decay;
 
+        if (!tile || tile.destroyed || !tile.transform?.position) {
+          tile && (tile._bombShaking = false);
+          return;
+        }
+
         tile.x = bx + dx;
         tile.y = by + dy;
 
         tile.rotation = r0 + Math.sin(w2 + phiX1) * rotAmp * decay;
       },
       complete: () => {
+        if (!tile || tile.destroyed || !tile.transform?.position) {
+          tile && (tile._bombShaking = false);
+          return;
+        }
+
         tile.x = bx;
         tile.y = by;
         tile.rotation = r0;
