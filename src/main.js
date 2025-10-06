@@ -27,7 +27,7 @@ const opts = {
   diamondTexturePath: diamondTextureUrl,
   bombTexturePath: bombTextureUrl,
   iconSizePercentage: 0.7,
-  iconRevealedSizeOpacity: 0.4,
+  iconRevealedSizeOpacity: 0.2,
   iconRevealedSizeFactor: 0.7,
   cardsSpawnDuration: 350,
   revealAllIntervalDelay: 40,
@@ -87,7 +87,7 @@ const opts = {
   // Win pop-up
   winPopupShowDuration: 260,
   winPopupWidth: 260,
-  winPopupHeight: 220,
+  winPopupHeight: 200,
 
   // Event callback for when a card is selected
   onCardSelected: ({ row, col, tile }) => {
@@ -98,7 +98,7 @@ const opts = {
     }
   },
   onWin: () => {
-    game?.showWinPopup?.(24.75, "0.00000000");
+    game?.showWinPopup?.(24.75, "0.00000003");
   },
 };
 
