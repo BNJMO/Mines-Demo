@@ -16,15 +16,13 @@ import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
-import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.ogg";
-import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
-import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
-import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
-import tileHoverSoundUrl from "../assets/sounds/TileHover.ogg";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.ogg";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
-import winSoundUrl from "../assets/sounds/Win.ogg";
-import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
+import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
+import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
+import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
+import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
+import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
+import winSoundUrl from "../assets/sounds/Win.wav";
+import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x020401, // page/canvas background
@@ -146,9 +144,6 @@ export async function createMinesGame(mount, opts = {}) {
 
   /* Sound effects */
   const tileTapDownSoundPath = opts.tileTapDownSoundPath ?? tileTapDownSoundUrl;
-  const tileTappedSoundPath = opts.tileTappedSoundPath ?? tileTappedSoundUrl;
-  const tileSelectedSoundPath =
-    opts.tileSelectedSoundPath ?? tileSelectedSoundUrl;
   const tileFlipSoundPath = opts.tileFlipSoundPath ?? tileFlipSoundUrl;
   const tileHoverSoundPath = opts.tileHoverSoundPath ?? tileHoverSoundUrl;
   const diamondRevealedSoundPath =
@@ -162,8 +157,6 @@ export async function createMinesGame(mount, opts = {}) {
 
   const soundEffectPaths = {
     tileTapDown: tileTapDownSoundPath,
-    tileTapped: tileTappedSoundPath,
-    tileSelected: tileSelectedSoundPath,
     tileFlip: tileFlipSoundPath,
     tileHover: tileHoverSoundPath,
     diamondRevealed: diamondRevealedSoundPath,
@@ -181,8 +174,6 @@ export async function createMinesGame(mount, opts = {}) {
   const SOUND_ALIASES = {
     tileHover: "mines.tileHover",
     tileTapDown: "mines.tileTapDown",
-    tileTapped: "mines.tileTapped",
-    tileSelected: "mines.tileSelected",
     tileFlip: "mines.tileFlip",
     diamondRevealed: "mines.diamondRevealed",
     bombRevealed: "mines.bombRevealed",
@@ -338,7 +329,6 @@ export async function createMinesGame(mount, opts = {}) {
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    playSoundEffect("tileSelected");
     revealTileWithFlip(tile, "diamond");
   }
 
@@ -360,7 +350,6 @@ export async function createMinesGame(mount, opts = {}) {
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    playSoundEffect("tileSelected");
     revealTileWithFlip(tile, "bomb");
   }
 
@@ -979,7 +968,6 @@ export async function createMinesGame(mount, opts = {}) {
       )
         return;
 
-      // playSoundEffect("tileTapped");
       t.taped = true;
       hoverTile(t, false);
       enterWaitingState(t);

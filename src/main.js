@@ -2,15 +2,13 @@ import { createMinesGame } from "./mines.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
-import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.ogg";
-import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
-import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
-import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
-import tileHoverSoundUrl from "../assets/sounds/TileHover.ogg";
+import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
+import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
+import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
-import winSoundUrl from "../assets/sounds/Win.ogg";
-import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
+import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
+import winSoundUrl from "../assets/sounds/Win.wav";
+import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let bombRandomPercentage = 0.15;
 let game;
@@ -74,8 +72,6 @@ const opts = {
 
   // Sounds
   tileTapDownSoundPath: tileTapDownSoundUrl,
-  tileTappedSoundPath: tileTappedSoundUrl,
-  tileSelectedSoundPath: tileSelectedSoundUrl,
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
   diamondRevealedSoundPath: diamondRevealedSoundUrl,
