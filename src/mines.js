@@ -1006,8 +1006,13 @@ export async function createMinesGame(mount, opts = {}) {
     t._wiggleToken = Symbol("wiggle-kill");
 
     const w = t._wrap;
+    if (!w || !w.scale) {
+      return;
+    }
 
     const clampOnce = () => {
+      if (!w.scale) return;
+
       w.scale.set(1, 1);
       w.skew.set(0, 0);
       w.rotation = 0;
@@ -1049,6 +1054,23 @@ export async function createMinesGame(mount, opts = {}) {
       const pad = tile._tilePad;
       const tileSize = tile._tileSize;
 
+      if (
+        tile.destroyed ||
+        !wrap ||
+        !wrap.scale ||
+        !wrap.skew ||
+        wrap.destroyed ||
+        !card ||
+        card.destroyed ||
+        !inset ||
+        inset.destroyed ||
+        !icon ||
+        icon.destroyed
+      ) {
+        tile._animating = false;
+        return;
+      }
+
       tile._animating = true;
 
       if (revealedByPlayer) {
@@ -1068,6 +1090,19 @@ export async function createMinesGame(mount, opts = {}) {
         duration: flipDuration,
         ease: (t) => easeFlip(t),
         update: (t) => {
+          if (
+            tile.destroyed ||
+            !wrap.scale ||
+            !wrap.skew ||
+            wrap.destroyed ||
+            card.destroyed ||
+            inset.destroyed ||
+            icon.destroyed
+          ) {
+            tile._animating = false;
+            return;
+          }
+
           const widthFactor = Math.max(0.0001, Math.abs(Math.cos(Math.PI * t)));
 
           const elev = Math.sin(Math.PI * t);
@@ -1141,6 +1176,11 @@ export async function createMinesGame(mount, opts = {}) {
           }
         },
         complete: () => {
+          if (tile.destroyed || !wrap.scale || wrap.destroyed) {
+            tile._animating = false;
+            return;
+          }
+
           forceFlatPose(tile);
           tile._animating = false;
           tile.revealed = true;
