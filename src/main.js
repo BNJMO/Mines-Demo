@@ -7,7 +7,7 @@ import tileTappedSoundUrl from "../assets/sounds/TileTapped.ogg";
 import tileSelectedSoundUrl from "../assets/sounds/TileSelected.ogg";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.ogg";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.ogg";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.ogg";
+import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
