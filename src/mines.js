@@ -209,6 +209,7 @@ export async function createMinesGame(mount, opts = {}) {
   let explosionFrames = null;
   let explosionFrameW = 0;
   let explosionFrameH = 0;
+  const activeExplosionSprites = new Set();
   try {
     await loadExplosionFrames();
   } catch (e) {
@@ -315,6 +316,7 @@ export async function createMinesGame(mount, opts = {}) {
     try {
       ro.disconnect();
     } catch {}
+    cleanupExplosionSprites();
     app.destroy(true);
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
@@ -548,6 +550,16 @@ export async function createMinesGame(mount, opts = {}) {
     }
   }
 
+  function cleanupExplosionSprites() {
+    for (const sprite of activeExplosionSprites) {
+      if (!sprite.destroyed) {
+        sprite.stop();
+        sprite.destroy();
+      }
+    }
+    activeExplosionSprites.clear();
+  }
+
   function loadSoundEffect(key, path) {
     if (!enabledSoundKeys.has(key) || !path) {
       return Promise.resolve();
@@ -598,7 +610,7 @@ export async function createMinesGame(mount, opts = {}) {
       return;
 
     const anim = new AnimatedSprite(explosionFrames);
-    anim.loop = false;
+    anim.loop = true;
     anim.animationSpeed = explosionSheetFps / 60;
     anim.anchor.set(0.5);
     anim.alpha = explosionSheetOpacity;
@@ -614,9 +626,13 @@ export async function createMinesGame(mount, opts = {}) {
     const iconIndex = wrap.getChildIndex(tile._icon);
     wrap.addChildAt(anim, iconIndex);
 
-    anim.onComplete = () => {
-      anim.destroy();
+    activeExplosionSprites.add(anim);
+    const originalDestroy = anim.destroy.bind(anim);
+    anim.destroy = (...args) => {
+      activeExplosionSprites.delete(anim);
+      return originalDestroy(...args);
     };
+
     anim.play();
   }
 
@@ -1160,7 +1176,11 @@ export async function createMinesGame(mount, opts = {}) {
 
   function buildBoard() {
     clearSelection();
-    board.removeChildren();
+    cleanupExplosionSprites();
+    const removed = board.removeChildren();
+    for (const child of removed) {
+      child.destroy({ children: true });
+    }
     tiles = [];
     revealedSafe = 0;
     totalSafe = GRID * GRID - mines;
