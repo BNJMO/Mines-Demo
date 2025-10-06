@@ -34,17 +34,20 @@ const PALETTE = {
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
   tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
   tileElevationShadow: 0x000000, // soft drop shadow
-  hover: 0xFFF001, // hover
+  hover: 0x666666, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x2b3d2b, // outer
-  safeAUnrevealed: 0x081610,
-  safeB: 0x243324, // inner
-  safeBUnrevealed: 0x081c13,
-  bombA: 0x721c26,
-  bombAUnrevealed: 0x26090c,
-  bombB: 0x5a0f16,
-  bombBUnrevealed: 0x28060a,
+  safeA: 0x1c1c1c, // outer
+  safeAUnrevealed: 0x1c1c1c,
+  safeB: 0x1c1c1c, // inner
+  safeBUnrevealed: 0x1c1c1c,
+  bombA: 0x1c1c1c,
+  bombAUnrevealed: 0x1c1c1c,
+  bombB: 0x1c1c1c,
+  bombBUnrevealed: 0x1c1c1c,
+  winPopupBorder: 0xfff001,
+  winPopupBackground: 0x0F0F0F,
+  winPopupMultiplierText: 0xfff001,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -94,6 +97,7 @@ export async function createMinesGame(mount, opts = {}) {
   const diamondTexturePath = opts.dimaondTexturePath ?? diamondTextureUrl;
   const bombTexturePath = opts.bombTexturePath ?? bombTextureUrl;
   const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
+  const iconRevealedSizeOpacity = opts.iconRevealedSizeOpacity ?? 0.4;
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
@@ -247,7 +251,6 @@ export async function createMinesGame(mount, opts = {}) {
 
     // Append canvas
     root.appendChild(app.canvas);
-
   } catch (e) {
     console.error("PIXI init failed", e);
     throw e;
@@ -378,17 +381,17 @@ export async function createMinesGame(mount, opts = {}) {
         popupHeight + 20,
         32
       )
-      .fill(0x13d672);
+      .fill(PALETTE.winPopupBorder);
 
     const inner = new Graphics();
     inner
       .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
-      .fill(0x0f2b1a);
+      .fill(PALETTE.winPopupBackground);
 
     const multiplierText = new Text({
       text: "1.00×",
       style: {
-        fill: 0x69ffad,
+        fill: PALETTE.winPopupMultiplierText,
         fontFamily,
         fontSize: 52,
         fontWeight: "700",
@@ -1019,7 +1022,7 @@ export async function createMinesGame(mount, opts = {}) {
       let swapped = false;
 
       if (!revealedByPlayer) {
-        icon.alpha = 0.5;
+        icon.alpha = iconRevealedSizeOpacity;
       }
 
       tween(app, {
@@ -1091,7 +1094,8 @@ export async function createMinesGame(mount, opts = {}) {
                         Math.max(0, revealedSafe / Math.max(totalSafe - 1, 1))
                       );
                 const pitch =
-                  minPitch + (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
+                  minPitch +
+                  (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
                 playSoundEffect("diamondRevealed", { speed: pitch });
               }
             }

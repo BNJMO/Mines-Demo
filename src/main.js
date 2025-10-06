@@ -12,7 +12,6 @@ import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
 
-
 let game;
 const opts = {
   // Window visuals
@@ -28,6 +27,7 @@ const opts = {
   diamondTexturePath: diamondTextureUrl,
   bombTexturePath: bombTextureUrl,
   iconSizePercentage: 0.7,
+  iconRevealedSizeOpacity: 0.4,
   iconRevealedSizeFactor: 0.7,
   cardsSpawnDuration: 350,
   revealAllIntervalDelay: 40,
@@ -84,8 +84,8 @@ const opts = {
 
   // Win pop-up
   winPopupShowDuration: 260,
-  winPopupWidth: 240,
-  winPopupHeight: 170,
+  winPopupWidth: 260,
+  winPopupHeight: 220,
 
   // Event callback for when a card is selected
   onCardSelected: ({ row, col, tile }) => {
