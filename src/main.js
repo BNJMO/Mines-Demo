@@ -12,6 +12,7 @@ import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.ogg";
 import winSoundUrl from "../assets/sounds/Win.ogg";
 import gameStartSoundUrl from "../assets/sounds/GameStart.ogg";
 
+let bombRandomPercentage = 0.15;
 let game;
 const opts = {
   // Window visuals
@@ -69,7 +70,7 @@ const opts = {
   explosionSheetRows: 3,
   explosionSheetFps: 24,
   explosionSheetScaleFit: 1.0,
-  explosionSheetOpacity: 0.75,
+  explosionSheetOpacity: 0.2,
 
   // Sounds
   tileTapDownSoundPath: tileTapDownSoundUrl,
@@ -125,17 +126,17 @@ document
   .querySelector("#resetBtn")
   ?.addEventListener("click", () => game.reset());
 document
-  .querySelector("#easyBtn")
+  .querySelector("#mines3Btn")
   ?.addEventListener("click", () => game.setMines(3));
 document
-  .querySelector("#hardBtn")
+  .querySelector("#mines10Btn")
   ?.addEventListener("click", () => game.setMines(10));
 
 document
-  .querySelector("#diamondBtn")
-  ?.addEventListener("click", () => game.setSelectedCardIsDiamond());
+  .querySelector("#easyBtn")
+  ?.addEventListener("click", () => bombRandomPercentage = 0.0015);
 document
-  .querySelector("#bombBtn")
-  ?.addEventListener("click", () => game.SetSelectedCardIsBomb());
+  .querySelector("#hardBtn")
+  ?.addEventListener("click", () => bombRandomPercentage = 0.15);
 
 window.minesGame = game;
