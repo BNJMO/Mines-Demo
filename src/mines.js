@@ -853,16 +853,16 @@ export async function createMinesGame(mount, opts = {}) {
 
     // Spwan animation
     const s0 = 0.0001;
-    flipWrap.scale.set(s0);
+    flipWrap.scale?.set?.(s0);
     tween(app, {
       duration: cardsSpawnDuration,
       ease: (x) => Ease.easeOutBack(x),
       update: (p) => {
         const s = s0 + (1 - s0) * p;
-        flipWrap.scale.set(s);
+        flipWrap.scale?.set?.(s);
       },
       complete: () => {
-        flipWrap.scale.set(1, 1);
+        flipWrap.scale?.set?.(1, 1);
       },
     });
 
