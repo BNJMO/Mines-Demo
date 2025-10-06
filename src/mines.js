@@ -389,6 +389,24 @@ export async function createMinesGame(mount, opts = {}) {
       .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
       .fill(PALETTE.winPopupBackground);
 
+    const multiplierVerticalOffset =
+      -popupHeight / 2 + popupHeight * 0.28;
+    const amountRowVerticalOffset =
+      popupHeight / 2 - popupHeight * 0.25;
+
+    const centerLine = new Graphics();
+    const centerLinePadding = 70;
+    const centerLineWidth = popupWidth - centerLinePadding * 2;
+    const centerLineThickness = 5;
+    centerLine
+      .rect(
+        -centerLineWidth / 2,
+        -centerLineThickness / 2,
+        centerLineWidth,
+        centerLineThickness
+      )
+      .fill(0x323232);
+
     const multiplierText = new Text({
       text: "1.00×",
       style: {
@@ -400,12 +418,12 @@ export async function createMinesGame(mount, opts = {}) {
       },
     });
     multiplierText.anchor.set(0.5);
-    multiplierText.position.set(0, -20);
+    multiplierText.position.set(0, multiplierVerticalOffset);
 
     const amountRow = new Container();
 
     const amountText = new Text({
-      text: "0.00000000",
+      text: "0.0",
       style: {
         fill: 0xffffff,
         fontFamily,
@@ -414,7 +432,7 @@ export async function createMinesGame(mount, opts = {}) {
         align: "center",
       },
     });
-    amountText.anchor.set(0, 0.5);
+    amountText.anchor.set(0.5);
     amountRow.addChild(amountText);
 
     const coinContainer = new Container();
@@ -436,15 +454,19 @@ export async function createMinesGame(mount, opts = {}) {
     amountRow.addChild(coinContainer);
 
     const layoutAmountRow = () => {
-      const spacing = 12;
-      coinContainer.position.set(amountText.width + spacing + coinRadius, 0);
-      amountRow.pivot.set(amountRow.width / 2, amountRow.height / 2);
-      amountRow.position.set(0, 34);
+      const spacing = 20;
+      const coinDiameter = coinRadius * 2;
+      const totalWidth = amountText.width + spacing + coinDiameter;
+
+      amountText.position.set(-(spacing / 2 + coinRadius), 0);
+      coinContainer.position.set(totalWidth / 2 - coinRadius, 0);
+
+      amountRow.position.set(0, amountRowVerticalOffset);
     };
 
     layoutAmountRow();
 
-    container.addChild(border, inner, multiplierText, amountRow);
+    container.addChild(border, inner, centerLine, multiplierText, amountRow);
 
     return {
       container,
