@@ -31,6 +31,8 @@ const opts = {
   iconRevealedSizeFactor: 0.7,
   cardsSpawnDuration: 350,
   revealAllIntervalDelay: 40,
+  strokeWidth: 1,
+  gapBetweenTiles: 0.013,
 
   // Animations feel
   hoverEnabled: true,

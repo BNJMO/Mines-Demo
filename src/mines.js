@@ -102,6 +102,7 @@ export async function createMinesGame(mount, opts = {}) {
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
   const strokeWidth = opts.strokeWidth ?? 1;
+  const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012; 
 
   // Animation Options
   /* Card Hover */
@@ -1191,7 +1192,7 @@ export async function createMinesGame(mount, opts = {}) {
     const canvasSize = Math.min(app.renderer.width, app.renderer.height);
     const topSpace = 32;
     const boardSpace = Math.max(40, canvasSize - topSpace - 10);
-    const gap = Math.max(10, Math.floor(boardSpace * 0.02));
+    const gap = Math.max(1, Math.floor(boardSpace * gapBetweenTiles));
     const totalGaps = gap * (GRID - 1);
     const tileSize = Math.floor((boardSpace - totalGaps) / GRID);
     const contentSize = tileSize * GRID + totalGaps;
