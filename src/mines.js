@@ -394,6 +394,19 @@ export async function createMinesGame(mount, opts = {}) {
     const amountRowVerticalOffset =
       popupHeight / 2 - popupHeight * 0.2;
 
+    const centerLine = new Graphics();
+    const centerLinePadding = 40;
+    const centerLineWidth = popupWidth - centerLinePadding * 2;
+    const centerLineThickness = 2;
+    centerLine
+      .rect(
+        -centerLineWidth / 2,
+        -centerLineThickness / 2,
+        centerLineWidth,
+        centerLineThickness
+      )
+      .fill(0x323232);
+
     const multiplierText = new Text({
       text: "1.00×",
       style: {
@@ -449,7 +462,7 @@ export async function createMinesGame(mount, opts = {}) {
 
     layoutAmountRow();
 
-    container.addChild(border, inner, multiplierText, amountRow);
+    container.addChild(border, inner, centerLine, multiplierText, amountRow);
 
     return {
       container,
