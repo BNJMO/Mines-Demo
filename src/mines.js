@@ -1165,9 +1165,9 @@ export async function createMinesGame(mount, opts = {}) {
     revealedSafe = 0;
     totalSafe = GRID * GRID - mines;
 
-    const { tileSize, gap, boardSize } = layoutSizes();
-    const startX = -boardSize / 2;
-    const startY = -boardSize / 2;
+    const { tileSize, gap, contentSize } = layoutSizes();
+    const startX = -contentSize / 2;
+    const startY = -contentSize / 2;
 
     for (let r = 0; r < GRID; r++) {
       for (let c = 0; c < GRID; c++) {
@@ -1190,15 +1190,16 @@ export async function createMinesGame(mount, opts = {}) {
   function layoutSizes() {
     const canvasSize = Math.min(app.renderer.width, app.renderer.height);
     const topSpace = 32;
-    const boardSize = Math.max(40, canvasSize - topSpace - 10);
-    const gap = Math.max(10, Math.floor(boardSize * 0.02));
+    const boardSpace = Math.max(40, canvasSize - topSpace - 10);
+    const gap = Math.max(10, Math.floor(boardSpace * 0.02));
     const totalGaps = gap * (GRID - 1);
-    const tileSize = Math.floor((boardSize - totalGaps) / GRID);
-    return { tileSize, gap, boardSize };
+    const tileSize = Math.floor((boardSpace - totalGaps) / GRID);
+    const contentSize = tileSize * GRID + totalGaps;
+    return { tileSize, gap, contentSize };
   }
 
   function centerBoard() {
-    board.position.set(app.renderer.width / 2, app.renderer.height / 2 + 12);
+    board.position.set(app.renderer.width / 2, app.renderer.height / 2);
     board.scale.set(1);
     positionWinPopup();
   }
