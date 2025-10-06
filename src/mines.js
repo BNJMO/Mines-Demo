@@ -45,9 +45,9 @@ const PALETTE = {
   bombAUnrevealed: 0x141414,
   bombB: 0x141414,
   bombBUnrevealed: 0x141414,
-  winPopupBorder: 0xfff001,
+  winPopupBorder: 0xEAFF00,
   winPopupBackground: 0x0F0F0F,
-  winPopupMultiplierText: 0xfff001,
+  winPopupMultiplierText: 0xEAFF00,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
