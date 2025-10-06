@@ -393,7 +393,7 @@ export async function createMinesGame(mount, opts = {}) {
       style: {
         fill: PALETTE.winPopupMultiplierText,
         fontFamily,
-        fontSize: 52,
+        fontSize: 36,
         fontWeight: "700",
         align: "center",
       },
@@ -408,7 +408,7 @@ export async function createMinesGame(mount, opts = {}) {
       style: {
         fill: 0xffffff,
         fontFamily,
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: "600",
         align: "center",
       },
