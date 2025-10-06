@@ -37,14 +37,14 @@ const PALETTE = {
   hover: 0x666666, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x1c1c1c, // outer
-  safeAUnrevealed: 0x1c1c1c,
-  safeB: 0x1c1c1c, // inner
-  safeBUnrevealed: 0x1c1c1c,
-  bombA: 0x1c1c1c,
-  bombAUnrevealed: 0x1c1c1c,
-  bombB: 0x1c1c1c,
-  bombBUnrevealed: 0x1c1c1c,
+  safeA: 0x141414, // outer
+  safeAUnrevealed: 0x141414,
+  safeB: 0x141414, // inner
+  safeBUnrevealed: 0x141414,
+  bombA: 0x141414,
+  bombAUnrevealed: 0x141414,
+  bombB: 0x141414,
+  bombBUnrevealed: 0x141414,
   winPopupBorder: 0xfff001,
   winPopupBackground: 0x0F0F0F,
   winPopupMultiplierText: 0xfff001,
