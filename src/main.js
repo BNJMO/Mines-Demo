@@ -91,7 +91,7 @@ const opts = {
 
   // Event callback for when a card is selected
   onCardSelected: ({ row, col, tile }) => {
-    if (Math.random() < 0.0015) {
+    if (Math.random() < 0.15) {
       game?.SetSelectedCardIsBomb?.();
     } else {
       game?.setSelectedCardIsDiamond?.();
