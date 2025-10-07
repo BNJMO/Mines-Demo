@@ -1,7 +1,3 @@
-# 💎 Mines Game - PixiJS Demo
-
-A beautiful, interactive Mines game built with PixiJS featuring smooth animations, particle effects, and responsive design.
-
 ## 🚀 Quick Start
 
 ### Option 1: Using Vite (Recommended)
@@ -116,13 +112,6 @@ Simply upload the contents of the `dist/` folder to:
 - Render
 - Railway
 
-## 🎮 How to Play
-
-1. **Click a tile** to select it
-2. **Choose** whether it's a Diamond 💎 or Bomb 💣
-3. **Find all diamonds** without hitting bombs to win!
-4. **Adjust difficulty** with Easy (3 bombs) or Hard (10 bombs) modes
-
 ## 🛠️ Project Structure
 
 ```
@@ -156,17 +145,6 @@ Mines-Web/
 - **Vite** - Fast build tool and dev server
 - **ES Modules** - Modern JavaScript modules
 
-## 📝 Features
-
-✨ **Smooth Animations** - Custom easing and tweening system
-🎨 **Beautiful Graphics** - WebGL-powered rendering
-🖱️ **Interactive Effects** - Hover tilt and wiggle animations
-🎵 **Sound Effects** - Immersive audio feedback
-📱 **Responsive Design** - Works on desktop and mobile
-⚡ **High Performance** - Optimized rendering pipeline
-🎭 **Particle Effects** - Explosion animations
-🎯 **Multiple Difficulty Levels** - Easy to Hard modes
-
 ## ⚠️ Troubleshooting
 
 ### CORS Error when opening index.html directly
@@ -197,12 +175,6 @@ Mines-Web/
 ## 📄 License
 
 MIT License - Feel free to use this project for learning and commercial purposes.
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome!
-
----
 
 **Enjoy the game! 💎💣**
 
