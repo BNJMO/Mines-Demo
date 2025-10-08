@@ -11,19 +11,19 @@ import {
 } from "pixi.js";
 
 import Ease from "./ease.js";
-import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
+import winSoundUrl from "../assets/sounds/Win.wav";
 
 const PALETTE = {
   appBg: 0x020401,
-  winPopupBorder: 0xeaFF00,
+  winPopupBorder: 0xeaff00,
   winPopupBackground: 0x0f0f0f,
-  winPopupMultiplierText: 0xeaFF00,
+  winPopupMultiplierText: 0xeaff00,
 };
 
 const SOUND_ALIASES = {
-  win: "game.win",
   gameStart: "game.gameStart",
+  win: "game.win",
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -44,10 +44,7 @@ export async function loadTexture(path) {
   return Assets.load(path);
 }
 
-export async function loadSpritesheetFrames(
-  path,
-  { cols = 1, rows = 1 } = {}
-) {
+export async function loadSpritesheetFrames(path, { cols = 1, rows = 1 } = {}) {
   if (!path) {
     return { frames: [], frameWidth: 0, frameHeight: 0 };
   }
@@ -110,22 +107,26 @@ export async function createGame(mount, opts = {}) {
     };
   }
 
+  // Options
+  /* App */
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400);
   const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
   const backgroundTexturePath = opts.backgroundTexturePath ?? null;
 
-  const winSoundPath = opts.winSoundPath ?? winSoundUrl;
+  /* Sounds */
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
+  const winSoundPath = opts.winSoundPath ?? winSoundUrl;
 
+  /* Win Popup*/
   const winPopupShowDuration = opts.winPopupShowDuration ?? 260;
   const winPopupWidth = opts.winPopupWidth ?? 240;
   const winPopupHeight = opts.winPopupHeight ?? 170;
 
   const soundEffectPaths = {
-    win: winSoundPath,
     gameStart: gameStartSoundPath,
+    win: winSoundPath,
   };
 
   const enabledSoundKeys = new Set(
@@ -199,6 +200,11 @@ export async function createGame(mount, opts = {}) {
 
   let shouldPlayStartSound = true;
 
+  // API callbacks
+  const onWin = opts.onWin ?? (() => {});
+  const onLost = opts.onLost ?? (() => {});
+  const onStateChange = opts.onChange ?? (() => {});
+
   function createWinPopup() {
     const popupWidth = winPopupWidth;
     const popupHeight = winPopupHeight;
@@ -225,10 +231,8 @@ export async function createGame(mount, opts = {}) {
       .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
       .fill(PALETTE.winPopupBackground);
 
-    const multiplierVerticalOffset =
-      -popupHeight / 2 + popupHeight * 0.28;
-    const amountRowVerticalOffset =
-      popupHeight / 2 - popupHeight * 0.25;
+    const multiplierVerticalOffset = -popupHeight / 2 + popupHeight * 0.28;
+    const amountRowVerticalOffset = popupHeight / 2 - popupHeight * 0.25;
 
     const centerLine = new Graphics();
     const centerLinePadding = 70;
@@ -357,6 +361,8 @@ export async function createGame(mount, opts = {}) {
     winPopup.container.visible = true;
     winPopup.container.alpha = 1;
     winPopup.container.scale.set(0);
+
+    playSoundEffect("win");
 
     tween(app, {
       duration: winPopupShowDuration,
