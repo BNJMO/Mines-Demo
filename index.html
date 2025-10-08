@@ -12,76 +12,29 @@
   </head>
   <body>
     <div class="container">
-      <header>
-        <h1>💎 Mines Game 💣</h1>
-        <p class="subtitle">
-          Built with PixiJS - High Performance 2D WebGL Renderer
-        </p>
-      </header>
-
       <div class="game-wrapper">
         <div class="controls">
-          <div class="control-group">
-            <h3>Game Controls</h3>
-            <button id="resetBtn">🔄 Reset Game</button>
-          </div>
-
-          <div class="control-group">
-            <h3>Mine Numbers</h3>
-            <div class="button-group">
-              <button id="mines3Btn">3 💣</button>
-              <button id="mines10Btn">10 💣</button>
-            </div>
-          </div>
-
-          <div class="control-group">
-            <h3>Difficulty</h3>
-            <div class="button-group">
-              <button id="easyBtn">Easy</button>
-              <button id="hardBtn">Hard</button>
-            </div>
-          </div>
 
           <div class="control-group">
             <h3>Betting</h3>
             <div class="button-group">
-              <button id="betBtn">🎲 Bet</button>
+              <button id="betBtn">Bet</button>
             </div>
-                          <button id="betBtn">CASH OUT</button>
+            <button id="betBtn">CASH OUT</button>
           </div>
-        </div>
 
+          <div class="control-group">
+            <h3>Game Controls</h3>
+            <button id="resetBtn">🔄 Reset Game</button>
+          </div>
+          
+        </div>
         <div class="game-container">
           <div id="game">
             <div class="loading">Loading Game</div>
           </div>
         </div>
       </div>
-
-      <div class="info-panel">
-        <h3>How to Play</h3>
-        <ul>
-          <li>
-            <strong>Objective:</strong> Find all diamonds without hitting bombs!
-          </li>
-          <li>
-            <strong>Click a tile:</strong> Select it and choose Diamond or Bomb
-          </li>
-          <li>
-            <strong>Hover effects:</strong> Interactive 3D tilt animations
-          </li>
-          <li><strong>Win condition:</strong> Reveal all safe tiles</li>
-          <li><strong>Lose condition:</strong> Hit a bomb</li>
-        </ul>
-      </div>
-
-      <footer>
-        <p>
-          Powered by
-          <a href="https://pixijs.com/" target="_blank">PixiJS v8</a> |
-          High-performance 2D WebGL rendering engine
-        </p>
-      </footer>
     </div>
 
     <!-- Load the game module -->

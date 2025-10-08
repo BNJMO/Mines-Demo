@@ -40,11 +40,6 @@ h1 {
   background-clip: text;
 }
 
-.subtitle {
-  color: #a0a0a0;
-  font-size: 1rem;
-}
-
 .game-wrapper {
   display: flex;
   gap: 20px;
@@ -151,51 +146,9 @@ button:active {
   color: white;
 }
 
-#mines3Btn {
-  background: linear-gradient(135deg, #2196f3 0%, #0b7dda 100%);
-  color: white;
-}
-
-#mines10Btn {
-  background: linear-gradient(135deg, #ff9800 0%, #e68900 100%);
-  color: white;
-}
-
 #betBtn {
   background: linear-gradient(135deg, #EAFF00 0%, #EAFF00 100%);
   color: #0b1a22;
-}
-
-.info-panel {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 20px;
-  backdrop-filter: blur(10px);
-}
-
-.info-panel h3 {
-  color: #EAFF00;
-  margin-bottom: 15px;
-  font-size: 1.2rem;
-}
-
-.info-panel ul {
-  list-style: none;
-  padding: 0;
-}
-
-.info-panel li {
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: #a0a0a0;
-}
-
-.info-panel li:last-child {
-  border-bottom: none;
-}
-
-.info-panel strong {
-  color: #ffffff;
 }
 
 footer {
