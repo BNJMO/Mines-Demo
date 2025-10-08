@@ -1,4 +1,4 @@
-import { createMinesGame } from "./mines.js";
+import { createGame } from "./game.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
@@ -102,12 +102,12 @@ const opts = {
 // Initialize game
 (async () => {
   try {
-    game = await createMinesGame("#mines", opts);
+    game = await createGame("#game", opts);
   } catch (e) {
     console.error("Game initialization failed:", e);
-    const minesDiv = document.querySelector("#mines");
-    if (minesDiv) {
-      minesDiv.innerHTML = `
+    const gameDiv = document.querySelector("#game");
+    if (gameDiv) {
+      gameDiv.innerHTML = `
         <div style="color: #f44336; padding: 20px; background: rgba(0,0,0,0.8); border-radius: 8px;">
           <h3>❌ Game Failed to Initialize</h3>
           <p><strong>Error:</strong> ${e.message}</p>
@@ -135,4 +135,4 @@ document
   .querySelector("#hardBtn")
   ?.addEventListener("click", () => bombRandomPercentage = 0.15);
 
-window.minesGame = game;
+window.game = game;

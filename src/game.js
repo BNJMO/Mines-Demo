@@ -11,7 +11,7 @@ import {
   BlurFilter,
 } from "pixi.js";
 
-// Sound will be loaded inside createMinesGame function
+// Sound will be loaded inside createGame function
 import Ease from "./ease.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -61,7 +61,7 @@ function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
   app.ticker.add(step);
 }
 
-export async function createMinesGame(mount, opts = {}) {
+export async function createGame(mount, opts = {}) {
   // Load sound library
   let sound;
   try {
@@ -189,7 +189,7 @@ export async function createMinesGame(mount, opts = {}) {
   // Resolve mount element
   const root =
     typeof mount === "string" ? document.querySelector(mount) : mount;
-  if (!root) throw new Error("createMinesGame: mount element not found");
+  if (!root) throw new Error("createGame: mount element not found");
 
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
