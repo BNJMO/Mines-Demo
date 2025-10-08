@@ -1,7 +1,7 @@
 {
-  "name": "mines-web",
+  "name": "pixi-game-shell",
   "version": "1.0.0",
-  "description": "Mines game built with PixiJS",
+  "description": "Blank PixiJS game shell",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,7 +20,7 @@
   "keywords": [
     "pixijs",
     "game",
-    "mines",
+    "template",
     "webgl"
   ],
   "author": "",
