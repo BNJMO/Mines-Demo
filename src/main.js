@@ -1,14 +1,7 @@
 import { createGame } from "./game.js";
-import diamondTextureUrl from "../assets/sprites/Diamond.png";
-import bombTextureUrl from "../assets/sprites/Bomb.png";
-import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
-import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
-import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
-import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
-import winSoundUrl from "../assets/sounds/Win.wav";
+
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
+import winSoundUrl from "../assets/sounds/Win.wav";
 
 let bombRandomPercentage = 0.15;
 let game;
@@ -18,85 +11,21 @@ const opts = {
   backgroundColor: "#121212",
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
-  // Game setup
-  grid: 5,
-  mines: 5,
-
-  // Visuals
-  diamondTexturePath: diamondTextureUrl,
-  bombTexturePath: bombTextureUrl,
-  iconSizePercentage: 0.7,
-  iconRevealedSizeOpacity: 0.2,
-  iconRevealedSizeFactor: 0.7,
-  cardsSpawnDuration: 350,
-  revealAllIntervalDelay: 40,
-  strokeWidth: 1,
-  gapBetweenTiles: 0.013,
-
-  // Animations feel
-  hoverEnabled: true,
-  hoverEnterDuration: 120,
-  hoverExitDuration: 200,
-  hoverTiltAxis: "x",
-  hoverSkewAmount: 0.02,
-
-  // Card Selected Wiggle
-  wiggleSelectionEnabled: true,
-  wiggleSelectionDuration: 900,
-  wiggleSelectionTimes: 15,
-  wiggleSelectionIntensity: 0.03,
-  wiggleSelectionScale: 0.005,
-
-  // Card Reveal Flip
-  flipDelayMin: 150,
-  flipDelayMax: 500,
-  flipDuration: 300,
-  flipEaseFunction: "easeInOutSine",
-
-  // Bomb Explosion shake
-  explosionShakeEnabled: true,
-  explosionShakeDuration: 1000,
-  explosionShakeAmplitude: 6,
-  explosionShakerotationAmplitude: 0.012,
-  explosionShakeBaseFrequency: 8,
-  explosionShakeSecondaryFrequency: 13,
-
-  // Bomb Explosion spritesheet
-  explosionSheetEnabled: true,
-  explosionSheetPath: explosionSheetUrl,
-  explosionSheetCols: 7,
-  explosionSheetRows: 3,
-  explosionSheetFps: 24,
-  explosionSheetScaleFit: 1.0,
-  explosionSheetOpacity: 0.2,
-
   // Sounds
-  tileTapDownSoundPath: tileTapDownSoundUrl,
-  tileFlipSoundPath: tileFlipSoundUrl,
-  tileHoverSoundPath: tileHoverSoundUrl,
-  diamondRevealedSoundPath: diamondRevealedSoundUrl,
-  bombRevealedSoundPath: bombRevealedSoundUrl,
-  winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
-  diamondRevealPitchMin: 1.0,
-  diamondRevealPitchMax: 1.25,
+  winSoundPath: winSoundUrl,
 
   // Win pop-up
   winPopupShowDuration: 260,
   winPopupWidth: 260,
   winPopupHeight: 200,
 
-  // Event callback for when a card is selected
-  onCardSelected: ({ row, col, tile }) => {
-    if (Math.random() < bombRandomPercentage) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
-  },
+  // API Events Callbacks
   onWin: () => {
     game?.showWinPopup?.(24.75, "0.00000003");
   },
+  onLost: () => {},
+  onStateChange: () => {},
 };
 
 // Initialize game
@@ -121,18 +50,5 @@ const opts = {
 document
   .querySelector("#resetBtn")
   ?.addEventListener("click", () => game.reset());
-document
-  .querySelector("#mines3Btn")
-  ?.addEventListener("click", () => game.setMines(3));
-document
-  .querySelector("#mines10Btn")
-  ?.addEventListener("click", () => game.setMines(10));
-
-document
-  .querySelector("#easyBtn")
-  ?.addEventListener("click", () => bombRandomPercentage = 0.0015);
-document
-  .querySelector("#hardBtn")
-  ?.addEventListener("click", () => bombRandomPercentage = 0.15);
 
 window.game = game;
