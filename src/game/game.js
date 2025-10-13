@@ -1022,9 +1022,12 @@ export async function createGame(mount, opts = {}) {
 
       t.scale?.set(1, 1);
       t.skew?.set(0, 0);
-      t.rotation = 0;
 
-      t.y = t._baseY ?? t.y;
+      if (!t._bombShaking) {
+        t.rotation = 0;
+        t.x = t._baseX ?? t.x;
+        t.y = t._baseY ?? t.y;
+      }
     };
 
     clampOnce();
