@@ -1,4 +1,4 @@
-import { createGame } from "./game.js";
+import { createGame } from "./game/game.js";
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
