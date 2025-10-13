@@ -12,17 +12,17 @@ import {
 } from "pixi.js";
 
 // Sound will be loaded inside createGame function
-import Ease from "./ease.js";
-import diamondTextureUrl from "../assets/sprites/Diamond.png";
-import bombTextureUrl from "../assets/sprites/Bomb.png";
-import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
-import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
-import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
-import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
-import winSoundUrl from "../assets/sounds/Win.wav";
-import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
+import Ease from "../ease.js";
+import diamondTextureUrl from "../../assets/sprites/Diamond.png";
+import bombTextureUrl from "../../assets/sprites/Bomb.png";
+import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
+import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
+import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
+import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
+import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
+import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
+import winSoundUrl from "../../assets/sounds/Win.wav";
+import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x020401, // page/canvas background
