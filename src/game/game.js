@@ -647,16 +647,9 @@ export async function createGame(mount, opts = {}) {
   }
 
   function bombShakeTile(tile) {
-    console.log("Bomb shake 1");
     if (!explosionShakeEnabled || !tile || tile.destroyed || tile._bombShaking)
       return;
 
-    console.log("Bomb shake 2");
-    // if (!tile.transform?.position) {
-    //   return;
-    // }
-
-    console.log("Bomb shake true");
     tile._bombShaking = true;
 
     const duration = explosionShakeDuration;
