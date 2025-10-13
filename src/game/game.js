@@ -43,9 +43,9 @@ const PALETTE = {
   bombAUnrevealed: 0x141414,
   bombB: 0x141414,
   bombBUnrevealed: 0x141414,
-  winPopupBorder: 0xEAFF00,
-  winPopupBackground: 0x0F0F0F,
-  winPopupMultiplierText: 0xEAFF00,
+  winPopupBorder: 0xeaff00,
+  winPopupBackground: 0x0f0f0f,
+  winPopupMultiplierText: 0xeaff00,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -100,7 +100,7 @@ export async function createGame(mount, opts = {}) {
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
   const strokeWidth = opts.strokeWidth ?? 1;
-  const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012; 
+  const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
   // Animation Options
   /* Card Hover */
@@ -380,10 +380,8 @@ export async function createGame(mount, opts = {}) {
       .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
       .fill(PALETTE.winPopupBackground);
 
-    const multiplierVerticalOffset =
-      -popupHeight / 2 + popupHeight * 0.28;
-    const amountRowVerticalOffset =
-      popupHeight / 2 - popupHeight * 0.25;
+    const multiplierVerticalOffset = -popupHeight / 2 + popupHeight * 0.28;
+    const amountRowVerticalOffset = popupHeight / 2 - popupHeight * 0.25;
 
     const centerLine = new Graphics();
     const centerLinePadding = 70;
@@ -652,9 +650,6 @@ export async function createGame(mount, opts = {}) {
     if (!explosionShakeEnabled || !tile || tile.destroyed || tile._bombShaking)
       return;
 
-    if (!tile.transform?.position) {
-      return;
-    }
     tile._bombShaking = true;
 
     const duration = explosionShakeDuration;
@@ -685,7 +680,8 @@ export async function createGame(mount, opts = {}) {
         const dy =
           (Math.cos(w1 + phiY1) + 0.5 * Math.sin(w2 + phiY2)) * amp * decay;
 
-        if (!tile || tile.destroyed || !tile.transform?.position) {
+
+        if (!tile || tile.destroyed) {
           tile && (tile._bombShaking = false);
           return;
         }
@@ -696,7 +692,7 @@ export async function createGame(mount, opts = {}) {
         tile.rotation = r0 + Math.sin(w2 + phiX1) * rotAmp * decay;
       },
       complete: () => {
-        if (!tile || tile.destroyed || !tile.transform?.position) {
+        if (!tile || tile.destroyed) {
           tile && (tile._bombShaking = false);
           return;
         }
@@ -1022,6 +1018,7 @@ export async function createGame(mount, opts = {}) {
 
       t.scale?.set(1, 1);
       t.skew?.set(0, 0);
+
       t.rotation = 0;
 
       t.y = t._baseY ?? t.y;
