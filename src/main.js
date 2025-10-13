@@ -58,7 +58,7 @@ const opts = {
   // Bomb Explosion shake
   explosionShakeEnabled: true,
   explosionShakeDuration: 1000,
-  explosionShakeAmplitude: 6,
+  explosionShakeAmplitude: 12,
   explosionShakerotationAmplitude: 0.012,
   explosionShakeBaseFrequency: 8,
   explosionShakeSecondaryFrequency: 13,
