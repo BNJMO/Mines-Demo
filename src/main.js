@@ -1,4 +1,6 @@
 import { createGame } from "./game/game.js";
+import { ControlPanel } from "./controlPanel/controlPanel.js";
+
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
@@ -10,12 +12,12 @@ import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
-let bombRandomPercentage = 0.15;
 let game;
+let controlPanel;
 const opts = {
   // Window visuals
   size: 600,
-  backgroundColor: "#121212",
+  backgroundColor: "#0C0B0F",
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
   // Game setup
@@ -88,7 +90,7 @@ const opts = {
 
   // Event callback for when a card is selected
   onCardSelected: ({ row, col, tile }) => {
-    if (Math.random() < bombRandomPercentage) {
+    if (Math.random() < 0.15) {
       game?.SetSelectedCardIsBomb?.();
     } else {
       game?.setSelectedCardIsDiamond?.();
@@ -99,10 +101,31 @@ const opts = {
   },
 };
 
-// Initialize game
+
 (async () => {
+  // Initialize Control Panel
+  try {
+    controlPanel = new ControlPanel("#control-panel", {
+      gameName: "Mines",
+    });
+    controlPanel.addEventListener("modechange", (event) => {
+      console.debug(`Control panel mode changed to ${event.detail.mode}`);
+    });
+    controlPanel.addEventListener("betvaluechange", (event) => {
+      console.debug(`Bet value updated to ${event.detail.value}`);
+    });
+    controlPanel.addEventListener("bet", () => handleBet());
+    controlPanel.setBetAmountDisplay("$0.00");
+    controlPanel.setProfitOnWinDisplay("$0.00");
+    controlPanel.setProfitValue("0.00000000");
+  } catch (err) {
+    console.error("Control panel initialization failed:", err);
+  }
+
+  // Initialize Game
   try {
     game = await createGame("#game", opts);
+    window.game = game;
   } catch (e) {
     console.error("Game initialization failed:", e);
     const gameDiv = document.querySelector("#game");
@@ -118,21 +141,3 @@ const opts = {
   }
 })();
 
-document
-  .querySelector("#resetBtn")
-  ?.addEventListener("click", () => game.reset());
-document
-  .querySelector("#mines3Btn")
-  ?.addEventListener("click", () => game.setMines(3));
-document
-  .querySelector("#mines10Btn")
-  ?.addEventListener("click", () => game.setMines(10));
-
-document
-  .querySelector("#easyBtn")
-  ?.addEventListener("click", () => bombRandomPercentage = 0.0015);
-document
-  .querySelector("#hardBtn")
-  ?.addEventListener("click", () => bombRandomPercentage = 0.15);
-
-window.game = game;

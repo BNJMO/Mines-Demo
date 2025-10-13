@@ -1,3 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap");
+@import "./game/gameStyle.css";
+@import "./controlPanel/controlPanelStyle.css";
+@import "./stepper/stepperStyle.css";
+
 * {
   margin: 0;
   padding: 0;
@@ -5,53 +10,53 @@
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  background: linear-gradient(135deg, #000000 0%, #1b1b1b 100%);
+  font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  background: #000000;
   color: #ffffff;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
+  justify-content: center;
+  padding: 40px 24px;
 }
 
-.container {
-  max-width: 1200px;
+.app-wrapper {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
-header {
-  text-align: center;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+.app-container {
+  width: 100%;
+  max-width: 1280px;
+  display: flex;
+  gap: 32px;
+  background: #1a191d;
+  border-radius: 28px;
+  border: 1px solid #282a2f;
+  padding: 16px;
+  padding-right: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  flex-direction: row;
+  align-items: stretch;
 }
 
-h1 {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  background: linear-gradient(135deg, #EAFF00 0%, #EAFF00 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+@media (max-width: 1100px), (orientation: portrait) {
+  .app-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
-footer {
-  text-align: center;
-  padding: 20px;
-  color: #666;
-  font-size: 0.9rem;
-}
+@media (max-width: 768px) {
+  body {
+    padding: 0px;
+  }
 
-footer a {
-  color: #EAFF00;
-  text-decoration: none;
-}
-
-footer a:hover {
-  text-decoration: underline;
+  .app-container {
+    padding: 24px;
+    gap: 24px;
+  }
 }
