@@ -18,6 +18,10 @@ let betButtonMode = "cashout";
 let roundActive = false;
 let cashoutAvailable = false;
 let lastKnownGameState = null;
+let selectionDelayHandle = null;
+let selectionPending = false;
+
+const SERVER_RESPONSE_DELAY_MS = 500;
 
 function setControlPanelBetMode(mode) {
   betButtonMode = mode === "bet" ? "bet" : "cashout";
@@ -28,6 +32,10 @@ function setControlPanelBetState(isClickable) {
   controlPanel?.setBetButtonState?.(isClickable ? "clickable" : "non-clickable");
 }
 
+function setControlPanelRandomState(isClickable) {
+  controlPanel?.setRandomPickState?.(isClickable ? "clickable" : "non-clickable");
+}
+
 function setGameBoardInteractivity(enabled) {
   const gameNode = document.querySelector("#game");
   if (!gameNode) {
@@ -36,19 +44,58 @@ function setGameBoardInteractivity(enabled) {
   gameNode.classList.toggle("is-round-complete", !enabled);
 }
 
+function clearSelectionDelay() {
+  if (selectionDelayHandle) {
+    clearTimeout(selectionDelayHandle);
+    selectionDelayHandle = null;
+  }
+  selectionPending = false;
+}
+
+function beginSelectionDelay() {
+  clearSelectionDelay();
+  selectionPending = true;
+  setControlPanelBetState(false);
+  setControlPanelRandomState(false);
+}
+
+function applyRoundInteractiveState(state) {
+  if (!roundActive) {
+    return;
+  }
+
+  setControlPanelBetMode("cashout");
+
+  if (selectionPending || state?.waitingForChoice) {
+    setControlPanelBetState(false);
+    setControlPanelRandomState(false);
+    cashoutAvailable = (state?.revealedSafe ?? 0) > 0;
+    return;
+  }
+
+  const hasRevealedSafe = (state?.revealedSafe ?? 0) > 0;
+  cashoutAvailable = hasRevealedSafe;
+  setControlPanelBetState(hasRevealedSafe);
+  setControlPanelRandomState(true);
+}
+
 function prepareForNewRoundState() {
   roundActive = true;
   cashoutAvailable = false;
+  clearSelectionDelay();
   setControlPanelBetMode("cashout");
   setControlPanelBetState(false);
+  setControlPanelRandomState(true);
   setGameBoardInteractivity(true);
 }
 
 function finalizeRound() {
   roundActive = false;
   cashoutAvailable = false;
+  clearSelectionDelay();
   setControlPanelBetMode("bet");
   setControlPanelBetState(true);
+  setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
 }
 
@@ -85,10 +132,7 @@ function handleGameStateChange(state) {
     return;
   }
 
-  const hasRevealedSafe = (state?.revealedSafe ?? 0) > 0;
-  cashoutAvailable = hasRevealedSafe;
-  setControlPanelBetMode("cashout");
-  setControlPanelBetState(hasRevealedSafe);
+  applyRoundInteractiveState(state);
 }
 
 function handleGameOver() {
@@ -98,6 +142,41 @@ function handleGameOver() {
 function handleGameWin() {
   game?.showWinPopup?.(24.75, "0.00000003");
   finalizeRound();
+}
+
+function handleRandomPickClick() {
+  if (!roundActive || selectionPending) {
+    return;
+  }
+
+  game?.selectRandomTile?.();
+}
+
+function handleCardSelected() {
+  if (!roundActive) {
+    return;
+  }
+
+  beginSelectionDelay();
+
+  selectionDelayHandle = setTimeout(() => {
+    selectionDelayHandle = null;
+
+    if (!roundActive) {
+      selectionPending = false;
+      return;
+    }
+
+    const revealBomb = Math.random() < 0.15;
+
+    if (revealBomb) {
+      game?.SetSelectedCardIsBomb?.();
+    } else {
+      game?.setSelectedCardIsDiamond?.();
+    }
+
+    selectionPending = false;
+  }, SERVER_RESPONSE_DELAY_MS);
 }
 
 function showCashoutPopup() {
@@ -190,13 +269,7 @@ const opts = {
   winPopupHeight: 200,
 
   // Event callback for when a card is selected
-  onCardSelected: ({ row, col, tile }) => {
-    if (Math.random() < 0.15) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
-  },
+  onCardSelected: () => handleCardSelected(),
   onWin: handleGameWin,
   onGameOver: handleGameOver,
   onChange: handleGameStateChange,
@@ -230,6 +303,7 @@ const opts = {
       game?.setMines?.(mines);
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
+    controlPanel.addEventListener("randompick", handleRandomPickClick);
     prepareForNewRoundState();
     controlPanel.setBetAmountDisplay("$0.00");
     controlPanel.setProfitOnWinDisplay("$0.00");

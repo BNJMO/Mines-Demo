@@ -45,6 +45,7 @@ export class ControlPanel extends EventTarget {
 
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
+    this.randomPickButtonState = "clickable";
 
     const totalTilesOption = Number(this.options.totalTiles);
     const normalizedTotalTiles =
@@ -268,7 +269,12 @@ export class ControlPanel extends EventTarget {
     this.randomPickButton.type = "button";
     this.randomPickButton.className = "control-bet-btn control-random-btn";
     this.randomPickButton.textContent = "Random Pick";
+    this.randomPickButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("randompick"));
+    });
     this.container.appendChild(this.randomPickButton);
+
+    this.setRandomPickState(this.randomPickButtonState);
   }
 
   refreshMinesOptions({ emit = true } = {}) {
@@ -513,6 +519,18 @@ export class ControlPanel extends EventTarget {
     const isClickable = normalized === "clickable";
     this.betButton.disabled = !isClickable;
     this.betButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
+  setRandomPickState(state) {
+    if (!this.randomPickButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.randomPickButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.randomPickButton.disabled = !isClickable;
+    this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
   }
 
   getMode() {

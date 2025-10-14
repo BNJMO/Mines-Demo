@@ -973,6 +973,29 @@ export async function createGame(mount, opts = {}) {
     return t;
   }
 
+  function selectRandomTile() {
+    if (gameOver || waitingForChoice) {
+      return null;
+    }
+
+    const untapedTiles = tiles.filter((t) => !t.taped);
+    if (untapedTiles.length <= mines) {
+      return null;
+    }
+
+    const candidates = untapedTiles.filter((t) => !t.revealed && !t._animating);
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const tile = candidates[Math.floor(Math.random() * candidates.length)];
+    tile.taped = true;
+    hoverTile(tile, false);
+    enterWaitingState(tile);
+
+    return { row: tile.row, col: tile.col };
+  }
+
   function flipFace(graphic, w, h, r, color, stroke = true) {
     graphic.clear().roundRect(0, 0, w, h, r).fill(color);
     if (stroke) {
@@ -1341,6 +1364,7 @@ export async function createGame(mount, opts = {}) {
     destroy,
     setSelectedCardIsDiamond,
     SetSelectedCardIsBomb,
+    selectRandomTile,
     showWinPopup: spawnWinPopup,
   };
 }
