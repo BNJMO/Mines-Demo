@@ -14,6 +14,107 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
+let betButtonMode = "cashout";
+let roundActive = false;
+let cashoutAvailable = false;
+let lastKnownGameState = null;
+
+function setControlPanelBetMode(mode) {
+  betButtonMode = mode === "bet" ? "bet" : "cashout";
+  controlPanel?.setBetButtonMode?.(betButtonMode);
+}
+
+function setControlPanelBetState(isClickable) {
+  controlPanel?.setBetButtonState?.(isClickable ? "clickable" : "non-clickable");
+}
+
+function setGameBoardInteractivity(enabled) {
+  const gameNode = document.querySelector("#game");
+  if (!gameNode) {
+    return;
+  }
+  gameNode.classList.toggle("is-round-complete", !enabled);
+}
+
+function prepareForNewRoundState() {
+  roundActive = true;
+  cashoutAvailable = false;
+  setControlPanelBetMode("cashout");
+  setControlPanelBetState(false);
+  setGameBoardInteractivity(true);
+}
+
+function finalizeRound() {
+  roundActive = false;
+  cashoutAvailable = false;
+  setControlPanelBetMode("bet");
+  setControlPanelBetState(true);
+  setGameBoardInteractivity(false);
+}
+
+function handleBetButtonClick() {
+  if (betButtonMode === "cashout") {
+    handleCashout();
+  } else {
+    handleBet();
+  }
+}
+
+function handleCashout() {
+  if (!roundActive || !cashoutAvailable) {
+    return;
+  }
+
+  showCashoutPopup();
+  finalizeRound();
+}
+
+function handleBet() {
+  game?.reset?.();
+  prepareForNewRoundState();
+}
+
+function handleGameStateChange(state) {
+  lastKnownGameState = state;
+  if (!roundActive) {
+    return;
+  }
+
+  if (state?.gameOver) {
+    finalizeRound();
+    return;
+  }
+
+  const hasRevealedSafe = (state?.revealedSafe ?? 0) > 0;
+  cashoutAvailable = hasRevealedSafe;
+  setControlPanelBetMode("cashout");
+  setControlPanelBetState(hasRevealedSafe);
+}
+
+function handleGameOver() {
+  finalizeRound();
+}
+
+function handleGameWin() {
+  game?.showWinPopup?.(24.75, "0.00000003");
+  finalizeRound();
+}
+
+function showCashoutPopup() {
+  const betAmount = controlPanel?.getBetValue?.() ?? 0;
+  const state = lastKnownGameState;
+
+  let multiplier = 1;
+  if (state && typeof state.totalSafe === "number" && state.totalSafe > 0) {
+    const progress = Math.max(
+      0,
+      Math.min(state.revealedSafe / state.totalSafe, 1)
+    );
+    multiplier = 1 + progress;
+  }
+
+  game?.showWinPopup?.(multiplier, betAmount);
+}
 const opts = {
   // Window visuals
   size: 600,
@@ -96,9 +197,9 @@ const opts = {
       game?.setSelectedCardIsDiamond?.();
     }
   },
-  onWin: () => {
-    game?.showWinPopup?.(24.75, "0.00000003");
-  },
+  onWin: handleGameWin,
+  onGameOver: handleGameOver,
+  onChange: handleGameStateChange,
 };
 
 
@@ -125,9 +226,11 @@ const opts = {
     controlPanel.addEventListener("mineschanged", (event) => {
       const mines = event.detail.value;
       opts.mines = mines;
+      prepareForNewRoundState();
       game?.setMines?.(mines);
     });
-    controlPanel.addEventListener("bet", () => handleBet());
+    controlPanel.addEventListener("bet", handleBetButtonClick);
+    prepareForNewRoundState();
     controlPanel.setBetAmountDisplay("$0.00");
     controlPanel.setProfitOnWinDisplay("$0.00");
     controlPanel.setProfitValue("0.00000000");

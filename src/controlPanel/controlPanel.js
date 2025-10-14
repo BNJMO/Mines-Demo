@@ -43,6 +43,9 @@ export class ControlPanel extends EventTarget {
 
     this.mode = this.options.initialMode === "auto" ? "auto" : "manual";
 
+    this.betButtonMode = "bet";
+    this.betButtonState = "clickable";
+
     const totalTilesOption = Number(this.options.totalTiles);
     const normalizedTotalTiles =
       Number.isFinite(totalTilesOption) && totalTilesOption > 0
@@ -251,11 +254,13 @@ export class ControlPanel extends EventTarget {
     this.betButton.type = "button";
     this.betButton.id = "betBtn";
     this.betButton.className = "control-bet-btn";
-    this.betButton.textContent = "Bet";
     this.betButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("bet"));
     });
     this.container.appendChild(this.betButton);
+
+    this.setBetButtonMode(this.betButtonMode);
+    this.setBetButtonState(this.betButtonState);
   }
 
   buildRandomPickButton() {
@@ -487,6 +492,27 @@ export class ControlPanel extends EventTarget {
     if (this.gameName) {
       this.gameName.textContent = name;
     }
+  }
+
+  setBetButtonMode(mode) {
+    if (!this.betButton) return;
+    const normalized = mode === "cashout" ? "cashout" : "bet";
+    this.betButtonMode = normalized;
+    this.betButton.textContent =
+      normalized === "cashout" ? "Cashout" : "Bet";
+    this.betButton.dataset.mode = normalized;
+  }
+
+  setBetButtonState(state) {
+    if (!this.betButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.betButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.betButton.disabled = !isClickable;
+    this.betButton.classList.toggle("is-non-clickable", !isClickable);
   }
 
   getMode() {

@@ -30,6 +30,11 @@
   justify-content: center;
 }
 
+#game.is-round-complete {
+  pointer-events: none;
+  cursor: default;
+}
+
 #game canvas {
   display: block;
   width: auto;
