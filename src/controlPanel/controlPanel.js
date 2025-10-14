@@ -31,12 +31,44 @@ export class ControlPanel extends EventTarget {
       initialProfitValue: options.initialProfitValue ?? "0.00000000",
       initialMode: options.initialMode ?? "manual",
       gameName: options.gameName ?? "Game Name",
+      minesLabel: options.minesLabel ?? "Mines",
+      gemsLabel: options.gemsLabel ?? "Gems",
+      initialMines: options.initialMines ?? 1,
+      maxMines: options.maxMines,
+      totalTiles: options.totalTiles,
     };
 
     this.host = resolveMount(mount);
     this.host.innerHTML = "";
 
     this.mode = this.options.initialMode === "auto" ? "auto" : "manual";
+
+    this.betButtonMode = "bet";
+    this.betButtonState = "clickable";
+    this.randomPickButtonState = "clickable";
+    this.minesSelectState = "clickable";
+
+    const totalTilesOption = Number(this.options.totalTiles);
+    const normalizedTotalTiles =
+      Number.isFinite(totalTilesOption) && totalTilesOption > 0
+        ? Math.floor(totalTilesOption)
+        : NaN;
+    this.totalTiles = normalizedTotalTiles >= 2 ? normalizedTotalTiles : 2;
+
+    const maxMinesOption = Number(this.options.maxMines);
+    const fallbackMax = this.totalTiles - 1;
+    const normalizedMaxMines =
+      Number.isFinite(maxMinesOption) && maxMinesOption > 0
+        ? Math.floor(maxMinesOption)
+        : fallbackMax;
+    this.maxMines = Math.max(
+      1,
+      Math.min(normalizedMaxMines, this.totalTiles - 1)
+    );
+    this.currentMines = Math.max(
+      1,
+      Math.min(Math.floor(Number(this.options.initialMines) || 1), this.maxMines)
+    );
 
     this.container = document.createElement("div");
     this.container.className = "control-panel";
@@ -45,7 +77,12 @@ export class ControlPanel extends EventTarget {
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
+    this.buildMinesLabel();
+    this.buildMinesSelect();
+    this.buildGemsLabel();
+    this.buildGemsDisplay();
     this.buildBetButton();
+    this.buildRandomPickButton();
     this.buildProfitOnWinDisplay();
     this.buildProfitDisplay();
     this.buildGameName();
@@ -54,6 +91,7 @@ export class ControlPanel extends EventTarget {
     this.setProfitOnWinDisplay(this.options.initialProfitOnWinDisplay);
     this.setProfitValue(this.options.initialProfitValue);
     this.setBetInputValue(this.options.initialBetValue, { emit: false });
+    this.refreshMinesOptions({ emit: false });
     this.updateModeButtons();
   }
 
@@ -154,16 +192,175 @@ export class ControlPanel extends EventTarget {
     this.container.appendChild(this.betBox);
   }
 
+  buildMinesLabel() {
+    const row = document.createElement("div");
+    row.className = "control-row";
+
+    const label = document.createElement("span");
+    label.className = "control-row-label";
+    label.textContent = this.options.minesLabel;
+    row.appendChild(label);
+
+    this.container.appendChild(row);
+  }
+
+  buildMinesSelect() {
+    this.minesSelectWrapper = document.createElement("div");
+    this.minesSelectWrapper.className = "control-select-field";
+
+    this.minesSelect = document.createElement("select");
+    this.minesSelect.className = "control-select";
+    this.minesSelect.setAttribute("aria-label", this.options.minesLabel);
+    this.minesSelect.addEventListener("change", () => {
+      const value = Math.floor(Number(this.minesSelect.value) || 1);
+      this.currentMines = Math.max(1, Math.min(value, this.maxMines));
+      this.updateGemsValue();
+      this.dispatchMinesChange();
+    });
+
+    this.minesSelectWrapper.appendChild(this.minesSelect);
+
+    const arrow = document.createElement("span");
+    arrow.className = "control-select-arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    this.minesSelectWrapper.appendChild(arrow);
+
+    this.container.appendChild(this.minesSelectWrapper);
+
+    this.setMinesSelectState(this.minesSelectState);
+  }
+
+  buildGemsLabel() {
+    const row = document.createElement("div");
+    row.className = "control-row";
+
+    const label = document.createElement("span");
+    label.className = "control-row-label";
+    label.textContent = this.options.gemsLabel;
+    row.appendChild(label);
+
+    this.container.appendChild(row);
+  }
+
+  buildGemsDisplay() {
+    this.gemsBox = document.createElement("div");
+    this.gemsBox.className = "control-gems-box";
+
+    this.gemsValue = document.createElement("span");
+    this.gemsValue.className = "control-gems-value";
+    this.gemsBox.appendChild(this.gemsValue);
+
+    this.container.appendChild(this.gemsBox);
+  }
+
   buildBetButton() {
     this.betButton = document.createElement("button");
     this.betButton.type = "button";
     this.betButton.id = "betBtn";
     this.betButton.className = "control-bet-btn";
-    this.betButton.textContent = "Bet";
     this.betButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("bet"));
     });
     this.container.appendChild(this.betButton);
+
+    this.setBetButtonMode(this.betButtonMode);
+    this.setBetButtonState(this.betButtonState);
+  }
+
+  buildRandomPickButton() {
+    this.randomPickButton = document.createElement("button");
+    this.randomPickButton.type = "button";
+    this.randomPickButton.className = "control-bet-btn control-random-btn";
+    this.randomPickButton.textContent = "Random Pick";
+    this.randomPickButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("randompick"));
+    });
+    this.container.appendChild(this.randomPickButton);
+
+    this.setRandomPickState(this.randomPickButtonState);
+  }
+
+  refreshMinesOptions({ emit = true } = {}) {
+    if (!this.minesSelect) return;
+    const selected = Math.max(1, Math.min(this.currentMines, this.maxMines));
+
+    this.minesSelect.innerHTML = "";
+    for (let i = 1; i <= this.maxMines; i += 1) {
+      const option = document.createElement("option");
+      option.value = String(i);
+      option.textContent = String(i);
+      if (i === selected) {
+        option.selected = true;
+      }
+      this.minesSelect.appendChild(option);
+    }
+
+    this.currentMines = selected;
+    this.updateGemsValue();
+    if (emit) {
+      this.dispatchMinesChange();
+    }
+  }
+
+  setMinesValue(value, { emit = true } = {}) {
+    const numeric = Math.floor(Number(value));
+    const clamped = Math.max(1, Math.min(Number.isFinite(numeric) ? numeric : 1, this.maxMines));
+    this.currentMines = clamped;
+    if (this.minesSelect) {
+      this.minesSelect.value = String(clamped);
+    }
+    this.updateGemsValue();
+    if (emit) {
+      this.dispatchMinesChange();
+    }
+  }
+
+  setMaxMines(value, { emit = true } = {}) {
+    const numeric = Math.floor(Number(value));
+    const normalized = Number.isFinite(numeric) ? numeric : this.totalTiles - 1;
+    this.maxMines = Math.max(1, Math.min(normalized, this.totalTiles - 1));
+    this.refreshMinesOptions({ emit });
+  }
+
+  setTotalTiles(value, { emit = true } = {}) {
+    const numeric = Math.floor(Number(value));
+    const normalized = Math.max(2, Number.isFinite(numeric) ? numeric : this.totalTiles);
+    this.totalTiles = normalized;
+    this.maxMines = Math.max(1, Math.min(this.maxMines, this.totalTiles - 1));
+    this.refreshMinesOptions({ emit });
+  }
+
+  getMinesValue() {
+    return this.currentMines;
+  }
+
+  getMaxMines() {
+    return this.maxMines;
+  }
+
+  getTotalTiles() {
+    return this.totalTiles;
+  }
+
+  getGemsValue() {
+    return Math.max(0, this.totalTiles - this.currentMines);
+  }
+
+  updateGemsValue() {
+    if (!this.gemsValue) return;
+    this.gemsValue.textContent = String(this.getGemsValue());
+  }
+
+  dispatchMinesChange() {
+    this.dispatchEvent(
+      new CustomEvent("mineschanged", {
+        detail: {
+          value: this.getMinesValue(),
+          totalTiles: this.getTotalTiles(),
+          gems: this.getGemsValue(),
+        },
+      })
+    );
   }
 
   buildProfitOnWinDisplay() {
@@ -304,6 +501,52 @@ export class ControlPanel extends EventTarget {
     if (this.gameName) {
       this.gameName.textContent = name;
     }
+  }
+
+  setBetButtonMode(mode) {
+    if (!this.betButton) return;
+    const normalized = mode === "cashout" ? "cashout" : "bet";
+    this.betButtonMode = normalized;
+    this.betButton.textContent =
+      normalized === "cashout" ? "Cashout" : "Bet";
+    this.betButton.dataset.mode = normalized;
+  }
+
+  setBetButtonState(state) {
+    if (!this.betButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.betButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.betButton.disabled = !isClickable;
+    this.betButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
+  setRandomPickState(state) {
+    if (!this.randomPickButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.randomPickButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.randomPickButton.disabled = !isClickable;
+    this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
+  setMinesSelectState(state) {
+    if (!this.minesSelect || !this.minesSelectWrapper) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.minesSelectState = normalized;
+    const isClickable = normalized === "clickable";
+    this.minesSelect.disabled = !isClickable;
+    this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
+    this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
   }
 
   getMode() {
