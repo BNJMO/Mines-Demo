@@ -31,7 +31,7 @@ const PALETTE = {
   tileStroke: 0x232323, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
   tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
-  tileElevationShadow: 0x000000, // soft drop shadow
+  tileElevationShadow: 0x091B26, // soft drop shadow
   hover: 0x666666, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
