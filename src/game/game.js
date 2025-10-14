@@ -43,9 +43,9 @@ const PALETTE = {
   bombAUnrevealed: 0x141414,
   bombB: 0x141414,
   bombBUnrevealed: 0x141414,
-  winPopupBorder: 0xEAFF00,
-  winPopupBackground: 0x0F0F0F,
-  winPopupMultiplierText: 0xEAFF00,
+  winPopupBorder: 0xeaff00,
+  winPopupBackground: 0x0f0f0f,
+  winPopupMultiplierText: 0xeaff00,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -100,7 +100,7 @@ export async function createGame(mount, opts = {}) {
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
   const strokeWidth = opts.strokeWidth ?? 1;
-  const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012; 
+  const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
   // Animation Options
   /* Card Hover */
@@ -380,10 +380,8 @@ export async function createGame(mount, opts = {}) {
       .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
       .fill(PALETTE.winPopupBackground);
 
-    const multiplierVerticalOffset =
-      -popupHeight / 2 + popupHeight * 0.28;
-    const amountRowVerticalOffset =
-      popupHeight / 2 - popupHeight * 0.25;
+    const multiplierVerticalOffset = -popupHeight / 2 + popupHeight * 0.28;
+    const amountRowVerticalOffset = popupHeight / 2 - popupHeight * 0.25;
 
     const centerLine = new Graphics();
     const centerLinePadding = 70;
@@ -512,6 +510,8 @@ export async function createGame(mount, opts = {}) {
     winPopup.container.visible = true;
     winPopup.container.alpha = 1;
     winPopup.container.scale.set(0);
+
+    playSoundEffect("win");
 
     tween(app, {
       duration: winPopupShowDuration,
@@ -1217,7 +1217,6 @@ export async function createGame(mount, opts = {}) {
               if (revealedSafe >= totalSafe) {
                 gameOver = true;
                 revealAllTiles();
-                playSoundEffect("win");
                 onWin();
               }
             }

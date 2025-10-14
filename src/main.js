@@ -22,7 +22,7 @@ let selectionDelayHandle = null;
 let selectionPending = false;
 let minesSelectionLocked = false;
 
-const SERVER_RESPONSE_DELAY_MS = 500;
+const SERVER_RESPONSE_DELAY_MS = 250;
 
 function setControlPanelBetMode(mode) {
   betButtonMode = mode === "bet" ? "bet" : "cashout";
