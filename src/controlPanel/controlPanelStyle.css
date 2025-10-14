@@ -159,6 +159,8 @@
   font-weight: 600;
   flex: 1 1 auto;
   min-width: 0;
+  height: 100%;
+  align-self: stretch;
   --control-bet-padding-right: clamp(56px, 20%, 118px);
   --control-bet-stepper-offset: clamp(28px, 14%, 72px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
@@ -289,7 +291,7 @@
 }
 
 .control-gems-value {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 1rem;
 }
 
@@ -306,6 +308,214 @@
   padding-left: 16px;
   color: #ffffff;
   margin-top: auto;
+}
+
+.control-mode-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.control-mode-section[hidden] {
+  display: none !important;
+}
+
+.control-section-label {
+  color: #9a9da6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding-left: 4px;
+}
+
+.auto-number-field {
+  --control-bet-padding-right: 92px;
+  --control-bet-stepper-offset: 20px;
+  --control-bet-icon-offset: 54px;
+  padding: 14px var(--control-bet-padding-right) 14px 16px;
+}
+
+.auto-number-input {
+  text-align: left;
+}
+
+.auto-number-infinity {
+  position: absolute;
+  right: calc(var(--control-bet-stepper-offset) + 12px);
+  width: auto;
+  height: 1em;
+  display: block;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.auto-number-infinity.is-visible {
+  opacity: 1;
+}
+
+.auto-advanced-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.auto-advanced-label {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.control-switch {
+  position: relative;
+  width: 56px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: #282a2f;
+  padding: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.control-switch.is-on {
+  background: #00b801;
+}
+
+.control-switch:focus-visible {
+  outline: 2px solid rgba(234, 255, 0, 0.6);
+  outline-offset: 2px;
+}
+
+.control-switch-handle {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 0.2s ease;
+}
+
+.control-switch.is-on .control-switch-handle {
+  transform: translateX(28px);
+}
+
+.auto-advanced-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auto-advanced-content[hidden] {
+  display: none !important;
+}
+
+.auto-advanced-strategy-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #1a191d;
+  border-radius: 10px;
+  padding: 0;
+}
+
+.auto-mode-toggle {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 60%;
+  min-width: 0;
+  background: #000000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.auto-mode-toggle-btn {
+  flex: 1 1 auto;
+  border: none;
+  background: #000000;
+  color: #9a9da6;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 14px;
+  margin: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.auto-mode-toggle-btn.is-reset {
+  flex: 0 0 25%;
+}
+
+.auto-mode-toggle-btn.is-active {
+  background: #282a2f;
+  color: #ffffff;
+}
+
+.auto-mode-toggle-btn:focus-visible {
+  outline: 2px solid rgba(234, 255, 0, 0.6);
+  outline-offset: -2px;
+}
+
+.auto-advanced-input {
+  flex: 0 1 40%;
+  max-width: 40%;
+  min-width: 0;
+  --control-bet-padding-right: 52px;
+  padding: 12px var(--control-bet-padding-right) 12px 14px;
+}
+
+.auto-advanced-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #9a9da6;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.auto-advanced-summary-label {
+  font-weight: 600;
+}
+
+.auto-advanced-summary-value {
+  color: #9a9da6;
+  font-weight: 400;
+}
+
+.auto-percentage-icon {
+  width: auto;
+  height: 1em;
+  display: block;
+  object-fit: contain;
+}
+
+.auto-currency-field {
+  --control-bet-padding-right: 56px;
+  padding: 14px var(--control-bet-padding-right) 14px 16px;
+}
+
+.auto-advanced-input.is-disabled,
+.auto-advanced-input.is-disabled .control-bet-input {
+  color: #6f7178;
+}
+
+.auto-advanced-input.is-disabled {
+  background: #16171b;
+  border-color: #1f2024;
+}
+
+.auto-advanced-input.is-disabled .control-bet-input-icon {
+  opacity: 0.4;
+}
+
+.control-start-autobet-btn {
+  margin-top: 6px;
 }
 
 .control-bet-input-field.has-stepper .game-panel-stepper {

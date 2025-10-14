@@ -1,5 +1,7 @@
 import { Stepper } from "../stepper/stepper.js";
 import bitcoinIconUrl from "../../assets/sprites/BitCoin.png";
+import infinityIconUrl from "../../assets/sprites/Infinity.png";
+import percentageIconUrl from "../../assets/sprites/Percentage.png";
 
 function resolveMount(mount) {
   if (!mount) {
@@ -81,10 +83,7 @@ export class ControlPanel extends EventTarget {
     this.buildMinesSelect();
     this.buildGemsLabel();
     this.buildGemsDisplay();
-    this.buildBetButton();
-    this.buildRandomPickButton();
-    this.buildProfitOnWinDisplay();
-    this.buildProfitDisplay();
+    this.buildModeSections();
     this.buildGameName();
 
     this.setBetAmountDisplay(this.options.initialBetAmountDisplay);
@@ -93,6 +92,11 @@ export class ControlPanel extends EventTarget {
     this.setBetInputValue(this.options.initialBetValue, { emit: false });
     this.refreshMinesOptions({ emit: false });
     this.updateModeButtons();
+    this.updateModeSections();
+    this.updateAdvancedVisibility();
+    this.updateNumberOfBetsIcon();
+    this.updateOnWinMode();
+    this.updateOnLossMode();
   }
 
   buildToggle() {
@@ -253,6 +257,244 @@ export class ControlPanel extends EventTarget {
     this.container.appendChild(this.gemsBox);
   }
 
+  buildModeSections() {
+    this.manualSection = document.createElement("div");
+    this.manualSection.className =
+      "control-mode-section control-mode-section--manual";
+    this.container.appendChild(this.manualSection);
+
+    this.buildBetButton();
+    this.buildRandomPickButton();
+    this.buildProfitOnWinDisplay();
+    this.buildProfitDisplay();
+
+    this.autoSection = document.createElement("div");
+    this.autoSection.className =
+      "control-mode-section control-mode-section--auto";
+    this.container.appendChild(this.autoSection);
+
+    this.buildAutoControls();
+  }
+
+  buildAutoControls() {
+    this.autoNumberOfBetsLabel = this.createSectionLabel("Number of Bets");
+    this.autoSection.appendChild(this.autoNumberOfBetsLabel);
+
+    this.autoNumberOfBetsField = document.createElement("div");
+    this.autoNumberOfBetsField.className =
+      "control-bet-input-field auto-number-field has-stepper";
+    this.autoSection.appendChild(this.autoNumberOfBetsField);
+
+    this.autoNumberOfBetsInput = document.createElement("input");
+    this.autoNumberOfBetsInput.type = "text";
+    this.autoNumberOfBetsInput.inputMode = "numeric";
+    this.autoNumberOfBetsInput.autocomplete = "off";
+    this.autoNumberOfBetsInput.spellcheck = false;
+    this.autoNumberOfBetsInput.className = "control-bet-input auto-number-input";
+    this.autoNumberOfBetsInput.value = "0";
+    this.autoNumberOfBetsInput.addEventListener("input", () => {
+      this.sanitizeNumberOfBets();
+      this.updateNumberOfBetsIcon();
+    });
+    this.autoNumberOfBetsInput.addEventListener("blur", () => {
+      this.sanitizeNumberOfBets();
+      this.updateNumberOfBetsIcon();
+    });
+    this.autoNumberOfBetsField.appendChild(this.autoNumberOfBetsInput);
+
+    this.autoNumberOfBetsInfinityIcon = document.createElement("img");
+    this.autoNumberOfBetsInfinityIcon.src = infinityIconUrl;
+    this.autoNumberOfBetsInfinityIcon.alt = "";
+    this.autoNumberOfBetsInfinityIcon.className = "auto-number-infinity";
+    this.autoNumberOfBetsField.appendChild(
+      this.autoNumberOfBetsInfinityIcon
+    );
+
+    this.autoNumberOfBetsStepper = new Stepper({
+      onStepUp: () => this.incrementNumberOfBets(1),
+      onStepDown: () => this.incrementNumberOfBets(-1),
+      upAriaLabel: "Increase number of bets",
+      downAriaLabel: "Decrease number of bets",
+    });
+    this.autoNumberOfBetsField.appendChild(this.autoNumberOfBetsStepper.element);
+
+    this.autoAdvancedHeader = document.createElement("div");
+    this.autoAdvancedHeader.className = "auto-advanced-header";
+    this.autoSection.appendChild(this.autoAdvancedHeader);
+
+    this.autoAdvancedLabel = this.createSectionLabel("Advanced");
+    this.autoAdvancedLabel.classList.add("auto-advanced-label");
+    this.autoAdvancedHeader.appendChild(this.autoAdvancedLabel);
+
+    this.autoAdvancedToggle = this.createSwitchButton({
+      onToggle: (isActive) => {
+        this.isAdvancedEnabled = Boolean(isActive);
+        this.updateAdvancedVisibility();
+      },
+    });
+    this.autoAdvancedHeader.appendChild(this.autoAdvancedToggle);
+
+    this.autoAdvancedContent = document.createElement("div");
+    this.autoAdvancedContent.className = "auto-advanced-content";
+    this.autoSection.appendChild(this.autoAdvancedContent);
+
+    this.autoAdvancedContent.appendChild(this.createSectionLabel("On Win"));
+    const onWinRow = this.createAdvancedStrategyRow("win");
+    this.autoAdvancedContent.appendChild(onWinRow);
+
+    this.autoAdvancedContent.appendChild(this.createSectionLabel("On Loss"));
+    const onLossRow = this.createAdvancedStrategyRow("loss");
+    this.autoAdvancedContent.appendChild(onLossRow);
+
+    const profitRow = document.createElement("div");
+    profitRow.className = "auto-advanced-summary-row";
+    const profitLabel = document.createElement("span");
+    profitLabel.className = "auto-advanced-summary-label";
+    profitLabel.textContent = "Stop on Profit";
+    const profitValue = document.createElement("span");
+    profitValue.className = "auto-advanced-summary-value";
+    profitValue.textContent = "$0.00";
+    profitRow.append(profitLabel, profitValue);
+    this.autoAdvancedContent.appendChild(profitRow);
+
+    this.autoStopOnProfitField = this.createCurrencyField();
+    this.autoAdvancedContent.appendChild(this.autoStopOnProfitField.wrapper);
+
+    const lossRow = document.createElement("div");
+    lossRow.className = "auto-advanced-summary-row";
+    const lossLabel = document.createElement("span");
+    lossLabel.className = "auto-advanced-summary-label";
+    lossLabel.textContent = "Stop on Loss";
+    const lossValue = document.createElement("span");
+    lossValue.className = "auto-advanced-summary-value";
+    lossValue.textContent = "$0.00";
+    lossRow.append(lossLabel, lossValue);
+    this.autoAdvancedContent.appendChild(lossRow);
+
+    this.autoStopOnLossField = this.createCurrencyField();
+    this.autoAdvancedContent.appendChild(this.autoStopOnLossField.wrapper);
+
+    this.autoStartButton = document.createElement("button");
+    this.autoStartButton.type = "button";
+    this.autoStartButton.className =
+      "control-bet-btn control-start-autobet-btn";
+    this.autoStartButton.textContent = "Start Autobet";
+    this.autoSection.appendChild(this.autoStartButton);
+
+    this.isAdvancedEnabled = false;
+    this.onWinMode = "reset";
+    this.onLossMode = "reset";
+  }
+
+  createSectionLabel(text) {
+    const label = document.createElement("div");
+    label.className = "control-section-label";
+    label.textContent = text;
+    return label;
+  }
+
+  createSwitchButton({ onToggle }) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "control-switch";
+    button.setAttribute("aria-pressed", "false");
+
+    const handle = document.createElement("span");
+    handle.className = "control-switch-handle";
+    button.appendChild(handle);
+
+    button.addEventListener("click", () => {
+      const isActive = button.classList.toggle("is-on");
+      button.setAttribute("aria-pressed", String(isActive));
+      onToggle?.(isActive);
+    });
+
+    return button;
+  }
+
+  createAdvancedStrategyRow(key) {
+    const row = document.createElement("div");
+    row.className = "auto-advanced-strategy-row";
+
+    const toggle = document.createElement("div");
+    toggle.className = "auto-mode-toggle";
+
+    const resetButton = document.createElement("button");
+    resetButton.type = "button";
+    resetButton.className = "auto-mode-toggle-btn is-reset";
+    resetButton.textContent = "Reset";
+
+    const increaseButton = document.createElement("button");
+    increaseButton.type = "button";
+    increaseButton.className = "auto-mode-toggle-btn";
+    increaseButton.textContent = "Increase by:";
+
+    toggle.append(resetButton, increaseButton);
+    row.appendChild(toggle);
+
+    const field = document.createElement("div");
+    field.className = "control-bet-input-field auto-advanced-input";
+    row.appendChild(field);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.className = "control-bet-input";
+    input.value = "0";
+    field.appendChild(input);
+
+    const icon = document.createElement("img");
+    icon.src = percentageIconUrl;
+    icon.alt = "";
+    icon.className = "control-bet-input-icon auto-percentage-icon";
+    field.appendChild(icon);
+
+    if (key === "win") {
+      this.onWinResetButton = resetButton;
+      this.onWinIncreaseButton = increaseButton;
+      this.onWinInput = input;
+      this.onWinField = field;
+    } else {
+      this.onLossResetButton = resetButton;
+      this.onLossIncreaseButton = increaseButton;
+      this.onLossInput = input;
+      this.onLossField = field;
+    }
+
+    resetButton.addEventListener("click", () => {
+      this.setStrategyMode(key, "reset");
+    });
+    increaseButton.addEventListener("click", () => {
+      this.setStrategyMode(key, "increase");
+    });
+
+    return row;
+  }
+
+  createCurrencyField() {
+    const wrapper = document.createElement("div");
+    wrapper.className = "control-bet-input-field auto-currency-field";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.className = "control-bet-input";
+    input.value = "0.00000000";
+    wrapper.appendChild(input);
+
+    const icon = document.createElement("img");
+    icon.src = bitcoinIconUrl;
+    icon.alt = "";
+    icon.className = "control-bet-input-icon";
+    wrapper.appendChild(icon);
+
+    return { wrapper, input, icon };
+  }
+
   buildBetButton() {
     this.betButton = document.createElement("button");
     this.betButton.type = "button";
@@ -261,7 +503,8 @@ export class ControlPanel extends EventTarget {
     this.betButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("bet"));
     });
-    this.container.appendChild(this.betButton);
+    const parent = this.manualSection ?? this.container;
+    parent.appendChild(this.betButton);
 
     this.setBetButtonMode(this.betButtonMode);
     this.setBetButtonState(this.betButtonState);
@@ -275,7 +518,8 @@ export class ControlPanel extends EventTarget {
     this.randomPickButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("randompick"));
     });
-    this.container.appendChild(this.randomPickButton);
+    const parent = this.manualSection ?? this.container;
+    parent.appendChild(this.randomPickButton);
 
     this.setRandomPickState(this.randomPickButtonState);
   }
@@ -376,7 +620,8 @@ export class ControlPanel extends EventTarget {
     this.profitOnWinValue.className = "control-row-value";
     row.appendChild(this.profitOnWinValue);
 
-    this.container.appendChild(row);
+    const parent = this.manualSection ?? this.container;
+    parent.appendChild(row);
   }
 
   buildProfitDisplay() {
@@ -393,7 +638,8 @@ export class ControlPanel extends EventTarget {
     icon.className = "control-profit-icon";
     this.profitBox.appendChild(icon);
 
-    this.container.appendChild(this.profitBox);
+    const parent = this.manualSection ?? this.container;
+    parent.appendChild(this.profitBox);
   }
 
   buildGameName() {
@@ -410,6 +656,7 @@ export class ControlPanel extends EventTarget {
     }
     this.mode = normalized;
     this.updateModeButtons();
+    this.updateModeSections();
     this.dispatchEvent(new CustomEvent("modechange", { detail: { mode: this.mode } }));
   }
 
@@ -417,6 +664,89 @@ export class ControlPanel extends EventTarget {
     if (!this.manualButton || !this.autoButton) return;
     this.manualButton.classList.toggle("is-active", this.mode === "manual");
     this.autoButton.classList.toggle("is-active", this.mode === "auto");
+  }
+
+  updateModeSections() {
+    if (this.manualSection) {
+      this.manualSection.hidden = this.mode !== "manual";
+    }
+    if (this.autoSection) {
+      this.autoSection.hidden = this.mode !== "auto";
+    }
+  }
+
+  sanitizeNumberOfBets() {
+    if (!this.autoNumberOfBetsInput) return;
+    const numeric = Math.max(
+      0,
+      Math.floor(Number(this.autoNumberOfBetsInput.value.replace(/[^0-9]/g, "")) || 0)
+    );
+    this.autoNumberOfBetsInput.value = String(numeric);
+  }
+
+  incrementNumberOfBets(delta) {
+    if (!this.autoNumberOfBetsInput) return;
+    const current = Number(this.autoNumberOfBetsInput.value) || 0;
+    const next = Math.max(0, current + delta);
+    this.autoNumberOfBetsInput.value = String(next);
+    this.updateNumberOfBetsIcon();
+  }
+
+  updateNumberOfBetsIcon() {
+    if (!this.autoNumberOfBetsInfinityIcon || !this.autoNumberOfBetsInput) return;
+    const current = Number(this.autoNumberOfBetsInput.value) || 0;
+    this.autoNumberOfBetsInfinityIcon.classList.toggle(
+      "is-visible",
+      current === 0
+    );
+  }
+
+  updateAdvancedVisibility() {
+    if (!this.autoAdvancedContent || !this.autoAdvancedToggle) return;
+    const isActive = Boolean(this.isAdvancedEnabled);
+    this.autoAdvancedContent.hidden = !isActive;
+    this.autoAdvancedToggle.classList.toggle("is-on", isActive);
+    this.autoAdvancedToggle.setAttribute("aria-pressed", String(isActive));
+  }
+
+  setStrategyMode(key, mode) {
+    const normalized = mode === "increase" ? "increase" : "reset";
+    if (key === "win") {
+      this.onWinMode = normalized;
+      this.updateOnWinMode();
+    } else {
+      this.onLossMode = normalized;
+      this.updateOnLossMode();
+    }
+  }
+
+  updateOnWinMode() {
+    this.updateStrategyButtons(
+      this.onWinMode,
+      this.onWinResetButton,
+      this.onWinIncreaseButton,
+      this.onWinInput,
+      this.onWinField
+    );
+  }
+
+  updateOnLossMode() {
+    this.updateStrategyButtons(
+      this.onLossMode,
+      this.onLossResetButton,
+      this.onLossIncreaseButton,
+      this.onLossInput,
+      this.onLossField
+    );
+  }
+
+  updateStrategyButtons(mode, resetButton, increaseButton, input, field) {
+    if (!resetButton || !increaseButton || !input || !field) return;
+    const isIncrease = mode === "increase";
+    resetButton.classList.toggle("is-active", !isIncrease);
+    increaseButton.classList.toggle("is-active", isIncrease);
+    input.disabled = !isIncrease;
+    field.classList.toggle("is-disabled", !isIncrease);
   }
 
   adjustBetValue(delta) {
