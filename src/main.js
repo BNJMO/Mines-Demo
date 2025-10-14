@@ -103,16 +103,29 @@ const opts = {
 
 
 (async () => {
+  const totalTiles = opts.grid * opts.grid;
+  const maxMines = Math.max(1, totalTiles - 1);
+  const initialMines = Math.max(1, Math.min(opts.mines ?? 1, maxMines));
+  opts.mines = initialMines;
+
   // Initialize Control Panel
   try {
     controlPanel = new ControlPanel("#control-panel", {
       gameName: "Mines",
+      totalTiles,
+      maxMines,
+      initialMines,
     });
     controlPanel.addEventListener("modechange", (event) => {
       console.debug(`Control panel mode changed to ${event.detail.mode}`);
     });
     controlPanel.addEventListener("betvaluechange", (event) => {
       console.debug(`Bet value updated to ${event.detail.value}`);
+    });
+    controlPanel.addEventListener("mineschanged", (event) => {
+      const mines = event.detail.value;
+      opts.mines = mines;
+      game?.setMines?.(mines);
     });
     controlPanel.addEventListener("bet", () => handleBet());
     controlPanel.setBetAmountDisplay("$0.00");
@@ -126,6 +139,11 @@ const opts = {
   try {
     game = await createGame("#game", opts);
     window.game = game;
+    const state = game?.getState?.();
+    if (state) {
+      controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
+      controlPanel?.setMinesValue?.(state.mines, { emit: false });
+    }
   } catch (e) {
     console.error("Game initialization failed:", e);
     const gameDiv = document.querySelector("#game");

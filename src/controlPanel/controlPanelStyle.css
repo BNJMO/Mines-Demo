@@ -78,6 +78,58 @@
   min-width: 0;
 }
 
+.control-select-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #000000;
+  border-radius: 8px;
+  border: 1px solid #2f3136;
+  color: #f1f5ff;
+  font-weight: 600;
+  font-size: 1rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.control-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  flex: 1 1 auto;
+  padding: 14px 44px 14px 16px;
+  cursor: pointer;
+  outline: none;
+}
+
+.control-select:focus-visible {
+  outline: 2px solid rgba(234, 255, 0, 0.6);
+  outline-offset: 2px;
+}
+
+.control-select-field:focus-within {
+  box-shadow: 0 0 0 2px rgba(234, 255, 0, 0.2);
+}
+
+.control-select-arrow {
+  position: absolute;
+  right: 18px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #f1f5ff;
+  pointer-events: none;
+}
+
+.control-select option {
+  color: #0c0b0f;
+}
+
 .control-bet-input-field {
   position: relative;
   display: flex;
@@ -159,6 +211,17 @@
   box-shadow: 0 12px 24px rgba(234, 255, 0, 0.2);
 }
 
+.control-random-btn {
+  background: #2f3136;
+  color: #f5f6ff;
+  box-shadow: none;
+}
+
+.control-random-btn:hover {
+  box-shadow: none;
+  background: #3a3c44;
+}
+
 .control-profit-box {
   display: flex;
   align-items: center;
@@ -169,6 +232,20 @@
 }
 
 .control-profit-value {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.control-gems-box {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background: #282a2f;
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+
+.control-gems-value {
   font-weight: 700;
   font-size: 1rem;
 }
