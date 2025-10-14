@@ -11,7 +11,7 @@
 
 body {
   font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-  background: #000000;
+  background: #091b26;
   color: #ffffff;
   min-height: 100vh;
   display: flex;
@@ -36,12 +36,12 @@ body {
   min-height: 100%;
   display: flex;
   gap: 32px;
-  background: #1a191d;
+  background: #142733;
   border-radius: 28px;
-  border: 1px solid #282a2f;
+  border: 1px solid #223845;
   padding: 16px;
   padding-right: 8px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 48px rgba(9, 27, 38, 0.35);
   flex-direction: row;
   align-items: stretch;
 }

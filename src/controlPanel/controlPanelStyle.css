@@ -10,13 +10,13 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #1a191d;
+  background: #142733;
 }
 
 .control-toggle {
   display: flex;
   gap: 8px;
-  background: #000000;
+  background: #091b26;
   padding: 6px;
   border-radius: 40px;
 }
@@ -35,12 +35,12 @@
 }
 
 .control-toggle-btn:not(.is-active):hover {
-  background: rgba(40, 42, 47, 0.6);
+  background: rgba(34, 56, 69, 0.6);
   color: #c3c5cc;
 }
 
 .control-toggle-btn.is-active {
-  background: #282a2f;
+  background: #223845;
   color: #ffffff;
   transform: translateY(-1px);
 }
@@ -57,13 +57,13 @@
 }
 
 .control-row-label {
-  color: #999999;
+  color: #92aab7;
   font-size: 0.95rem;
   font-weight: 600;
 }
 
 .control-row-value {
-  color: #999999;
+  color: #92aab7;
   font-size: 1rem;
   font-weight: 400;
 }
@@ -72,7 +72,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #282a2f;
+  background: #223845;
   border-radius: 8px;
   padding: 2px;
   min-width: 0;
@@ -82,7 +82,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: #000000;
+  background: #091b26;
   border-radius: 8px;
   border: 1px solid #2f3136;
   color: #f1f5ff;
@@ -143,7 +143,7 @@
 
 .control-select option {
   color: #f1f5ff;
-  background: #000000;
+  background: #091b26;
 }
 
 .control-bet-input-field {
@@ -151,7 +151,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #000000;
+  background: #091b26;
   border-radius: 8px;
   border: 1px solid #2f3136;
   color: #f1f5ff;
@@ -188,7 +188,7 @@
 
 .control-bet-action {
   border: none;
-  background: #282a2f;
+  background: #223845;
   color: #f5f6ff;
   font-weight: 700;
   font-size: 0.95rem;
@@ -207,7 +207,7 @@
 .control-bet-separator {
   width: 1px;
   height: 36px;
-  background: #000000;
+  background: #091b26;
   border-radius: 1px;
 }
 
@@ -216,7 +216,7 @@
   border: none;
   border-radius: 8px;
   background: linear-gradient(135deg, #eaff00 0%, #eaff00 100%);
-  color: #000000;
+  color: #091b26;
   font-size: 1.05rem;
   font-weight: 700;
   padding: 16px;
@@ -271,7 +271,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #282a2f;
+  background: #223845;
   border-radius: 8px;
   padding: 14px 18px;
 }
@@ -285,7 +285,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  background: #282a2f;
+  background: #223845;
   border-radius: 8px;
   padding: 14px 18px;
 }
@@ -374,7 +374,7 @@
   height: 28px;
   border: none;
   border-radius: 999px;
-  background: #282a2f;
+  background: #223845;
   padding: 4px;
   cursor: pointer;
   transition: background 0.2s ease;
@@ -418,7 +418,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #1a191d;
+  background: #142733;
   border-radius: 10px;
   padding: 0;
 }
@@ -428,7 +428,7 @@
   align-items: stretch;
   flex: 1 1 60%;
   min-width: 0;
-  background: #000000;
+  background: #091b26;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -436,7 +436,7 @@
 .auto-mode-toggle-btn {
   flex: 1 1 auto;
   border: none;
-  background: #000000;
+  background: #091b26;
   color: #9a9da6;
   font-size: 0.9rem;
   font-weight: 600;
@@ -452,7 +452,7 @@
 }
 
 .auto-mode-toggle-btn.is-active {
-  background: #282a2f;
+  background: #223845;
   color: #ffffff;
 }
 
