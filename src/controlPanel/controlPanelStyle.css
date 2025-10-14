@@ -280,6 +280,14 @@
   .control-panel {
     max-width: none;
   }
+
+  .control-toggle {
+    display: none;
+  }
+
+  #betBtn.control-bet-btn {
+    order: -1;
+  }
 }
 
 @media (max-width: 768px) {
