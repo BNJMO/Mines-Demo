@@ -76,7 +76,7 @@
   border-radius: 8px;
   padding: 2px;
   min-width: 0;
-  box-shadow: 0 12px 28px rgba(9, 27, 38, 0.45);
+  box-shadow: var(--control-elevation-shadow);
 }
 
 .control-select-field {
@@ -166,7 +166,7 @@
   --control-bet-stepper-offset: clamp(28px, 14%, 72px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
   padding: 14px var(--control-bet-padding-right) 14px 16px;
-  box-shadow: 0 12px 28px rgba(9, 27, 38, 0.45);
+  box-shadow: var(--control-elevation-shadow);
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -225,12 +225,12 @@
   padding: 16px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 16px 32px rgba(9, 27, 38, 0.5);
+  box-shadow: var(--control-elevation-shadow-strong);
 }
 
 .control-bet-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 40px rgba(9, 27, 38, 0.55),
+  box-shadow: var(--control-elevation-shadow-hover),
     0 12px 24px rgba(234, 255, 0, 0.25);
 }
 
@@ -253,12 +253,12 @@
 .control-random-btn {
   background: #223845;
   color: #f5f6ff;
-  box-shadow: 0 14px 30px rgba(9, 27, 38, 0.5);
+  box-shadow: var(--control-elevation-shadow-strong);
 }
 
 .control-random-btn:hover {
   background: #2b4a5a;
-  box-shadow: 0 18px 40px rgba(9, 27, 38, 0.55);
+  box-shadow: var(--control-elevation-shadow-hover);
 }
 
 .control-random-btn.is-non-clickable,
@@ -280,7 +280,7 @@
   background: #223845;
   border-radius: 8px;
   padding: 14px 18px;
-  box-shadow: 0 12px 28px rgba(9, 27, 38, 0.45);
+  box-shadow: var(--control-elevation-shadow);
 }
 
 .control-profit-value {
@@ -295,7 +295,7 @@
   background: #223845;
   border-radius: 8px;
   padding: 14px 18px;
-  box-shadow: 0 12px 28px rgba(9, 27, 38, 0.45);
+  box-shadow: var(--control-elevation-shadow);
 }
 
 .control-gems-value {
@@ -525,7 +525,7 @@
 
 .control-start-autobet-btn {
   margin-top: 6px;
-  box-shadow: 0 16px 32px rgba(9, 27, 38, 0.5);
+  box-shadow: var(--control-elevation-shadow-strong);
 }
 
 .control-bet-input-field.is-disabled {
