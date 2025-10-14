@@ -12,22 +12,28 @@
   border: 1px solid #282a2f;
   position: relative;
   overflow: hidden;
-  min-height: 480px;
   order: 2;
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  width: min(100%, max(0px, calc(100vh - var(--app-vertical-padding))));
+  max-height: max(0px, calc(100vh - var(--app-vertical-padding)));
+  min-height: 0;
+  aspect-ratio: 1 / 1;
 }
 
 #game {
   width: 100%;
   height: 100%;
-  min-height: 480px;
   position: relative;
   background: #0c0b0f;
   display: flex;
   align-items: center;
   justify-content: center;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  max-height: 100%;
 }
 
 #game.is-round-complete {
@@ -37,11 +43,8 @@
 
 #game canvas {
   display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: 100%;
 }
 
 .loading {
@@ -75,17 +78,13 @@
 @media (max-width: 1100px), (orientation: portrait) {
   .game-container {
     order: 1;
-    max-height: 380px;
+    width: 100%;
   }
 }
 
 @media (max-width: 768px) {
   .game-container {
-    min-height: 360px;
-    max-height: 380px;
-  }
-
-  #game {
-    min-height: 360px;
+    width: 100%;
+    max-height: max(0px, calc(100vh - var(--app-vertical-padding)));
   }
 }

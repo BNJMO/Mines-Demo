@@ -3,6 +3,10 @@
 @import "./controlPanel/controlPanelStyle.css";
 @import "./stepper/stepperStyle.css";
 
+:root {
+  --app-vertical-padding: 80px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -33,7 +37,6 @@ body {
 .app-container {
   width: 100%;
   max-width: 1280px;
-  min-height: 100%;
   display: flex;
   gap: 32px;
   background: #1a191d;
@@ -44,6 +47,7 @@ body {
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   flex-direction: row;
   align-items: stretch;
+  max-height: max(0px, calc(100vh - var(--app-vertical-padding)));
 }
 
 @media (max-width: 1100px), (orientation: portrait) {
@@ -54,6 +58,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --app-vertical-padding: 0px;
+  }
+
   body {
     padding: 0px;
   }
