@@ -159,6 +159,8 @@
   font-weight: 600;
   flex: 1 1 auto;
   min-width: 0;
+  height: 100%;
+  align-self: stretch;
   --control-bet-padding-right: clamp(56px, 20%, 118px);
   --control-bet-stepper-offset: clamp(28px, 14%, 72px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
@@ -338,7 +340,7 @@
 
 .auto-number-infinity {
   position: absolute;
-  right: calc(var(--control-bet-stepper-offset) + 20px);
+  right: calc(var(--control-bet-stepper-offset) + 12px);
   width: auto;
   height: 1em;
   display: block;
@@ -415,7 +417,7 @@
 .auto-advanced-strategy-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 2px;
   background: #1a191d;
   border-radius: 10px;
   padding: 0;
