@@ -338,9 +338,11 @@
 
 .auto-number-infinity {
   position: absolute;
-  right: calc(var(--control-bet-stepper-offset) + 34px);
-  width: 20px;
-  height: 20px;
+  right: calc(var(--control-bet-stepper-offset) + 20px);
+  width: 18px;
+  height: auto;
+  display: block;
+  object-fit: contain;
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
@@ -350,36 +352,18 @@
   opacity: 1;
 }
 
-.control-section-divider {
-  position: relative;
+.auto-advanced-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
-.control-section-divider::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #2f3136;
-  transform: translateY(-50%);
-}
-
-.control-section-divider-label {
-  position: relative;
-  z-index: 1;
-  color: #9a9da6;
-  font-size: 0.95rem;
-  font-weight: 600;
-  background: #1a191d;
-  padding-right: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.auto-advanced-label {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
 }
 
 .control-switch {
@@ -434,13 +418,15 @@
   gap: 12px;
   background: #1f2024;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 0;
 }
 
 .auto-mode-toggle {
   display: flex;
   align-items: stretch;
-  background: #282a2f;
+  flex: 1 1 60%;
+  min-width: 0;
+  background: #000000;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #2f3136;
@@ -449,11 +435,12 @@
 .auto-mode-toggle-btn {
   flex: 1 1 auto;
   border: none;
-  background: transparent;
+  background: #000000;
   color: #9a9da6;
   font-size: 0.9rem;
   font-weight: 600;
   padding: 10px 14px;
+  margin: 4px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
@@ -463,8 +450,8 @@
 }
 
 .auto-mode-toggle-btn.is-active {
-  background: #00b801;
-  color: #000000;
+  background: #282a2f;
+  color: #ffffff;
 }
 
 .auto-mode-toggle-btn:focus-visible {
@@ -473,7 +460,9 @@
 }
 
 .auto-advanced-input {
-  flex: 1 1 auto;
+  flex: 0 1 40%;
+  max-width: 40%;
+  min-width: 0;
   --control-bet-padding-right: 52px;
   padding: 12px var(--control-bet-padding-right) 12px 14px;
 }
@@ -494,7 +483,14 @@
 
 .auto-advanced-summary-value {
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 400;
+}
+
+.auto-percentage-icon {
+  width: 18px;
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
 
 .auto-currency-field {
