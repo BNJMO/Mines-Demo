@@ -115,6 +115,21 @@
   box-shadow: 0 0 0 2px rgba(234, 255, 0, 0.2);
 }
 
+.control-select-field.is-non-clickable {
+  background: #121215;
+  border-color: #1e2024;
+  color: #6f7178;
+}
+
+.control-select-field.is-non-clickable .control-select-arrow {
+  border-top-color: #6f7178;
+}
+
+.control-select:disabled {
+  color: inherit;
+  cursor: not-allowed;
+}
+
 .control-select-arrow {
   position: absolute;
   right: 18px;
@@ -127,7 +142,8 @@
 }
 
 .control-select option {
-  color: #0c0b0f;
+  color: #f1f5ff;
+  background: #000000;
 }
 
 .control-bet-input-field {
@@ -313,6 +329,10 @@
   }
 
   #betBtn.control-bet-btn {
+    order: -2;
+  }
+
+  .control-random-btn {
     order: -1;
   }
 }

@@ -20,6 +20,7 @@ let cashoutAvailable = false;
 let lastKnownGameState = null;
 let selectionDelayHandle = null;
 let selectionPending = false;
+let minesSelectionLocked = false;
 
 const SERVER_RESPONSE_DELAY_MS = 500;
 
@@ -34,6 +35,10 @@ function setControlPanelBetState(isClickable) {
 
 function setControlPanelRandomState(isClickable) {
   controlPanel?.setRandomPickState?.(isClickable ? "clickable" : "non-clickable");
+}
+
+function setControlPanelMinesState(isClickable) {
+  controlPanel?.setMinesSelectState?.(isClickable ? "clickable" : "non-clickable");
 }
 
 function setGameBoardInteractivity(enabled) {
@@ -87,6 +92,8 @@ function prepareForNewRoundState() {
   setControlPanelBetState(false);
   setControlPanelRandomState(true);
   setGameBoardInteractivity(true);
+  minesSelectionLocked = false;
+  setControlPanelMinesState(true);
 }
 
 function finalizeRound() {
@@ -97,6 +104,7 @@ function finalizeRound() {
   setControlPanelBetState(true);
   setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
+  setControlPanelMinesState(false);
 }
 
 function handleBetButtonClick() {
@@ -155,6 +163,11 @@ function handleRandomPickClick() {
 function handleCardSelected() {
   if (!roundActive) {
     return;
+  }
+
+  if (!minesSelectionLocked) {
+    minesSelectionLocked = true;
+    setControlPanelMinesState(false);
   }
 
   beginSelectionDelay();

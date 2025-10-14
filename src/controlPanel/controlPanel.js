@@ -46,6 +46,7 @@ export class ControlPanel extends EventTarget {
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
     this.randomPickButtonState = "clickable";
+    this.minesSelectState = "clickable";
 
     const totalTilesOption = Number(this.options.totalTiles);
     const normalizedTotalTiles =
@@ -225,6 +226,8 @@ export class ControlPanel extends EventTarget {
     this.minesSelectWrapper.appendChild(arrow);
 
     this.container.appendChild(this.minesSelectWrapper);
+
+    this.setMinesSelectState(this.minesSelectState);
   }
 
   buildGemsLabel() {
@@ -531,6 +534,19 @@ export class ControlPanel extends EventTarget {
     const isClickable = normalized === "clickable";
     this.randomPickButton.disabled = !isClickable;
     this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
+  setMinesSelectState(state) {
+    if (!this.minesSelect || !this.minesSelectWrapper) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.minesSelectState = normalized;
+    const isClickable = normalized === "clickable";
+    this.minesSelect.disabled = !isClickable;
+    this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
+    this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
   }
 
   getMode() {
