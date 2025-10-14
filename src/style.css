@@ -10,6 +10,8 @@
 }
 
 body {
+  --page-padding-x: 24px;
+  --page-padding-y: 40px;
   font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   background: #000000;
   color: #ffffff;
@@ -18,7 +20,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 24px;
+  padding: var(--page-padding-y) var(--page-padding-x);
 }
 
 .app-wrapper {
@@ -31,16 +33,25 @@ body {
 }
 
 .app-container {
+  --app-container-vertical-padding: 16px;
+  --app-container-horizontal-padding: 16px;
+  --app-container-horizontal-padding-end: 8px;
   width: 100%;
   max-width: 1280px;
   min-height: 100%;
+  max-height: clamp(
+    0px,
+    calc(100vh - var(--page-padding-y, 0px) * 2),
+    100vh
+  );
   display: flex;
   gap: 32px;
   background: #1a191d;
   border-radius: 28px;
   border: 1px solid #282a2f;
-  padding: 16px;
-  padding-right: 8px;
+  padding: var(--app-container-vertical-padding)
+    var(--app-container-horizontal-padding);
+  padding-right: var(--app-container-horizontal-padding-end);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
   flex-direction: row;
   align-items: stretch;
@@ -55,11 +66,14 @@ body {
 
 @media (max-width: 768px) {
   body {
-    padding: 0px;
+    --page-padding-y: 0px;
+    --page-padding-x: 0px;
   }
 
   .app-container {
-    padding: 24px;
+    --app-container-vertical-padding: 24px;
+    --app-container-horizontal-padding: 24px;
+    --app-container-horizontal-padding-end: 24px;
     gap: 24px;
   }
 }

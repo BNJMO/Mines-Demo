@@ -1336,6 +1336,7 @@ export async function createGame(mount, opts = {}) {
     const ch = Math.max(1, root.clientHeight || cw);
 
     const size = Math.floor(Math.min(cw, ch));
+    root.style.setProperty("--game-max-size", `${size}px`);
     app.renderer.resize(size, size);
     if (!tiles.length) {
       buildBoard();
