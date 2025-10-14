@@ -289,7 +289,7 @@
 }
 
 .control-gems-value {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 1rem;
 }
 
@@ -339,8 +339,8 @@
 .auto-number-infinity {
   position: absolute;
   right: calc(var(--control-bet-stepper-offset) + 20px);
-  width: 18px;
-  height: auto;
+  width: auto;
+  height: 1em;
   display: block;
   object-fit: contain;
   opacity: 0;
@@ -416,7 +416,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #1f2024;
+  background: #1a191d;
   border-radius: 10px;
   padding: 0;
 }
@@ -429,7 +429,6 @@
   background: #000000;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #2f3136;
 }
 
 .auto-mode-toggle-btn {
@@ -441,6 +440,7 @@
   font-weight: 600;
   padding: 10px 14px;
   margin: 4px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
@@ -482,13 +482,13 @@
 }
 
 .auto-advanced-summary-value {
-  color: #ffffff;
+  color: #9a9da6;
   font-weight: 400;
 }
 
 .auto-percentage-icon {
-  width: 18px;
-  height: auto;
+  width: auto;
+  height: 1em;
   display: block;
   object-fit: contain;
 }
