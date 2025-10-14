@@ -7,7 +7,7 @@
 
 .game-container {
   flex: 1 1 640px;
-  background: #0c0b0f;
+  background: #091b26;
   border-radius: 20px;
   border: 1px solid #223845;
   position: relative;
@@ -24,7 +24,7 @@
   height: 100%;
   min-height: 480px;
   position: relative;
-  background: #0c0b0f;
+  background: #091b26;
   display: flex;
   align-items: center;
   justify-content: center;
