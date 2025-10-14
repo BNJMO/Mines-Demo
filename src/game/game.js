@@ -1337,7 +1337,11 @@ export async function createGame(mount, opts = {}) {
 
     const size = Math.floor(Math.min(cw, ch));
     app.renderer.resize(size, size);
-    layoutBoard();
+    if (!tiles.length) {
+      buildBoard();
+    } else {
+      layoutBoard();
+    }
     centerBoard();
     positionWinPopup();
   }
