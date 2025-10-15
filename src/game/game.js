@@ -25,27 +25,28 @@ import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
-  appBg: 0x020401, // page/canvas background
-  tileBase: 0x363636, // main tile face
-  tileInset: 0x363636, // inner inset
-  tileStroke: 0x232323, // subtle outline
+  appBg: 0x091B26, // page/canvas background
+  tileBase: 0x2B4756, // main tile face
+  tileInset: 0x2B4756, // inner inset
+  tileStroke: 0x080E11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x2f2f2f, // visible lip beneath tile face
+  tileElevationBase: 0x1B2931, // visible lip beneath tile face
   tileElevationShadow: 0x091B26, // soft drop shadow
-  hover: 0x666666, // hover
+  hover: 0x528AA5, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x141414, // outer
-  safeAUnrevealed: 0x141414,
-  safeB: 0x141414, // inner
-  safeBUnrevealed: 0x141414,
-  bombA: 0x141414,
-  bombAUnrevealed: 0x141414,
-  bombB: 0x141414,
-  bombBUnrevealed: 0x141414,
+  safeA: 0x0F181E, // outer
+  safeAUnrevealed: 0x0F181E,
+  safeB: 0x0F181E, // inner
+  safeBUnrevealed: 0x0F181E,
+  bombA: 0x0F181E,
+  bombAUnrevealed: 0x0F181E,
+  bombB: 0x0F181E,
+  bombBUnrevealed: 0x0F181E,
   winPopupBorder: 0xeaff00,
-  winPopupBackground: 0x0f0f0f,
+  winPopupBackground: 0x091B26,
   winPopupMultiplierText: 0xeaff00,
+  winPopupSeparationLine: 0x1B2931,
 };
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
@@ -394,7 +395,7 @@ export async function createGame(mount, opts = {}) {
         centerLineWidth,
         centerLineThickness
       )
-      .fill(0x323232);
+      .fill(PALETTE.winPopupSeparationLine);
 
     const multiplierText = new Text({
       text: "1.00×",
