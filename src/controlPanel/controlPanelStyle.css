@@ -166,7 +166,6 @@
   --control-bet-stepper-offset: clamp(28px, 14%, 72px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
   padding: 14px var(--control-bet-padding-right) 14px 16px;
-  box-shadow: var(--control-elevation-shadow);
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
