@@ -72,3 +72,10 @@ body {
     gap: 24px;
   }
 }
+
+@media (orientation: portrait) {
+  .app-container {
+    padding: 8px;
+    padding-right: 4px;
+  }
+}
