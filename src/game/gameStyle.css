@@ -99,14 +99,9 @@
     padding-top: 2px;
     align-items: center;
     justify-content: center;
-    min-height: unset;
-    max-height: none;
-    height: fit-content;
   }
 
   #game {
-    height: fit-content;
     justify-content: center;
-    min-height: unset;
   }
 }
