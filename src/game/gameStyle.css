@@ -79,6 +79,7 @@
   .game-container {
     order: 1;
     max-height: 380px;
+    padding-top: 0px;
   }
 }
 
@@ -90,5 +91,11 @@
 
   #game {
     min-height: 360px;
+  }
+}
+
+@media (orientation: portrait) {
+  .game-container {
+    padding-top: 2px;
   }
 }
