@@ -97,5 +97,11 @@
 @media (orientation: portrait) {
   .game-container {
     padding-top: 2px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #game {
+    justify-content: center;
   }
 }
