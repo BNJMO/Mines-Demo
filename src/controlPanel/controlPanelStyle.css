@@ -554,6 +554,10 @@
     display: none;
   }
 
+  .control-mode-section--manual {
+    display: contents;
+  }
+
   #betBtn.control-bet-btn {
     order: -2;
   }
