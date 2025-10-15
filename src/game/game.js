@@ -1292,8 +1292,8 @@ export async function createGame(mount, opts = {}) {
 
   function layoutSizes() {
     const canvasSize = Math.min(app.renderer.width, app.renderer.height);
-    const topSpace = 32;
-    const boardSpace = Math.max(40, canvasSize - topSpace - 10);
+    const topSpace = 16;
+    const boardSpace = Math.max(40, canvasSize - topSpace - 5);
     const gap = Math.max(1, Math.floor(boardSpace * gapBetweenTiles));
     const totalGaps = gap * (GRID - 1);
     const tileSize = Math.floor((boardSpace - totalGaps) / GRID);
