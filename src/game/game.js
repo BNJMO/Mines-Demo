@@ -50,7 +50,6 @@ const PALETTE = {
 };
 
 const AUTO_SELECTION_COLOR = 0x5800a5;
-const AUTO_SELECTION_TINT = AUTO_SELECTION_COLOR;
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
   const start = performance.now();
@@ -109,7 +108,7 @@ export async function createGame(mount, opts = {}) {
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
-  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1000);
+  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
@@ -753,10 +752,12 @@ export async function createGame(mount, opts = {}) {
       const size = tile._tileSize;
       const r = tile._tileRadius;
       const pad = tile._tilePad;
-      const faceColor = on ? PALETTE.hover : PALETTE.tileBase;
-      flipFace(card, size, size, r, faceColor);
-      const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
-      flipInset(inset, size, size, r, pad, insetColor);
+      if (on) {
+        flipFace(card, size, size, r, PALETTE.hover);
+        flipInset(inset, size, size, r, pad, PALETTE.hover);
+      } else {
+        refreshTileTint(tile);
+      }
     }
 
     tween(app, {
@@ -848,6 +849,35 @@ export async function createGame(mount, opts = {}) {
     }
   }
 
+  function paintTileBase(graphic, size, radius, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
+    }
+
+    graphic
+      .clear()
+      .roundRect(0, 0, size, size, radius)
+      .fill(color)
+      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
+  }
+
+  function paintTileInset(graphic, size, radius, pad, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
+    }
+
+    graphic
+      .clear()
+      .roundRect(
+        pad,
+        pad,
+        size - pad * 2,
+        size - pad * 2,
+        Math.max(8, radius - 6)
+      )
+      .fill(color);
+  }
+
   function applyTileTint(tile, tint) {
     if (!tile) return;
     if (tile._inset) {
@@ -859,8 +889,45 @@ export async function createGame(mount, opts = {}) {
   }
 
   function refreshTileTint(tile) {
-    const tint = tile?.isAutoSelected ? AUTO_SELECTION_TINT : PALETTE.defaultTint;
-    applyTileTint(tile, tint);
+    if (!tile) return;
+
+    const card = tile._card;
+    const inset = tile._inset;
+
+    if (!card && !inset) {
+      return;
+    }
+
+    if (tile.revealed) {
+      if (card) {
+        card.tint = PALETTE.defaultTint;
+      }
+      if (inset) {
+        inset.tint = PALETTE.defaultTint;
+      }
+      return;
+    }
+
+    const size = tile._tileSize;
+    const radius = tile._tileRadius;
+    const pad = tile._tilePad;
+
+    const baseColor = tile.isAutoSelected
+      ? AUTO_SELECTION_COLOR
+      : PALETTE.tileBase;
+    const insetColor = tile.isAutoSelected
+      ? AUTO_SELECTION_COLOR
+      : PALETTE.tileInset;
+
+    paintTileBase(card, size, radius, baseColor);
+    paintTileInset(inset, size, radius, pad, insetColor);
+
+    if (card) {
+      card.tint = PALETTE.defaultTint;
+    }
+    if (inset) {
+      inset.tint = PALETTE.defaultTint;
+    }
   }
 
   function notifyAutoSelectionChange() {
@@ -957,20 +1024,11 @@ export async function createGame(mount, opts = {}) {
     elevationLip.y = lipOffset;
     elevationLip.alpha = 0.85;
 
-    const card = new Graphics()
-      .roundRect(0, 0, size, size, raduis)
-      .fill(PALETTE.tileBase)
-      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
+    const card = new Graphics();
+    paintTileBase(card, size, raduis, PALETTE.tileBase);
 
-    const inset = new Graphics()
-      .roundRect(
-        pad,
-        pad,
-        size - pad * 2,
-        size - pad * 2,
-        Math.max(8, raduis - 6)
-      )
-      .fill(PALETTE.tileInset);
+    const inset = new Graphics();
+    paintTileInset(inset, size, raduis, pad, PALETTE.tileInset);
 
     const icon = new Sprite();
     icon.anchor.set(0.5);
