@@ -108,6 +108,7 @@ export async function createGame(mount, opts = {}) {
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
+  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 3000);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
@@ -1168,6 +1169,7 @@ export async function createGame(mount, opts = {}) {
     onChange(getState());
 
     if (!bombHit && revealedSafe < totalSafe) {
+      revealAllTiles();
       onWin();
     }
   }
@@ -1550,6 +1552,45 @@ export async function createGame(mount, opts = {}) {
     clearAutoSelections();
   }
 
+  function applyAutoSelectionsFromCoordinates(coordinates = [], { emit = true } = {}) {
+    const list = Array.isArray(coordinates) ? coordinates : [];
+    if (list.length === 0) {
+      clearAutoSelections({ emit });
+      return 0;
+    }
+
+    const tileMap = new Map(
+      tiles.map((tile) => [`${tile.row},${tile.col}`, tile])
+    );
+
+    clearAutoSelections({ emit: false });
+
+    let applied = 0;
+    for (const entry of list) {
+      const key = `${entry.row},${entry.col}`;
+      const tile = tileMap.get(key);
+      if (!tile || tile.revealed || tile._animating) {
+        continue;
+      }
+      setAutoTileSelected(tile, true, { emit: false });
+      applied += 1;
+    }
+
+    if (emit) {
+      notifyAutoSelectionChange();
+    }
+
+    return applied;
+  }
+
+  function revealRemainingTiles() {
+    revealAllTiles();
+  }
+
+  function getAutoResetDelay() {
+    return autoResetDelayMs;
+  }
+
   resizeSquare();
   // Kick one extra layout tick after mount to cover late size changes
   setTimeout(resizeSquare, 0);
@@ -1569,6 +1610,9 @@ export async function createGame(mount, opts = {}) {
     getAutoSelections: getAutoSelectionCoordinates,
     revealAutoSelections,
     clearAutoSelections,
+    applyAutoSelections: applyAutoSelectionsFromCoordinates,
+    revealRemainingTiles,
+    getAutoResetDelay,
     showWinPopup: spawnWinPopup,
   };
 }
