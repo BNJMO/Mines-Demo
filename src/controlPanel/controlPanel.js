@@ -987,6 +987,9 @@ export class ControlPanel extends EventTarget {
     if (this.betInput) {
       this.betInput.disabled = !isEnabled;
     }
+    if (this.betBox) {
+      this.betBox.classList.toggle("is-disabled", !isEnabled);
+    }
     if (this.betInputWrapper) {
       this.betInputWrapper.classList.toggle("is-disabled", !isEnabled);
     }

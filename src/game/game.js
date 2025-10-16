@@ -728,12 +728,15 @@ export async function createGame(mount, opts = {}) {
   }
 
   function hoverTile(tile, on) {
-    if (!hoverEnabled || tile._animating) return;
+    if (!hoverEnabled || !tile || tile._animating) return;
 
-    const startScale = tile._wrap.scale.x;
+    const wrap = tile._wrap;
+    if (!wrap) return;
+
+    const startScale = wrap.scale.x;
     const endScale = on ? 1.03 : 1.0;
 
-    const startSkew = getSkew(tile._wrap);
+    const startSkew = getSkew(wrap);
     const endSkew = on ? hoverSkewAmount : 0;
 
     const startY = tile.y;
@@ -745,31 +748,47 @@ export async function createGame(mount, opts = {}) {
     // Change color
     const card = tile._card;
     const inset = tile._inset;
-    const size = tile._tileSize;
-    const r = tile._tileRadius;
-    const pad = tile._tilePad;
-    const faceColor = on ? PALETTE.hover : PALETTE.tileBase;
-    flipFace(card, size, size, r, faceColor);
-    const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
-    flipInset(inset, size, size, r, pad, insetColor);
+    if (card && inset) {
+      const size = tile._tileSize;
+      const r = tile._tileRadius;
+      const pad = tile._tilePad;
+      const faceColor = on ? PALETTE.hover : PALETTE.tileBase;
+      flipFace(card, size, size, r, faceColor);
+      const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
+      flipInset(inset, size, size, r, pad, insetColor);
+    }
 
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
       ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
+        if (!tile || tile.destroyed) return;
+        const wrap = tile._wrap;
+        if (!wrap) return;
         if (tile._hoverToken !== token) return;
+        const scale = wrap.scale;
+        if (!scale) return;
         const s = startScale + (endScale - startScale) * p;
-        tile._wrap.scale.x = tile._wrap.scale.y = s;
+        scale.x = scale.y = s;
 
         const k = startSkew + (endSkew - startSkew) * p;
-        setSkew(tile._wrap, k);
+        setSkew(wrap, k);
 
         tile.y = startY + (endY - startY) * p;
       },
       complete: () => {
+        if (!tile || tile.destroyed) return;
+        const wrap = tile._wrap;
+        if (!wrap) return;
         if (tile._hoverToken !== token) return;
-        tile._wrap.scale.set(endScale);
-        setSkew(tile._wrap, endSkew);
+        const scale = wrap.scale;
+        if (!scale) return;
+        if (typeof scale.set === "function") {
+          scale.set(endScale);
+        } else {
+          scale.x = scale.y = endScale;
+        }
+        setSkew(wrap, endSkew);
         tile.y = endY;
       },
     });
