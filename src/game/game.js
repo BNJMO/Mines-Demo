@@ -521,6 +521,11 @@ export async function createGame(mount, opts = {}) {
 
     playSoundEffect("win");
 
+    if (disableAnimations) {
+      winPopup.container.scale.set(1);
+      return;
+    }
+
     tween(app, {
       duration: winPopupShowDuration,
       skipUpdate: disableAnimations,
@@ -751,6 +756,13 @@ export async function createGame(mount, opts = {}) {
     const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
     flipInset(inset, size, size, r, pad, insetColor);
 
+    if (disableAnimations) {
+      tile._wrap.scale.set(endScale);
+      setSkew(tile._wrap, endSkew);
+      tile.y = endY;
+      return;
+    }
+
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
       skipUpdate: disableAnimations,
@@ -891,18 +903,22 @@ export async function createGame(mount, opts = {}) {
     // Spwan animation
     const s0 = 0.0001;
     flipWrap.scale?.set?.(s0);
-    tween(app, {
-      duration: cardsSpawnDuration,
-      skipUpdate: disableAnimations,
-      ease: (x) => Ease.easeOutBack(x),
-      update: (p) => {
-        const s = s0 + (1 - s0) * p;
-        flipWrap.scale?.set?.(s);
-      },
-      complete: () => {
-        flipWrap.scale?.set?.(1, 1);
-      },
-    });
+    if (disableAnimations) {
+      flipWrap.scale?.set?.(1, 1);
+    } else {
+      tween(app, {
+        duration: cardsSpawnDuration,
+        skipUpdate: disableAnimations,
+        ease: (x) => Ease.easeOutBack(x),
+        update: (p) => {
+          const s = s0 + (1 - s0) * p;
+          flipWrap.scale?.set?.(s);
+        },
+        complete: () => {
+          flipWrap.scale?.set?.(1, 1);
+        },
+      });
+    }
 
     t.on("pointerover", () => {
       const untapedCount = tiles.filter((t) => !t.taped).length;
@@ -1267,6 +1283,11 @@ export async function createGame(mount, opts = {}) {
     unrevealed.forEach((t, idx) => {
       const key = `${t.row},${t.col}`;
       const isBomb = bombPositions.has(key);
+
+      if (disableAnimations) {
+        revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
+        return;
+      }
 
       // stagger them slightly for effect
       setTimeout(() => {
