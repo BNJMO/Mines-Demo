@@ -391,6 +391,7 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
   setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
   minesSelectionLocked = false;
+  setControlPanelMinesState(true);
 
   if (autoRunActive) {
     setControlPanelBetState(false);
@@ -444,7 +445,22 @@ function handleCashout() {
 }
 
 function handleBet() {
-  game?.reset?.();
+  const selectedMines = controlPanel?.getMinesValue?.();
+  const maxMines = controlPanel?.getMaxMines?.();
+  const normalized = Math.floor(Number(selectedMines));
+  let mines = Number.isFinite(normalized) ? normalized : 1;
+  mines = Math.max(1, mines);
+  if (Number.isFinite(maxMines)) {
+    mines = Math.min(mines, maxMines);
+  }
+
+  opts.mines = mines;
+
+  if (typeof game?.setMines === "function") {
+    game.setMines(mines);
+  } else {
+    game?.reset?.();
+  }
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
 }
@@ -736,19 +752,20 @@ const opts = {
     controlPanel.addEventListener("mineschanged", (event) => {
       const mines = event.detail.value;
       opts.mines = mines;
-      finalizeRound();
-      storedAutoSelections = [];
-      game?.clearAutoSelections?.();
-      game?.setMines?.(mines);
-      if (controlPanelMode === "auto" && !autoRunActive) {
-        prepareForNewRoundState({ preserveAutoSelections: true });
-      }
+      // finalizeRound();
+      // storedAutoSelections = [];
+      // game?.clearAutoSelections?.();
+      // game?.setMines?.(mines);
+      // if (controlPanelMode === "auto" && !autoRunActive) {
+      //   prepareForNewRoundState({ preserveAutoSelections: true });
+      // }
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     finalizeRound();
     controlPanel.setBetAmountDisplay("$0.00");
+    controlPanel.setTotalProfitMultiplier(0.0);
     controlPanel.setProfitOnWinDisplay("$0.00");
     controlPanel.setProfitValue("0.00000000");
     handleAutoSelectionChange(autoSelectionCount);

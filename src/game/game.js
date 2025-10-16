@@ -25,37 +25,43 @@ import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
-  appBg: 0x091B26, // page/canvas background
-  tileBase: 0x2B4756, // main tile face
-  tileInset: 0x2B4756, // inner inset
-  tileStroke: 0x080E11, // subtle outline
+  appBg: 0x091b26, // page/canvas background
+  tileBase: 0x2b4756, // main tile face
+  tileInset: 0x2b4756, // inner inset
+  tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x1B2931, // visible lip beneath tile face
-  tileElevationShadow: 0x091B26, // soft drop shadow
-  hover: 0x528AA5, // hover
+  tileElevationBase: 0x1b2931, // visible lip beneath tile face
+  tileElevationShadow: 0x091b26, // soft drop shadow
+  hover: 0x528aa5, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x0F181E, // outer
-  safeAUnrevealed: 0x0F181E,
-  safeB: 0x0F181E, // inner
-  safeBUnrevealed: 0x0F181E,
-  bombA: 0x0F181E,
-  bombAUnrevealed: 0x0F181E,
-  bombB: 0x0F181E,
-  bombBUnrevealed: 0x0F181E,
+  safeA: 0x0f181e, // outer
+  safeAUnrevealed: 0x0f181e,
+  safeB: 0x0f181e, // inner
+  safeBUnrevealed: 0x0f181e,
+  bombA: 0x0f181e,
+  bombAUnrevealed: 0x0f181e,
+  bombB: 0x0f181e,
+  bombBUnrevealed: 0x0f181e,
   winPopupBorder: 0xeaff00,
-  winPopupBackground: 0x091B26,
+  winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
-  winPopupSeparationLine: 0x1B2931,
+  winPopupSeparationLine: 0x1b2931,
 };
 
 const AUTO_SELECTION_COLOR = 0x5800a5;
 
-function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
+function tween(
+  app,
+  { duration = 300, update, complete, ease = (t) => t, skipUpdate = false }
+) {
   const start = performance.now();
   const step = () => {
     const t = Math.min(1, (performance.now() - start) / duration);
-    update?.(ease(t));
+    if (!skipUpdate || t >= 1) {
+      const progress = skipUpdate && t >= 1 ? 1 : t;
+      update?.(ease(progress));
+    }
     if (t >= 1) {
       app.ticker.remove(step);
       complete?.();
@@ -113,6 +119,7 @@ export async function createGame(mount, opts = {}) {
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
   // Animation Options
+  const disableAnimations = opts.disableAnimations ?? false;
   /* Card Hover */
   const hoverEnabled = opts.hoverEnabled ?? true;
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
@@ -525,8 +532,14 @@ export async function createGame(mount, opts = {}) {
 
     playSoundEffect("win");
 
+    if (disableAnimations) {
+      winPopup.container.scale.set(1);
+      return;
+    }
+
     tween(app, {
       duration: winPopupShowDuration,
+      skipUpdate: disableAnimations,
       ease: (t) => Ease.easeOutQuad(t),
       update: (p) => {
         winPopup.container.scale.set(p);
@@ -683,6 +696,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration,
+      skipUpdate: disableAnimations,
       ease: (t) => t,
       update: (p) => {
         const decay = Math.exp(-5 * p);
@@ -760,8 +774,16 @@ export async function createGame(mount, opts = {}) {
       }
     }
 
+    if (disableAnimations) {
+      tile._wrap.scale.set(endScale);
+      setSkew(tile._wrap, endSkew);
+      tile.y = endY;
+      return;
+    }
+
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
+      skipUpdate: disableAnimations,
       ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
         if (!tile || tile.destroyed) return;
@@ -810,6 +832,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration: wiggleSelectionDuration,
+      skipUpdate: disableAnimations,
       ease: (p) => p,
       update: (p) => {
         if (t._wiggleToken !== token) return;
@@ -1064,17 +1087,22 @@ export async function createGame(mount, opts = {}) {
     // Spwan animation
     const s0 = 0.0001;
     flipWrap.scale?.set?.(s0);
-    tween(app, {
-      duration: cardsSpawnDuration,
-      ease: (x) => Ease.easeOutBack(x),
-      update: (p) => {
-        const s = s0 + (1 - s0) * p;
-        flipWrap.scale?.set?.(s);
-      },
-      complete: () => {
-        flipWrap.scale?.set?.(1, 1);
-      },
-    });
+    if (disableAnimations) {
+      flipWrap.scale?.set?.(1, 1);
+    } else {
+      tween(app, {
+        duration: cardsSpawnDuration,
+        skipUpdate: disableAnimations,
+        ease: (x) => Ease.easeOutBack(x),
+        update: (p) => {
+          const s = s0 + (1 - s0) * p;
+          flipWrap.scale?.set?.(s);
+        },
+        complete: () => {
+          flipWrap.scale?.set?.(1, 1);
+        },
+      });
+    }
 
     t.on("pointerover", () => {
       const autoMode = isAutoModeActive();
@@ -1402,6 +1430,7 @@ export async function createGame(mount, opts = {}) {
 
       tween(app, {
         duration: flipDuration,
+        skipUpdate: disableAnimations,
         ease: (t) => easeFlip(t),
         update: (t) => {
           if (
@@ -1553,7 +1582,7 @@ export async function createGame(mount, opts = {}) {
       const key = `${t.row},${t.col}`;
       const isBomb = bombPositions.has(key);
 
-      if (stagger && revealAllIntervalDelay > 0) {
+      if (stagger && revealAllIntervalDelay > 0 && !disableAnimations) {
         setTimeout(() => {
           revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
         }, revealAllIntervalDelay * idx);
@@ -1677,7 +1706,10 @@ export async function createGame(mount, opts = {}) {
     clearAutoSelections();
   }
 
-  function applyAutoSelectionsFromCoordinates(coordinates = [], { emit = true } = {}) {
+  function applyAutoSelectionsFromCoordinates(
+    coordinates = [],
+    { emit = true } = {}
+  ) {
     const list = Array.isArray(coordinates) ? coordinates : [];
     if (list.length === 0) {
       clearAutoSelections({ emit });

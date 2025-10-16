@@ -27,6 +27,8 @@ export class ControlPanel extends EventTarget {
     this.options = {
       betAmountLabel: options.betAmountLabel ?? "Bet Amount",
       profitOnWinLabel: options.profitOnWinLabel ?? "Profit on Win",
+      initialTotalProfitMultiplier:
+        options.initialTotalProfitMultiplier ?? 1,
       initialBetValue: options.initialBetValue ?? "0.00000000",
       initialBetAmountDisplay: options.initialBetAmountDisplay ?? "$0.00",
       initialProfitOnWinDisplay: options.initialProfitOnWinDisplay ?? "$0.00",
@@ -51,6 +53,8 @@ export class ControlPanel extends EventTarget {
     this.minesSelectState = "clickable";
     this.autoStartButtonState = "non-clickable";
     this.autoStartButtonMode = "start";
+
+    this.totalProfitMultiplier = 1;
 
     const totalTilesOption = Number(this.options.totalTiles);
     const normalizedTotalTiles =
@@ -90,6 +94,7 @@ export class ControlPanel extends EventTarget {
 
     this.setBetAmountDisplay(this.options.initialBetAmountDisplay);
     this.setProfitOnWinDisplay(this.options.initialProfitOnWinDisplay);
+    this.setTotalProfitMultiplier(this.options.initialTotalProfitMultiplier);
     this.setProfitValue(this.options.initialProfitValue);
     this.setBetInputValue(this.options.initialBetValue, { emit: false });
     this.refreshMinesOptions({ emit: false });
@@ -622,10 +627,10 @@ export class ControlPanel extends EventTarget {
     const row = document.createElement("div");
     row.className = "control-row";
 
-    const label = document.createElement("span");
-    label.className = "control-row-label";
-    label.textContent = this.options.profitOnWinLabel;
-    row.appendChild(label);
+    this.profitOnWinLabel = document.createElement("span");
+    this.profitOnWinLabel.className = "control-row-label";
+    row.appendChild(this.profitOnWinLabel);
+    this.updateTotalProfitLabel();
 
     this.profitOnWinValue = document.createElement("span");
     this.profitOnWinValue.className = "control-row-value";
@@ -633,6 +638,19 @@ export class ControlPanel extends EventTarget {
 
     const parent = this.manualSection ?? this.container;
     parent.appendChild(row);
+  }
+
+  updateTotalProfitLabel() {
+    if (!this.profitOnWinLabel) return;
+    const formattedMultiplier = this.totalProfitMultiplier.toFixed(2);
+    this.profitOnWinLabel.textContent = `Total Profit(${formattedMultiplier}x)`;
+  }
+
+  setTotalProfitMultiplier(value) {
+    const numeric = Number(value);
+    const normalized = Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
+    this.totalProfitMultiplier = normalized;
+    this.updateTotalProfitLabel();
   }
 
   buildProfitDisplay() {
