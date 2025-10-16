@@ -52,6 +52,7 @@ export class ControlPanel extends EventTarget {
     this.randomPickButtonState = "clickable";
     this.minesSelectState = "clickable";
     this.autoStartButtonState = "non-clickable";
+    this.autoStartButtonMode = "start";
 
     this.totalProfitMultiplier = 1;
 
@@ -103,6 +104,8 @@ export class ControlPanel extends EventTarget {
     this.updateNumberOfBetsIcon();
     this.updateOnWinMode();
     this.updateOnLossMode();
+
+    this.setupResponsiveLayout();
   }
 
   buildToggle() {
@@ -385,6 +388,10 @@ export class ControlPanel extends EventTarget {
     this.autoStartButton.className =
       "control-bet-btn control-start-autobet-btn";
     this.autoStartButton.textContent = "Start Autobet";
+    this.autoStartButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("startautobet"));
+    });
+
     this.autoSection.appendChild(this.autoStartButton);
 
     this.setAutoStartButtonState(this.autoStartButtonState);
@@ -392,6 +399,7 @@ export class ControlPanel extends EventTarget {
     this.isAdvancedEnabled = false;
     this.onWinMode = "reset";
     this.onLossMode = "reset";
+    this.strategyControlsNonClickable = false;
   }
 
   createSectionLabel(text) {
@@ -694,6 +702,56 @@ export class ControlPanel extends EventTarget {
     if (this.autoSection) {
       this.autoSection.hidden = this.mode !== "auto";
     }
+    if (this.autoStartButton) {
+      this.autoStartButton.hidden = this.mode !== "auto";
+    }
+  }
+
+  setupResponsiveLayout() {
+    if (!this.container) return;
+
+    const query = window.matchMedia(
+      "(max-width: 1100px), (orientation: portrait)"
+    );
+    this._layoutMediaQuery = query;
+    this._onMediaQueryChange = () => this.updateResponsiveLayout();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", this._onMediaQueryChange);
+    } else if (typeof query.addListener === "function") {
+      query.addListener(this._onMediaQueryChange);
+    }
+
+    this.updateResponsiveLayout();
+  }
+
+  updateResponsiveLayout() {
+    if (!this.container) return;
+    const isPortrait = Boolean(this._layoutMediaQuery?.matches);
+    this.container.classList.toggle("is-portrait", isPortrait);
+
+    if (!this.autoStartButton || !this.toggleWrapper) {
+      return;
+    }
+
+    if (isPortrait) {
+      this.container.insertBefore(
+        this.autoStartButton,
+        this.container.firstChild
+      );
+      if (this.gameName) {
+        this.container.insertBefore(this.toggleWrapper, this.gameName);
+      } else {
+        this.container.appendChild(this.toggleWrapper);
+      }
+    } else {
+      this.container.insertBefore(this.toggleWrapper, this.container.firstChild);
+      if (this.autoSection) {
+        this.autoSection.appendChild(this.autoStartButton);
+      } else {
+        this.container.appendChild(this.autoStartButton);
+      }
+    }
   }
 
   sanitizeNumberOfBets() {
@@ -764,10 +822,14 @@ export class ControlPanel extends EventTarget {
   updateStrategyButtons(mode, resetButton, increaseButton, input, field) {
     if (!resetButton || !increaseButton || !input || !field) return;
     const isIncrease = mode === "increase";
+    const controlsNonClickable = Boolean(this.strategyControlsNonClickable);
     resetButton.classList.toggle("is-active", !isIncrease);
     increaseButton.classList.toggle("is-active", isIncrease);
-    input.disabled = !isIncrease;
-    field.classList.toggle("is-disabled", !isIncrease);
+    resetButton.disabled = controlsNonClickable;
+    increaseButton.disabled = controlsNonClickable;
+    const allowInput = !controlsNonClickable && isIncrease;
+    input.disabled = !allowInput;
+    field.classList.toggle("is-non-clickable", !allowInput);
   }
 
   adjustBetValue(delta) {
@@ -910,6 +972,119 @@ export class ControlPanel extends EventTarget {
     this.minesSelect.disabled = !isClickable;
     this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
     this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
+  }
+
+  setAutoStartButtonMode(mode) {
+    if (!this.autoStartButton) return;
+    const normalized =
+      mode === "stop" ? "stop" : mode === "finish" ? "finish" : "start";
+    this.autoStartButtonMode = normalized;
+    this.autoStartButton.textContent =
+      normalized === "stop"
+        ? "Stop Autobet"
+        : normalized === "finish"
+        ? "Finishin Bet"
+        : "Start Autobet";
+    this.autoStartButton.dataset.mode = normalized;
+  }
+
+  setModeToggleClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.manualButton) {
+      this.manualButton.disabled = !clickable;
+      this.manualButton.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.autoButton) {
+      this.autoButton.disabled = !clickable;
+      this.autoButton.classList.toggle("is-non-clickable", !clickable);
+    }
+  }
+
+  setBetControlsClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.betInput) {
+      this.betInput.disabled = !clickable;
+    }
+    if (this.betBox) {
+      this.betBox.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.betInputWrapper) {
+      this.betInputWrapper.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.betStepper?.setClickable) {
+      this.betStepper.setClickable(clickable);
+    }
+    if (this.halfButton) {
+      this.halfButton.disabled = !clickable;
+      this.halfButton.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.doubleButton) {
+      this.doubleButton.disabled = !clickable;
+      this.doubleButton.classList.toggle("is-non-clickable", !clickable);
+    }
+  }
+
+  getNumberOfBetsValue() {
+    if (!this.autoNumberOfBetsInput) return 0;
+    const numeric = Number(this.autoNumberOfBetsInput.value);
+    return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
+  }
+
+  setNumberOfBetsValue(value) {
+    if (!this.autoNumberOfBetsInput) return;
+    const normalized = Math.max(0, Math.floor(Number(value) || 0));
+    this.autoNumberOfBetsInput.value = String(normalized);
+    this.updateNumberOfBetsIcon();
+  }
+
+  setNumberOfBetsClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.autoNumberOfBetsField) {
+      this.autoNumberOfBetsField.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.autoNumberOfBetsInput) {
+      this.autoNumberOfBetsInput.disabled = !clickable;
+      this.autoNumberOfBetsInput.classList.toggle("is-non-clickable", !clickable);
+    }
+    if (this.autoNumberOfBetsStepper?.setClickable) {
+      this.autoNumberOfBetsStepper.setClickable(clickable);
+    }
+  }
+
+  setAdvancedToggleClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.autoAdvancedToggle) {
+      this.autoAdvancedToggle.disabled = !clickable;
+      this.autoAdvancedToggle.classList.toggle("is-non-clickable", !clickable);
+    }
+  }
+
+  setAdvancedStrategyControlsClickable(isClickable) {
+    this.strategyControlsNonClickable = !isClickable;
+    this.updateOnWinMode();
+    this.updateOnLossMode();
+  }
+
+  setStopOnProfitClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.autoStopOnProfitField?.input) {
+      this.autoStopOnProfitField.input.disabled = !clickable;
+      this.autoStopOnProfitField.wrapper.classList.toggle(
+        "is-non-clickable",
+        !clickable
+      );
+    }
+  }
+
+  setStopOnLossClickable(isClickable) {
+    const clickable = Boolean(isClickable);
+    if (this.autoStopOnLossField?.input) {
+      this.autoStopOnLossField.input.disabled = !clickable;
+      this.autoStopOnLossField.wrapper.classList.toggle(
+        "is-non-clickable",
+        !clickable
+      );
+    }
   }
 
   getMode() {

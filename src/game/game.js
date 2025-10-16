@@ -25,29 +25,31 @@ import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
-  appBg: 0x091B26, // page/canvas background
-  tileBase: 0x2B4756, // main tile face
-  tileInset: 0x2B4756, // inner inset
-  tileStroke: 0x080E11, // subtle outline
+  appBg: 0x091b26, // page/canvas background
+  tileBase: 0x2b4756, // main tile face
+  tileInset: 0x2b4756, // inner inset
+  tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x1B2931, // visible lip beneath tile face
-  tileElevationShadow: 0x091B26, // soft drop shadow
-  hover: 0x528AA5, // hover
+  tileElevationBase: 0x1b2931, // visible lip beneath tile face
+  tileElevationShadow: 0x091b26, // soft drop shadow
+  hover: 0x528aa5, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x0F181E, // outer
-  safeAUnrevealed: 0x0F181E,
-  safeB: 0x0F181E, // inner
-  safeBUnrevealed: 0x0F181E,
-  bombA: 0x0F181E,
-  bombAUnrevealed: 0x0F181E,
-  bombB: 0x0F181E,
-  bombBUnrevealed: 0x0F181E,
+  safeA: 0x0f181e, // outer
+  safeAUnrevealed: 0x0f181e,
+  safeB: 0x0f181e, // inner
+  safeBUnrevealed: 0x0f181e,
+  bombA: 0x0f181e,
+  bombAUnrevealed: 0x0f181e,
+  bombB: 0x0f181e,
+  bombBUnrevealed: 0x0f181e,
   winPopupBorder: 0xeaff00,
-  winPopupBackground: 0x091B26,
+  winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
-  winPopupSeparationLine: 0x1B2931,
+  winPopupSeparationLine: 0x1b2931,
 };
+
+const AUTO_SELECTION_COLOR = 0x5800a5;
 
 function tween(
   app,
@@ -96,6 +98,12 @@ export async function createGame(mount, opts = {}) {
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400);
   const onCardSelected = opts.onCardSelected ?? null;
+  const getMode =
+    typeof opts.getMode === "function" ? () => opts.getMode() : () => "manual";
+  const onAutoSelectionChange =
+    typeof opts.onAutoSelectionChange === "function"
+      ? (count) => opts.onAutoSelectionChange(count)
+      : () => {};
   const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
 
   // Visuals
@@ -106,6 +114,7 @@ export async function createGame(mount, opts = {}) {
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
+  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
@@ -273,6 +282,8 @@ export async function createGame(mount, opts = {}) {
   let totalSafe = GRID * GRID - mines;
   let waitingForChoice = false;
   let selectedTile = null;
+  const autoSelectedTiles = new Set();
+  const autoSelectionOrder = [];
 
   // API callbacks
   const onWin = opts.onWin ?? (() => {});
@@ -731,12 +742,15 @@ export async function createGame(mount, opts = {}) {
   }
 
   function hoverTile(tile, on) {
-    if (!hoverEnabled || tile._animating) return;
+    if (!hoverEnabled || !tile || tile._animating) return;
 
-    const startScale = tile._wrap.scale.x;
+    const wrap = tile._wrap;
+    if (!wrap) return;
+
+    const startScale = wrap.scale.x;
     const endScale = on ? 1.03 : 1.0;
 
-    const startSkew = getSkew(tile._wrap);
+    const startSkew = getSkew(wrap);
     const endSkew = on ? hoverSkewAmount : 0;
 
     const startY = tile.y;
@@ -748,13 +762,17 @@ export async function createGame(mount, opts = {}) {
     // Change color
     const card = tile._card;
     const inset = tile._inset;
-    const size = tile._tileSize;
-    const r = tile._tileRadius;
-    const pad = tile._tilePad;
-    const faceColor = on ? PALETTE.hover : PALETTE.tileBase;
-    flipFace(card, size, size, r, faceColor);
-    const insetColor = on ? PALETTE.hover : PALETTE.tileBase;
-    flipInset(inset, size, size, r, pad, insetColor);
+    if (card && inset) {
+      const size = tile._tileSize;
+      const r = tile._tileRadius;
+      const pad = tile._tilePad;
+      if (on) {
+        flipFace(card, size, size, r, PALETTE.hover);
+        flipInset(inset, size, size, r, pad, PALETTE.hover);
+      } else {
+        refreshTileTint(tile);
+      }
+    }
 
     if (disableAnimations) {
       tile._wrap.scale.set(endScale);
@@ -768,19 +786,33 @@ export async function createGame(mount, opts = {}) {
       skipUpdate: disableAnimations,
       ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
+        if (!tile || tile.destroyed) return;
+        const wrap = tile._wrap;
+        if (!wrap) return;
         if (tile._hoverToken !== token) return;
+        const scale = wrap.scale;
+        if (!scale) return;
         const s = startScale + (endScale - startScale) * p;
-        tile._wrap.scale.x = tile._wrap.scale.y = s;
+        scale.x = scale.y = s;
 
         const k = startSkew + (endSkew - startSkew) * p;
-        setSkew(tile._wrap, k);
+        setSkew(wrap, k);
 
         tile.y = startY + (endY - startY) * p;
       },
       complete: () => {
+        if (!tile || tile.destroyed) return;
+        const wrap = tile._wrap;
+        if (!wrap) return;
         if (tile._hoverToken !== token) return;
-        tile._wrap.scale.set(endScale);
-        setSkew(tile._wrap, endSkew);
+        const scale = wrap.scale;
+        if (!scale) return;
+        if (typeof scale.set === "function") {
+          scale.set(endScale);
+        } else {
+          scale.x = scale.y = endScale;
+        }
+        setSkew(wrap, endSkew);
         tile.y = endY;
       },
     });
@@ -832,6 +864,167 @@ export async function createGame(mount, opts = {}) {
     t._animating = false;
   }
 
+  function isAutoModeActive() {
+    try {
+      return String(getMode?.() ?? "manual").toLowerCase() === "auto";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function paintTileBase(graphic, size, radius, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
+    }
+
+    graphic
+      .clear()
+      .roundRect(0, 0, size, size, radius)
+      .fill(color)
+      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
+  }
+
+  function paintTileInset(graphic, size, radius, pad, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
+    }
+
+    graphic
+      .clear()
+      .roundRect(
+        pad,
+        pad,
+        size - pad * 2,
+        size - pad * 2,
+        Math.max(8, radius - 6)
+      )
+      .fill(color);
+  }
+
+  function applyTileTint(tile, tint) {
+    if (!tile) return;
+    if (tile._inset) {
+      tile._inset.tint = tint;
+    }
+    if (tile._card) {
+      tile._card.tint = tint;
+    }
+  }
+
+  function refreshTileTint(tile) {
+    if (!tile) return;
+
+    const card = tile._card;
+    const inset = tile._inset;
+
+    if (!card && !inset) {
+      return;
+    }
+
+    if (tile.revealed) {
+      if (card) {
+        card.tint = PALETTE.defaultTint;
+      }
+      if (inset) {
+        inset.tint = PALETTE.defaultTint;
+      }
+      return;
+    }
+
+    const size = tile._tileSize;
+    const radius = tile._tileRadius;
+    const pad = tile._tilePad;
+
+    const baseColor = tile.isAutoSelected
+      ? AUTO_SELECTION_COLOR
+      : PALETTE.tileBase;
+    const insetColor = tile.isAutoSelected
+      ? AUTO_SELECTION_COLOR
+      : PALETTE.tileInset;
+
+    paintTileBase(card, size, radius, baseColor);
+    paintTileInset(inset, size, radius, pad, insetColor);
+
+    if (card) {
+      card.tint = PALETTE.defaultTint;
+    }
+    if (inset) {
+      inset.tint = PALETTE.defaultTint;
+    }
+  }
+
+  function notifyAutoSelectionChange() {
+    onAutoSelectionChange(autoSelectedTiles.size);
+  }
+
+  function setAutoTileSelected(tile, selected, { emit = true } = {}) {
+    if (!tile) return;
+
+    if (selected) {
+      if (tile.isAutoSelected) {
+        if (emit) notifyAutoSelectionChange();
+        return;
+      }
+      stopHover(tile);
+      tile.isAutoSelected = true;
+      tile.taped = true;
+      autoSelectedTiles.add(tile);
+      autoSelectionOrder.push(tile);
+    } else {
+      if (!tile.isAutoSelected) {
+        if (emit) notifyAutoSelectionChange();
+        return;
+      }
+      tile.isAutoSelected = false;
+      tile.taped = false;
+      autoSelectedTiles.delete(tile);
+      const index = autoSelectionOrder.indexOf(tile);
+      if (index >= 0) {
+        autoSelectionOrder.splice(index, 1);
+      }
+    }
+
+    tile._pressed = false;
+    refreshTileTint(tile);
+    hoverTile(tile, false);
+
+    if (emit) {
+      notifyAutoSelectionChange();
+    }
+  }
+
+  function toggleAutoTileSelection(tile) {
+    if (!tile || tile.revealed) {
+      return;
+    }
+
+    const willSelect = !tile.isAutoSelected;
+    setAutoTileSelected(tile, willSelect);
+    waitingForChoice = false;
+    selectedTile = null;
+    onChange(getState());
+  }
+
+  function clearAutoSelections({ emit = true } = {}) {
+    if (autoSelectedTiles.size === 0) {
+      if (emit) notifyAutoSelectionChange();
+      return;
+    }
+
+    for (const tile of Array.from(autoSelectedTiles)) {
+      tile.isAutoSelected = false;
+      tile.taped = false;
+      refreshTileTint(tile);
+    }
+
+    autoSelectedTiles.clear();
+    autoSelectionOrder.length = 0;
+
+    if (emit) {
+      notifyAutoSelectionChange();
+    }
+  }
+
   function createTile(row, col, size) {
     const raduis = Math.min(18, size * 0.18);
     const pad = Math.max(7, Math.floor(size * 0.08));
@@ -854,20 +1047,11 @@ export async function createGame(mount, opts = {}) {
     elevationLip.y = lipOffset;
     elevationLip.alpha = 0.85;
 
-    const card = new Graphics()
-      .roundRect(0, 0, size, size, raduis)
-      .fill(PALETTE.tileBase)
-      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
+    const card = new Graphics();
+    paintTileBase(card, size, raduis, PALETTE.tileBase);
 
-    const inset = new Graphics()
-      .roundRect(
-        pad,
-        pad,
-        size - pad * 2,
-        size - pad * 2,
-        Math.max(8, raduis - 6)
-      )
-      .fill(PALETTE.tileInset);
+    const inset = new Graphics();
+    paintTileInset(inset, size, raduis, pad, PALETTE.tileInset);
 
     const icon = new Sprite();
     icon.anchor.set(0.5);
@@ -921,71 +1105,90 @@ export async function createGame(mount, opts = {}) {
     }
 
     t.on("pointerover", () => {
-      const untapedCount = tiles.filter((t) => !t.taped).length;
-      if (untapedCount <= mines) return;
+      const autoMode = isAutoModeActive();
+      const untapedCount = tiles.filter((tile) => !tile.taped).length;
+      if (!autoMode && untapedCount <= mines) return;
+
+      const waitingBlocked = !autoMode && waitingForChoice;
 
       if (
         !gameOver &&
-        !waitingForChoice &&
+        !waitingBlocked &&
         !t.revealed &&
         !t._animating &&
         selectedTile !== t
       ) {
-        if (hoverEnabled) {
+        if (hoverEnabled && (!autoMode || !t.isAutoSelected)) {
           playSoundEffect("tileHover");
         }
-        hoverTile(t, true);
+        if (!autoMode || !t.isAutoSelected) {
+          hoverTile(t, true);
+        }
 
         if (t._pressed) {
-          t._inset.tint = PALETTE.pressedTint;
-          t._card.tint = PALETTE.pressedTint;
+          applyTileTint(t, PALETTE.pressedTint);
         }
       }
     });
     t.on("pointerdown", () => {
-      const untapedCount = tiles.filter((t) => !t.taped).length;
+      const autoMode = isAutoModeActive();
+      const untapedCount = tiles.filter((tile) => !tile.taped).length;
+      const limitReached = untapedCount <= mines;
+      const isSelectingNewAutoTile = autoMode && !t.isAutoSelected;
+
       if (
         gameOver ||
-        waitingForChoice ||
         t.revealed ||
         t._animating ||
-        untapedCount <= mines
-      )
+        (!autoMode && (waitingForChoice || limitReached)) ||
+        (autoMode && isSelectingNewAutoTile && limitReached)
+      ) {
         return;
+      }
 
       playSoundEffect("tileTapDown");
-      t._inset.tint = PALETTE.pressedTint;
-      t._card.tint = PALETTE.pressedTint;
+      applyTileTint(t, PALETTE.pressedTint);
       t._pressed = true;
     });
     t.on("pointerup", () => {
       if (t._pressed) {
         t._pressed = false;
-        t._inset.tint = PALETTE.defaultTint;
-        t._card.tint = PALETTE.defaultTint;
+        refreshTileTint(t);
       }
     });
     t.on("pointerout", () => {
       if (!t.revealed && !t._animating && selectedTile !== t) {
-        hoverTile(t, false);
+        if (!isAutoModeActive() || !t.isAutoSelected) {
+          hoverTile(t, false);
+        }
         if (t._pressed) {
           t._pressed = false;
-          t._inset.tint = PALETTE.defaultTint;
-          t._card.tint = PALETTE.defaultTint;
+          refreshTileTint(t);
         }
       }
     });
     t.on("pointerupoutside", () => {
       if (t._pressed) {
         t._pressed = false;
-        t._inset.tint = PALETTE.defaultTint;
-        t._card.tint = PALETTE.defaultTint;
+        refreshTileTint(t);
       }
     });
     t.on("pointertap", () => {
-      totalSafe;
+      const autoMode = isAutoModeActive();
+      const untapedCount = tiles.filter((tile) => !tile.taped).length;
 
-      const untapedCount = tiles.filter((t) => !t.taped).length;
+      if (autoMode) {
+        if (gameOver || t.revealed || t._animating) {
+          return;
+        }
+        if (!t.isAutoSelected && untapedCount <= mines) {
+          return;
+        }
+
+        toggleAutoTileSelection(t);
+        return;
+      }
+
       if (
         gameOver ||
         waitingForChoice ||
@@ -1024,6 +1227,84 @@ export async function createGame(mount, opts = {}) {
     enterWaitingState(tile);
 
     return { row: tile.row, col: tile.col };
+  }
+
+  function getAutoSelectionCoordinates() {
+    return autoSelectionOrder.map((tile) => ({ row: tile.row, col: tile.col }));
+  }
+
+  function revealAutoSelections(results = []) {
+    if (!Array.isArray(results) || results.length === 0) {
+      return;
+    }
+
+    const tileMap = new Map(
+      tiles.map((tile) => [`${tile.row},${tile.col}`, tile])
+    );
+
+    waitingForChoice = false;
+    selectedTile = null;
+
+    let bombHit = false;
+    let pendingReveals = 0;
+    let winFinalized = false;
+
+    const finalizeAutoWin = () => {
+      if (winFinalized || bombHit || pendingReveals > 0) {
+        return;
+      }
+      if (revealedSafe < totalSafe) {
+        winFinalized = true;
+        revealAllTiles(undefined, { stagger: false });
+        onWin();
+      }
+    };
+
+    for (const entry of results) {
+      const key = `${entry.row},${entry.col}`;
+      const tile = tileMap.get(key);
+      if (!tile || tile.revealed) {
+        continue;
+      }
+
+      const useSelectionBase = Boolean(tile.isAutoSelected);
+      if (tile.isAutoSelected) {
+        setAutoTileSelected(tile, false, { emit: false });
+      }
+
+      const normalizedResult = String(entry?.result ?? "").toLowerCase();
+      const isBomb = normalizedResult === "bomb";
+      if (isBomb) {
+        bombHit = true;
+      }
+
+      const started = revealTileWithFlip(
+        tile,
+        isBomb ? "bomb" : "diamond",
+        true,
+        {
+          useSelectionBase,
+          staggerRevealAll: false,
+          onComplete: () => {
+            pendingReveals = Math.max(0, pendingReveals - 1);
+            finalizeAutoWin();
+          },
+        }
+      );
+
+      if (started) {
+        pendingReveals += 1;
+      }
+    }
+
+    clearAutoSelections({ emit: false });
+    notifyAutoSelectionChange();
+
+    gameOver = true;
+    waitingForChoice = false;
+    onChange(getState());
+
+    finalizeAutoWin();
   }
 
   function flipFace(graphic, w, h, r, color, stroke = true) {
@@ -1087,9 +1368,15 @@ export async function createGame(mount, opts = {}) {
   function revealTileWithFlip(
     tile,
     face /* "diamond" | "bomb" */,
-    revealedByPlayer = true
+    revealedByPlayer = true,
+    options = {}
   ) {
-    if (tile._animating || tile.revealed) return;
+    const {
+      useSelectionBase = false,
+      staggerRevealAll = true,
+      onComplete = null,
+    } = options;
+    if (tile._animating || tile.revealed) return false;
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
@@ -1122,6 +1409,7 @@ export async function createGame(mount, opts = {}) {
         icon.destroyed
       ) {
         tile._animating = false;
+        onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
         return;
       }
 
@@ -1155,6 +1443,7 @@ export async function createGame(mount, opts = {}) {
             icon.destroyed
           ) {
             tile._animating = false;
+            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1187,7 +1476,9 @@ export async function createGame(mount, opts = {}) {
             if (face === "bomb") {
               icon.texture = bombTexture;
               const facePalette = revealedByPlayer
-                ? PALETTE.bombA
+                ? useSelectionBase
+                  ? AUTO_SELECTION_COLOR
+                  : PALETTE.bombA
                 : PALETTE.bombAUnrevealed;
               flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
@@ -1204,7 +1495,9 @@ export async function createGame(mount, opts = {}) {
               // Diamond
               icon.texture = diamondTexture;
               const facePalette = revealedByPlayer
-                ? PALETTE.safeA
+                ? useSelectionBase
+                  ? AUTO_SELECTION_COLOR
+                  : PALETTE.safeA
                 : PALETTE.safeAUnrevealed;
               flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
@@ -1233,6 +1526,7 @@ export async function createGame(mount, opts = {}) {
         complete: () => {
           if (tile.destroyed || !wrap.scale || wrap.destroyed) {
             tile._animating = false;
+            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1242,7 +1536,7 @@ export async function createGame(mount, opts = {}) {
 
           if (revealedByPlayer) {
             if (face === "bomb") {
-              revealAllTiles(tile);
+              revealAllTiles(tile, { stagger: staggerRevealAll });
               onGameOver();
             } else {
               revealedSafe += 1;
@@ -1255,15 +1549,19 @@ export async function createGame(mount, opts = {}) {
 
             onChange(getState());
           }
+
+          onComplete?.(tile, { face, revealedByPlayer });
         },
       });
       try {
         window.__mines_tiles = tiles.length;
       } catch {}
     }, flipDelay);
+
+    return true;
   }
 
-  function revealAllTiles(triggeredBombTile) {
+  function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
     const unrevealed = tiles.filter((t) => !t.revealed);
     const bombsNeeded = mines - 1;
     let available = unrevealed.filter((t) => t !== triggeredBombTile);
@@ -1284,15 +1582,13 @@ export async function createGame(mount, opts = {}) {
       const key = `${t.row},${t.col}`;
       const isBomb = bombPositions.has(key);
 
-      if (disableAnimations) {
+      if (stagger && revealAllIntervalDelay > 0 && !disableAnimations) {
+        setTimeout(() => {
+          revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
+        }, revealAllIntervalDelay * idx);
+      } else {
         revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
-        return;
       }
-
-      // stagger them slightly for effect
-      setTimeout(() => {
-        revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
-      }, revealAllIntervalDelay * idx);
     });
   }
 
@@ -1403,10 +1699,53 @@ export async function createGame(mount, opts = {}) {
   function clearSelection() {
     if (selectedTile && !selectedTile.revealed) {
       hoverTile(selectedTile, false);
-      selectedTile._inset.tint = 0xffffff;
+      refreshTileTint(selectedTile);
     }
     waitingForChoice = false;
     selectedTile = null;
+    clearAutoSelections();
+  }
+
+  function applyAutoSelectionsFromCoordinates(
+    coordinates = [],
+    { emit = true } = {}
+  ) {
+    const list = Array.isArray(coordinates) ? coordinates : [];
+    if (list.length === 0) {
+      clearAutoSelections({ emit });
+      return 0;
+    }
+
+    const tileMap = new Map(
+      tiles.map((tile) => [`${tile.row},${tile.col}`, tile])
+    );
+
+    clearAutoSelections({ emit: false });
+
+    let applied = 0;
+    for (const entry of list) {
+      const key = `${entry.row},${entry.col}`;
+      const tile = tileMap.get(key);
+      if (!tile || tile.revealed || tile._animating) {
+        continue;
+      }
+      setAutoTileSelected(tile, true, { emit: false });
+      applied += 1;
+    }
+
+    if (emit) {
+      notifyAutoSelectionChange();
+    }
+
+    return applied;
+  }
+
+  function revealRemainingTiles() {
+    revealAllTiles();
+  }
+
+  function getAutoResetDelay() {
+    return autoResetDelayMs;
   }
 
   resizeSquare();
@@ -1425,6 +1764,12 @@ export async function createGame(mount, opts = {}) {
     setSelectedCardIsDiamond,
     SetSelectedCardIsBomb,
     selectRandomTile,
+    getAutoSelections: getAutoSelectionCoordinates,
+    revealAutoSelections,
+    clearAutoSelections,
+    applyAutoSelections: applyAutoSelectionsFromCoordinates,
+    revealRemainingTiles,
+    getAutoResetDelay,
     showWinPopup: spawnWinPopup,
   };
 }

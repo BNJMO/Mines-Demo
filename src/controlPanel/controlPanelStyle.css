@@ -50,6 +50,19 @@
   outline-offset: 2px;
 }
 
+.control-toggle-btn.is-non-clickable {
+  background: #091B26;
+  color: #3f5561;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+}
+
+.control-toggle-btn.is-non-clickable.is-active {
+  background: #1F343F;
+  color: #556d79;
+}
+
 .control-row {
   display: flex;
   align-items: center;
@@ -77,6 +90,11 @@
   padding: 2px;
   min-width: 0;
   box-shadow: var(--control-elevation-shadow);
+}
+
+.control-bet-box.is-non-clickable {
+  background: #0d1a23;
+  box-shadow: none;
 }
 
 .control-select-field {
@@ -108,17 +126,23 @@
 }
 
 .control-select-field.is-non-clickable {
-  background: #07161e;
-  border-color: #1e2024;
-  color: #6f7178;
+  background: #091b26;
+  border-color: #0d1b24;
+  color: #4c5d68;
+  cursor: not-allowed;
 }
 
 .control-select-field.is-non-clickable .control-select-arrow {
-  border-top-color: #6f7178;
+  border-top-color: #4c5d68;
+}
+
+.control-select-field.is-non-clickable .control-select {
+  color: #4c5d68;
+  pointer-events: none;
 }
 
 .control-select:disabled {
-  color: inherit;
+  color: #4c5d68;
   cursor: not-allowed;
 }
 
@@ -197,6 +221,21 @@
   transform: translateY(-1px);
 }
 
+.control-bet-action.is-non-clickable,
+.control-bet-action:disabled {
+  background: #0d1a23;
+  color: #4c5d68;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.control-bet-action.is-non-clickable:hover,
+.control-bet-action:disabled:hover {
+  background: #0d1a23;
+  transform: none;
+}
+
 .control-bet-separator {
   width: 1px;
   height: 36px;
@@ -226,12 +265,12 @@
 
 .control-bet-btn.is-non-clickable,
 .control-bet-btn:disabled {
-  background: linear-gradient(135deg, #687000 0%, #687000 100%);
+  background: linear-gradient(135deg, #3b3f00 0%, #3b3f00 100%);
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
   transform: none;
-  color: #121212;
+  color: #8b8d52;
 }
 
 .control-bet-btn.is-non-clickable:hover,
@@ -253,14 +292,15 @@
 
 .control-random-btn.is-non-clickable,
 .control-random-btn:disabled {
-  background: #1e313d;
-  color: #7c7f8c;
+  background: #1A2B35;
+  color: #4c5d68;
   box-shadow: none;
+  cursor: not-allowed;
 }
 
 .control-random-btn.is-non-clickable:hover,
 .control-random-btn:disabled:hover {
-  background: #1e313d;
+  background: #101d26;
 }
 
 .control-profit-box {
@@ -336,6 +376,10 @@
   text-align: left;
 }
 
+.auto-number-input.is-non-clickable {
+  color: #4c5d68;
+}
+
 .auto-number-infinity {
   position: absolute;
   right: calc(var(--control-bet-stepper-offset) + 12px);
@@ -350,6 +394,10 @@
 
 .auto-number-infinity.is-visible {
   opacity: 1;
+}
+
+.control-bet-input-field.is-non-clickable .auto-number-infinity {
+  opacity: 0.2;
 }
 
 .auto-advanced-header {
@@ -380,6 +428,17 @@
 
 .control-switch.is-on {
   background: #00b801;
+}
+
+.control-switch.is-non-clickable {
+  background: #0a1821;
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.control-switch.is-non-clickable .control-switch-handle {
+  background: #22323d;
 }
 
 .control-switch:focus-visible {
@@ -454,6 +513,18 @@
   color: #ffffff;
 }
 
+.auto-mode-toggle-btn:disabled {
+  background: #091B26;
+  color: #3f5561;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.auto-mode-toggle-btn:disabled.is-active {
+  background: #1E313D;
+  color: #4c5d68;
+}
+
 .auto-mode-toggle-btn:focus-visible {
   outline: 2px solid rgba(234, 255, 0, 0.6);
   outline-offset: -2px;
@@ -498,19 +569,20 @@
   padding: 14px var(--control-bet-padding-right) 14px 16px;
 }
 
-.auto-advanced-input.is-disabled,
-.auto-advanced-input.is-disabled .control-bet-input {
-  color: #6f7178;
+.auto-advanced-input.is-non-clickable,
+.auto-advanced-input.is-non-clickable .control-bet-input {
+  color: #4c5d68;
 }
 
-.auto-advanced-input.is-disabled {
-  background: #071721;
-  border-color: #10202b;
+.auto-advanced-input.is-non-clickable {
+  background: #04111a;
+  border-color: #0d1b24;
   box-shadow: none;
+  cursor: not-allowed;
 }
 
-.auto-advanced-input.is-disabled .control-bet-input-icon {
-  opacity: 0.4;
+.auto-advanced-input.is-non-clickable .control-bet-input-icon {
+  opacity: 0.3;
 }
 
 .control-start-autobet-btn {
@@ -518,10 +590,39 @@
   box-shadow: var(--control-elevation-shadow-strong);
 }
 
-.control-bet-input-field.is-disabled {
-  background: #071721;
-  border-color: #10202b;
+.control-panel.is-portrait .control-start-autobet-btn {
+  margin-top: 0;
+}
+
+.control-panel.is-portrait .control-toggle {
+  margin-top: 12px;
+}
+
+.control-bet-input-field.is-non-clickable {
+  background: #091b26;
+  border-color: #0d1b24;
   box-shadow: none;
+  color: #4c5d68;
+  cursor: not-allowed;
+}
+
+.control-bet-input-field.is-non-clickable .control-bet-input {
+  color: #4c5d68;
+}
+
+.control-bet-input-field.is-non-clickable .control-bet-input-icon {
+  opacity: 0.3;
+}
+
+.control-bet-input-field.is-non-clickable .game-panel-stepper {
+  background: #071b24;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.control-bet-input-field.is-non-clickable .game-panel-stepper-btn {
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .control-bet-input-field.has-stepper .game-panel-stepper {
@@ -538,10 +639,6 @@
 
   .control-panel {
     max-width: none;
-  }
-
-  .control-toggle {
-    display: none;
   }
 
   .control-mode-section--manual {
