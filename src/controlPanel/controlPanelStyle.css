@@ -107,15 +107,6 @@
   outline: none;
 }
 
-.control-select:focus-visible {
-  outline: 2px solid rgba(234, 255, 0, 0.6);
-  outline-offset: 2px;
-}
-
-.control-select-field:focus-within {
-  box-shadow: 0 0 0 2px rgba(234, 255, 0, 0.2);
-}
-
 .control-select-field.is-non-clickable {
   background: #07161e;
   border-color: #1e2024;
