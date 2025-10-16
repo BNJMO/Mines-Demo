@@ -49,7 +49,8 @@ const PALETTE = {
   winPopupSeparationLine: 0x1B2931,
 };
 
-const AUTO_SELECTION_TINT = 0x9000ff;
+const AUTO_SELECTION_COLOR = 0x5800a5;
+const AUTO_SELECTION_TINT = AUTO_SELECTION_COLOR;
 
 function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
   const start = performance.now();
@@ -1167,6 +1168,7 @@ export async function createGame(mount, opts = {}) {
         continue;
       }
 
+      const useSelectionBase = Boolean(tile.isAutoSelected);
       if (tile.isAutoSelected) {
         setAutoTileSelected(tile, false, { emit: false });
       }
@@ -1177,7 +1179,9 @@ export async function createGame(mount, opts = {}) {
         bombHit = true;
       }
 
-      revealTileWithFlip(tile, isBomb ? "bomb" : "diamond", true);
+      revealTileWithFlip(tile, isBomb ? "bomb" : "diamond", true, {
+        useSelectionBase,
+      });
     }
 
     clearAutoSelections({ emit: false });
@@ -1254,8 +1258,10 @@ export async function createGame(mount, opts = {}) {
   function revealTileWithFlip(
     tile,
     face /* "diamond" | "bomb" */,
-    revealedByPlayer = true
+    revealedByPlayer = true,
+    options = {}
   ) {
+    const { useSelectionBase = false } = options;
     if (tile._animating || tile.revealed) return;
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
@@ -1353,7 +1359,9 @@ export async function createGame(mount, opts = {}) {
             if (face === "bomb") {
               icon.texture = bombTexture;
               const facePalette = revealedByPlayer
-                ? PALETTE.bombA
+                ? useSelectionBase
+                  ? AUTO_SELECTION_COLOR
+                  : PALETTE.bombA
                 : PALETTE.bombAUnrevealed;
               flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
@@ -1370,7 +1378,9 @@ export async function createGame(mount, opts = {}) {
               // Diamond
               icon.texture = diamondTexture;
               const facePalette = revealedByPlayer
-                ? PALETTE.safeA
+                ? useSelectionBase
+                  ? AUTO_SELECTION_COLOR
+                  : PALETTE.safeA
                 : PALETTE.safeAUnrevealed;
               flipFace(card, tileSize, tileSize, radius, facePalette);
               const insetPalette = revealedByPlayer
