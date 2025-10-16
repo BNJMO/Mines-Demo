@@ -958,10 +958,15 @@ export class ControlPanel extends EventTarget {
 
   setAutoStartButtonMode(mode) {
     if (!this.autoStartButton) return;
-    const normalized = mode === "stop" ? "stop" : "start";
+    const normalized =
+      mode === "stop" ? "stop" : mode === "finish" ? "finish" : "start";
     this.autoStartButtonMode = normalized;
     this.autoStartButton.textContent =
-      normalized === "stop" ? "Stop Autobet" : "Start Autobet";
+      normalized === "stop"
+        ? "Stop Autobet"
+        : normalized === "finish"
+        ? "Finishin Bet"
+        : "Start Autobet";
     this.autoStartButton.dataset.mode = normalized;
   }
 
@@ -1013,6 +1018,9 @@ export class ControlPanel extends EventTarget {
 
   setNumberOfBetsEnabled(enabled) {
     const isEnabled = Boolean(enabled);
+    if (this.autoNumberOfBetsField) {
+      this.autoNumberOfBetsField.classList.toggle("is-disabled", !isEnabled);
+    }
     if (this.autoNumberOfBetsInput) {
       this.autoNumberOfBetsInput.disabled = !isEnabled;
       this.autoNumberOfBetsInput.classList.toggle("is-disabled", !isEnabled);

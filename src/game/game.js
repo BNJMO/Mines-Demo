@@ -108,7 +108,7 @@ export async function createGame(mount, opts = {}) {
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
-  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
+  const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1000);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
