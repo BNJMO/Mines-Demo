@@ -104,7 +104,8 @@ function finalizeRound() {
   setControlPanelBetState(true);
   setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
-  setControlPanelMinesState(false);
+  minesSelectionLocked = false;
+  setControlPanelMinesState(true);
 }
 
 function handleBetButtonClick() {
