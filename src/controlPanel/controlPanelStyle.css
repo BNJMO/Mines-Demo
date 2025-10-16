@@ -527,6 +527,14 @@
   box-shadow: var(--control-elevation-shadow-strong);
 }
 
+.control-panel.is-portrait .control-start-autobet-btn {
+  margin-top: 0;
+}
+
+.control-panel.is-portrait .control-toggle {
+  margin-top: 12px;
+}
+
 .control-bet-input-field.is-disabled {
   background: #071721;
   border-color: #10202b;
@@ -547,10 +555,6 @@
 
   .control-panel {
     max-width: none;
-  }
-
-  .control-toggle {
-    display: none;
   }
 
   .control-mode-section--manual {

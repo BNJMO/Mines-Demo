@@ -21,6 +21,8 @@ let lastKnownGameState = null;
 let selectionDelayHandle = null;
 let selectionPending = false;
 let minesSelectionLocked = false;
+let controlPanelMode = "manual";
+let autoSelectionCount = 0;
 
 const SERVER_RESPONSE_DELAY_MS = 250;
 
@@ -35,6 +37,12 @@ function setControlPanelBetState(isClickable) {
 
 function setControlPanelRandomState(isClickable) {
   controlPanel?.setRandomPickState?.(isClickable ? "clickable" : "non-clickable");
+}
+
+function setControlPanelAutoStartState(isClickable) {
+  controlPanel?.setAutoStartButtonState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function setControlPanelMinesState(isClickable) {
@@ -94,6 +102,9 @@ function prepareForNewRoundState() {
   setGameBoardInteractivity(true);
   minesSelectionLocked = false;
   setControlPanelMinesState(true);
+  autoSelectionCount = 0;
+  setControlPanelAutoStartState(false);
+  game?.clearAutoSelections?.();
 }
 
 function finalizeRound() {
@@ -105,6 +116,8 @@ function finalizeRound() {
   setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
   setControlPanelMinesState(false);
+  autoSelectionCount = 0;
+  setControlPanelAutoStartState(false);
 }
 
 function handleBetButtonClick() {
@@ -165,6 +178,10 @@ function handleCardSelected() {
     return;
   }
 
+  if (controlPanelMode === "auto") {
+    return;
+  }
+
   if (!minesSelectionLocked) {
     minesSelectionLocked = true;
     setControlPanelMinesState(false);
@@ -189,6 +206,76 @@ function handleCardSelected() {
     }
 
     selectionPending = false;
+  }, SERVER_RESPONSE_DELAY_MS);
+}
+
+function handleAutoSelectionChange(count) {
+  autoSelectionCount = count;
+
+  if (controlPanelMode !== "auto") {
+    setControlPanelAutoStartState(false);
+    return;
+  }
+
+  if (!roundActive) {
+    setControlPanelAutoStartState(false);
+    return;
+  }
+
+  if (count > 0 && !minesSelectionLocked) {
+    minesSelectionLocked = true;
+    setControlPanelMinesState(false);
+  }
+
+  const canClick = count > 0 && !selectionPending;
+  setControlPanelAutoStartState(canClick);
+}
+
+function handleStartAutobetClick() {
+  if (
+    controlPanelMode !== "auto" ||
+    !roundActive ||
+    selectionPending ||
+    autoSelectionCount <= 0
+  ) {
+    return;
+  }
+
+  const selections = game?.getAutoSelections?.() ?? [];
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return;
+  }
+
+  selectionPending = true;
+  setControlPanelAutoStartState(false);
+  setControlPanelBetState(false);
+  setControlPanelRandomState(false);
+  setControlPanelMinesState(false);
+  setGameBoardInteractivity(false);
+
+  const results = [];
+  let bombAssigned = false;
+
+  for (const selection of selections) {
+    const revealBomb = !bombAssigned && Math.random() < 0.15;
+    if (revealBomb) {
+      bombAssigned = true;
+    }
+    results.push({
+      row: selection.row,
+      col: selection.col,
+      result: revealBomb ? "bomb" : "diamond",
+    });
+  }
+
+  setTimeout(() => {
+    selectionPending = false;
+
+    if (!roundActive) {
+      return;
+    }
+
+    game?.revealAutoSelections?.(results);
   }, SERVER_RESPONSE_DELAY_MS);
 }
 
@@ -282,6 +369,8 @@ const opts = {
   winPopupHeight: 200,
 
   // Event callback for when a card is selected
+  getMode: () => controlPanelMode,
+  onAutoSelectionChange: (count) => handleAutoSelectionChange(count),
   onCardSelected: () => handleCardSelected(),
   onWin: handleGameWin,
   onGameOver: handleGameOver,
@@ -303,8 +392,17 @@ const opts = {
       maxMines,
       initialMines,
     });
+    controlPanelMode = controlPanel?.getMode?.() ?? "manual";
     controlPanel.addEventListener("modechange", (event) => {
-      console.debug(`Control panel mode changed to ${event.detail.mode}`);
+      const nextMode = event.detail?.mode === "auto" ? "auto" : "manual";
+      controlPanelMode = nextMode;
+      if (nextMode !== "auto") {
+        autoSelectionCount = 0;
+        setControlPanelAutoStartState(false);
+        game?.clearAutoSelections?.();
+      } else {
+        handleAutoSelectionChange(autoSelectionCount);
+      }
     });
     controlPanel.addEventListener("betvaluechange", (event) => {
       console.debug(`Bet value updated to ${event.detail.value}`);
@@ -317,10 +415,12 @@ const opts = {
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
+    controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     prepareForNewRoundState();
     controlPanel.setBetAmountDisplay("$0.00");
     controlPanel.setProfitOnWinDisplay("$0.00");
     controlPanel.setProfitValue("0.00000000");
+    handleAutoSelectionChange(autoSelectionCount);
   } catch (err) {
     console.error("Control panel initialization failed:", err);
   }

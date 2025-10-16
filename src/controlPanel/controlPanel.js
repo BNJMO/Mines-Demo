@@ -98,6 +98,8 @@ export class ControlPanel extends EventTarget {
     this.updateNumberOfBetsIcon();
     this.updateOnWinMode();
     this.updateOnLossMode();
+
+    this.setupResponsiveLayout();
   }
 
   buildToggle() {
@@ -380,6 +382,10 @@ export class ControlPanel extends EventTarget {
     this.autoStartButton.className =
       "control-bet-btn control-start-autobet-btn";
     this.autoStartButton.textContent = "Start Autobet";
+    this.autoStartButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("startautobet"));
+    });
+
     this.autoSection.appendChild(this.autoStartButton);
 
     this.setAutoStartButtonState(this.autoStartButtonState);
@@ -675,6 +681,56 @@ export class ControlPanel extends EventTarget {
     }
     if (this.autoSection) {
       this.autoSection.hidden = this.mode !== "auto";
+    }
+    if (this.autoStartButton) {
+      this.autoStartButton.hidden = this.mode !== "auto";
+    }
+  }
+
+  setupResponsiveLayout() {
+    if (!this.container) return;
+
+    const query = window.matchMedia(
+      "(max-width: 1100px), (orientation: portrait)"
+    );
+    this._layoutMediaQuery = query;
+    this._onMediaQueryChange = () => this.updateResponsiveLayout();
+
+    if (typeof query.addEventListener === "function") {
+      query.addEventListener("change", this._onMediaQueryChange);
+    } else if (typeof query.addListener === "function") {
+      query.addListener(this._onMediaQueryChange);
+    }
+
+    this.updateResponsiveLayout();
+  }
+
+  updateResponsiveLayout() {
+    if (!this.container) return;
+    const isPortrait = Boolean(this._layoutMediaQuery?.matches);
+    this.container.classList.toggle("is-portrait", isPortrait);
+
+    if (!this.autoStartButton || !this.toggleWrapper) {
+      return;
+    }
+
+    if (isPortrait) {
+      this.container.insertBefore(
+        this.autoStartButton,
+        this.container.firstChild
+      );
+      if (this.gameName) {
+        this.container.insertBefore(this.toggleWrapper, this.gameName);
+      } else {
+        this.container.appendChild(this.toggleWrapper);
+      }
+    } else {
+      this.container.insertBefore(this.toggleWrapper, this.container.firstChild);
+      if (this.autoSection) {
+        this.autoSection.appendChild(this.autoStartButton);
+      } else {
+        this.container.appendChild(this.autoStartButton);
+      }
     }
   }
 
