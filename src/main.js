@@ -126,7 +126,22 @@ function handleCashout() {
 }
 
 function handleBet() {
-  game?.reset?.();
+  const selectedMines = controlPanel?.getMinesValue?.();
+  const maxMines = controlPanel?.getMaxMines?.();
+  const normalized = Math.floor(Number(selectedMines));
+  let mines = Number.isFinite(normalized) ? normalized : 1;
+  mines = Math.max(1, mines);
+  if (Number.isFinite(maxMines)) {
+    mines = Math.min(mines, maxMines);
+  }
+
+  opts.mines = mines;
+
+  if (typeof game?.setMines === "function") {
+    game.setMines(mines);
+  } else {
+    game?.reset?.();
+  }
   prepareForNewRoundState();
 }
 
@@ -313,8 +328,6 @@ const opts = {
     controlPanel.addEventListener("mineschanged", (event) => {
       const mines = event.detail.value;
       opts.mines = mines;
-      prepareForNewRoundState();
-      game?.setMines?.(mines);
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
