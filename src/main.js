@@ -14,7 +14,7 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
-let betButtonMode = "cashout";
+let betButtonMode = "bet";
 let roundActive = false;
 let cashoutAvailable = false;
 let lastKnownGameState = null;
@@ -31,7 +31,7 @@ let autoBetsRemaining = Infinity;
 let autoResetTimer = null;
 let autoStopShouldComplete = false;
 
-const AUTO_RESET_DELAY_MS = 3000;
+const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
 const SERVER_RESPONSE_DELAY_MS = 250;
@@ -285,16 +285,30 @@ function stopAutoBetProcess({ completed = false } = {}) {
     return;
   }
 
-  setAutoRunUIState(false);
-
-  if (!roundActive) {
-    setControlPanelMinesState(false);
-  }
-
-  if (!completed && controlPanelMode === "auto") {
+  const shouldPreserveSelections = controlPanelMode === "auto";
+  if (shouldPreserveSelections) {
     const selections = game?.getAutoSelections?.();
     if (Array.isArray(selections) && selections.length > 0) {
       storedAutoSelections = selections.map((selection) => ({ ...selection }));
+    }
+  }
+
+  setAutoRunUIState(false);
+
+  finalizeRound({ preserveAutoSelections: shouldPreserveSelections });
+
+  if (!completed) {
+    game?.reset?.();
+  }
+
+  if (shouldPreserveSelections) {
+    prepareForNewRoundState({ preserveAutoSelections: true });
+    if (
+      Array.isArray(storedAutoSelections) &&
+      storedAutoSelections.length > 0 &&
+      typeof game?.applyAutoSelections === "function"
+    ) {
+      game.applyAutoSelections(storedAutoSelections, { emit: true });
     }
   }
 }
@@ -328,40 +342,64 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   setControlPanelRandomState(true);
   setGameBoardInteractivity(true);
   minesSelectionLocked = false;
-  if (autoRunActive) {
+
+  if (controlPanelMode !== "auto") {
     setControlPanelMinesState(false);
-  } else {
+    controlPanel?.setModeToggleEnabled?.(false);
+    controlPanel?.setBetControlsEnabled?.(false);
+  } else if (!autoRunActive) {
     setControlPanelMinesState(true);
+    controlPanel?.setModeToggleEnabled?.(true);
+    controlPanel?.setBetControlsEnabled?.(true);
   }
 
   if (preserveAutoSelections) {
     autoSelectionCount = storedAutoSelections.length;
-    if (!autoRunActive) {
-      const canClick =
-        autoSelectionCount > 0 && !selectionPending && controlPanelMode === "auto";
+    if (!autoRunActive && controlPanelMode === "auto") {
+      const canClick = autoSelectionCount > 0 && !selectionPending;
       setControlPanelAutoStartState(canClick);
     }
   } else {
     autoSelectionCount = 0;
-    setControlPanelAutoStartState(false);
+    if (!autoRunActive) {
+      setControlPanelAutoStartState(false);
+    }
     game?.clearAutoSelections?.();
   }
 }
 
-function finalizeRound() {
+function finalizeRound({ preserveAutoSelections = false } = {}) {
   roundActive = false;
   cashoutAvailable = false;
   clearSelectionDelay();
   setControlPanelBetMode("bet");
-  setControlPanelBetState(true);
   setControlPanelRandomState(false);
   setGameBoardInteractivity(false);
-  setControlPanelMinesState(false);
-  autoSelectionCount = 0;
+  minesSelectionLocked = false;
+
   if (autoRunActive) {
-    setControlPanelAutoStartState(true);
+    setControlPanelBetState(false);
+    setControlPanelMinesState(false);
+    controlPanel?.setModeToggleEnabled?.(false);
+    controlPanel?.setBetControlsEnabled?.(false);
   } else {
-    setControlPanelAutoStartState(false);
+    setControlPanelBetState(true);
+    setControlPanelMinesState(true);
+    controlPanel?.setModeToggleEnabled?.(true);
+    controlPanel?.setBetControlsEnabled?.(true);
+  }
+
+  if (preserveAutoSelections) {
+    autoSelectionCount = storedAutoSelections.length;
+    if (!autoRunActive && controlPanelMode === "auto") {
+      const canClick = autoSelectionCount > 0 && !selectionPending;
+      setControlPanelAutoStartState(canClick);
+    }
+  } else {
+    autoSelectionCount = 0;
+    if (!autoRunActive) {
+      setControlPanelAutoStartState(false);
+    }
   }
 }
 
@@ -380,7 +418,7 @@ function handleCashout() {
 
   game?.revealRemainingTiles?.();
   showCashoutPopup();
-  finalizeRound();
+  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
 function handleBet() {
@@ -395,7 +433,7 @@ function handleGameStateChange(state) {
   }
 
   if (state?.gameOver) {
-    finalizeRound();
+    finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
     return;
   }
 
@@ -403,14 +441,14 @@ function handleGameStateChange(state) {
 }
 
 function handleGameOver() {
-  finalizeRound();
+  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
 }
 
 function handleGameWin() {
   game?.revealRemainingTiles?.();
   game?.showWinPopup?.(24.75, "0.00000003");
-  finalizeRound();
+  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
 }
 
@@ -647,7 +685,11 @@ const opts = {
         autoSelectionCount = 0;
         setControlPanelAutoStartState(false);
         game?.clearAutoSelections?.();
+        finalizeRound();
       } else {
+        if (!roundActive && !autoRunActive) {
+          prepareForNewRoundState({ preserveAutoSelections: true });
+        }
         if (storedAutoSelections.length > 0) {
           game?.applyAutoSelections?.(storedAutoSelections, { emit: true });
         }
@@ -660,13 +702,18 @@ const opts = {
     controlPanel.addEventListener("mineschanged", (event) => {
       const mines = event.detail.value;
       opts.mines = mines;
-      prepareForNewRoundState();
+      finalizeRound();
+      storedAutoSelections = [];
+      game?.clearAutoSelections?.();
       game?.setMines?.(mines);
+      if (controlPanelMode === "auto" && !autoRunActive) {
+        prepareForNewRoundState({ preserveAutoSelections: true });
+      }
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
-    prepareForNewRoundState();
+    finalizeRound();
     controlPanel.setBetAmountDisplay("$0.00");
     controlPanel.setProfitOnWinDisplay("$0.00");
     controlPanel.setProfitValue("0.00000000");
