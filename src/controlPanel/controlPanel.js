@@ -635,7 +635,7 @@ export class ControlPanel extends EventTarget {
   updateTotalProfitLabel() {
     if (!this.profitOnWinLabel) return;
     const formattedMultiplier = this.totalProfitMultiplier.toFixed(2);
-    this.profitOnWinLabel.textContent = `Total Profit(${formattedMultiplier}x`;
+    this.profitOnWinLabel.textContent = `Total Profit(${formattedMultiplier}x)`;
   }
 
   setTotalProfitMultiplier(value) {
