@@ -319,6 +319,7 @@ const opts = {
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     prepareForNewRoundState();
     controlPanel.setBetAmountDisplay("$0.00");
+    controlPanel.setTotalProfitMultiplier(0.0);
     controlPanel.setProfitOnWinDisplay("$0.00");
     controlPanel.setProfitValue("0.00000000");
   } catch (err) {
