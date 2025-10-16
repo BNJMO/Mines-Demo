@@ -49,11 +49,17 @@ const PALETTE = {
   winPopupSeparationLine: 0x1B2931,
 };
 
-function tween(app, { duration = 300, update, complete, ease = (t) => t }) {
+function tween(
+  app,
+  { duration = 300, update, complete, ease = (t) => t, skipUpdate = false }
+) {
   const start = performance.now();
   const step = () => {
     const t = Math.min(1, (performance.now() - start) / duration);
-    update?.(ease(t));
+    if (!skipUpdate || t >= 1) {
+      const progress = skipUpdate && t >= 1 ? 1 : t;
+      update?.(ease(progress));
+    }
     if (t >= 1) {
       app.ticker.remove(step);
       complete?.();
@@ -104,6 +110,7 @@ export async function createGame(mount, opts = {}) {
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
   // Animation Options
+  const disableAnimations = opts.disableAnimations ?? false;
   /* Card Hover */
   const hoverEnabled = opts.hoverEnabled ?? true;
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
@@ -516,6 +523,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration: winPopupShowDuration,
+      skipUpdate: disableAnimations,
       ease: (t) => Ease.easeOutQuad(t),
       update: (p) => {
         winPopup.container.scale.set(p);
@@ -672,6 +680,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration,
+      skipUpdate: disableAnimations,
       ease: (t) => t,
       update: (p) => {
         const decay = Math.exp(-5 * p);
@@ -744,6 +753,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration: on ? hoverEnterDuration : hoverExitDuration,
+      skipUpdate: disableAnimations,
       ease: (x) => (on ? 1 - Math.pow(1 - x, 3) : x * x * x),
       update: (p) => {
         if (tile._hoverToken !== token) return;
@@ -778,6 +788,7 @@ export async function createGame(mount, opts = {}) {
 
     tween(app, {
       duration: wiggleSelectionDuration,
+      skipUpdate: disableAnimations,
       ease: (p) => p,
       update: (p) => {
         if (t._wiggleToken !== token) return;
@@ -882,6 +893,7 @@ export async function createGame(mount, opts = {}) {
     flipWrap.scale?.set?.(s0);
     tween(app, {
       duration: cardsSpawnDuration,
+      skipUpdate: disableAnimations,
       ease: (x) => Ease.easeOutBack(x),
       update: (p) => {
         const s = s0 + (1 - s0) * p;
@@ -1114,6 +1126,7 @@ export async function createGame(mount, opts = {}) {
 
       tween(app, {
         duration: flipDuration,
+        skipUpdate: disableAnimations,
         ease: (t) => easeFlip(t),
         update: (t) => {
           if (
