@@ -25,7 +25,7 @@ let controlPanelMode = "manual";
 let autoSelectionCount = 0;
 let storedAutoSelections = [];
 let autoRunActive = false;
-let autoRunStopRequested = false;
+let autoRunFlag = false;
 let autoRoundInProgress = false;
 let autoBetsRemaining = Infinity;
 let autoResetTimer = null;
@@ -93,28 +93,30 @@ function setAutoRunUIState(active) {
   if (active) {
     if (autoStopFinishing) {
       controlPanel.setAutoStartButtonMode?.("finish");
-      controlPanel.setAutoStartButtonState?.("non-clickable");
+      setControlPanelAutoStartState(false);
     } else {
       controlPanel.setAutoStartButtonMode?.("stop");
-      controlPanel.setAutoStartButtonState?.("clickable");
+      setControlPanelAutoStartState(true);
     }
-    controlPanel.setModeToggleEnabled?.(false);
-    controlPanel.setBetControlsEnabled?.(false);
+    controlPanel.setModeToggleClickable?.(false);
+    controlPanel.setBetControlsClickable?.(false);
     setControlPanelMinesState(false);
-    controlPanel.setNumberOfBetsEnabled?.(false);
-    controlPanel.setAdvancedToggleEnabled?.(false);
-    controlPanel.setAdvancedStrategyControlsEnabled?.(false);
-    controlPanel.setStopOnProfitEnabled?.(false);
-    controlPanel.setStopOnLossEnabled?.(false);
+    controlPanel.setNumberOfBetsClickable?.(false);
+    controlPanel.setAdvancedToggleClickable?.(false);
+    controlPanel.setAdvancedStrategyControlsClickable?.(false);
+    controlPanel.setStopOnProfitClickable?.(false);
+    controlPanel.setStopOnLossClickable?.(false);
   } else {
     controlPanel.setAutoStartButtonMode?.("start");
-    controlPanel.setModeToggleEnabled?.(true);
-    controlPanel.setBetControlsEnabled?.(true);
-    controlPanel.setNumberOfBetsEnabled?.(true);
-    controlPanel.setAdvancedToggleEnabled?.(true);
-    controlPanel.setAdvancedStrategyControlsEnabled?.(true);
-    controlPanel.setStopOnProfitEnabled?.(true);
-    controlPanel.setStopOnLossEnabled?.(true);
+    autoStopFinishing = false;
+    setControlPanelAutoStartState(true);
+    controlPanel.setModeToggleClickable?.(true);
+    controlPanel.setBetControlsClickable?.(true);
+    controlPanel.setNumberOfBetsClickable?.(true);
+    controlPanel.setAdvancedToggleClickable?.(true);
+    controlPanel.setAdvancedStrategyControlsClickable?.(true);
+    controlPanel.setStopOnProfitClickable?.(true);
+    controlPanel.setStopOnLossClickable?.(true);
     if (roundActive && !minesSelectionLocked) {
       setControlPanelMinesState(true);
     }
@@ -152,13 +154,6 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   if (ensurePrepared && !startAutoRoundIfNeeded()) {
     stopAutoBetProcess({ completed: autoStopShouldComplete });
     autoStopShouldComplete = false;
-    return;
-  }
-
-  if (autoRunStopRequested) {
-    const completed = autoStopShouldComplete;
-    autoStopShouldComplete = false;
-    stopAutoBetProcess({ completed });
     return;
   }
 
@@ -219,6 +214,15 @@ function scheduleNextAutoBetRound() {
       return;
     }
 
+    if (!autoRunFlag || autoStopShouldComplete) {
+      const completed = autoStopShouldComplete;
+      autoStopShouldComplete = false;
+      stopAutoBetProcess({ completed });
+      return;
+    }
+
+    autoStopFinishing = false;
+    setAutoRunUIState(true);
     executeAutoBetRound({ ensurePrepared: true });
   }, autoResetDelayMs);
 }
@@ -236,8 +240,10 @@ function handleAutoRoundFinished() {
   }
 
   if (Number.isFinite(autoBetsRemaining) && autoBetsRemaining <= 0) {
-    autoRunStopRequested = true;
+    autoRunFlag = false;
     autoStopShouldComplete = true;
+    autoStopFinishing = true;
+    setAutoRunUIState(true);
   }
 
   scheduleNextAutoBetRound();
@@ -263,8 +269,8 @@ function beginAutoBetProcess() {
     autoBetsRemaining = Infinity;
   }
 
+  autoRunFlag = true;
   autoRunActive = true;
-  autoRunStopRequested = false;
   autoRoundInProgress = false;
   autoStopShouldComplete = false;
   autoStopFinishing = false;
@@ -285,7 +291,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
 
   const wasActive = autoRunActive;
   autoRunActive = false;
-  autoRunStopRequested = false;
+  autoRunFlag = false;
   autoRoundInProgress = false;
   autoStopShouldComplete = false;
   if (!wasActive && !completed) {
@@ -356,12 +362,12 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   if (controlPanelMode !== "auto") {
     manualRoundNeedsReset = false;
     setControlPanelMinesState(false);
-    controlPanel?.setModeToggleEnabled?.(false);
-    controlPanel?.setBetControlsEnabled?.(false);
+    controlPanel?.setModeToggleClickable?.(false);
+    controlPanel?.setBetControlsClickable?.(false);
   } else if (!autoRunActive) {
     setControlPanelMinesState(true);
-    controlPanel?.setModeToggleEnabled?.(true);
-    controlPanel?.setBetControlsEnabled?.(true);
+    controlPanel?.setModeToggleClickable?.(true);
+    controlPanel?.setBetControlsClickable?.(true);
   }
 
   if (preserveAutoSelections) {
@@ -391,13 +397,13 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
   if (autoRunActive) {
     setControlPanelBetState(false);
     setControlPanelMinesState(false);
-    controlPanel?.setModeToggleEnabled?.(false);
-    controlPanel?.setBetControlsEnabled?.(false);
+    controlPanel?.setModeToggleClickable?.(false);
+    controlPanel?.setBetControlsClickable?.(false);
   } else {
     setControlPanelBetState(true);
     setControlPanelMinesState(true);
-    controlPanel?.setModeToggleEnabled?.(true);
-    controlPanel?.setBetControlsEnabled?.(true);
+    controlPanel?.setModeToggleClickable?.(true);
+    controlPanel?.setBetControlsClickable?.(true);
   }
 
   if (preserveAutoSelections) {
@@ -560,29 +566,12 @@ function handleAutoSelectionChange(count) {
   setControlPanelAutoStartState(canClick);
 }
 
-function requestAutoStopAfterOutcome() {
-  if (!autoRunActive || autoStopFinishing) {
-    return;
-  }
-
-  if (autoResetTimer === null) {
-    stopAutoBetProcess();
-    return;
-  }
-
-  autoRunStopRequested = true;
-  autoStopShouldComplete = false;
-  autoStopFinishing = true;
-  controlPanel?.setAutoStartButtonMode?.("finish");
-  setControlPanelAutoStartState(false);
-}
-
 function handleStartAutobetClick() {
   if (autoRunActive) {
-    if (!autoRoundInProgress && autoResetTimer !== null) {
-      requestAutoStopAfterOutcome();
-    } else {
-      stopAutoBetProcess();
+    if (!autoStopFinishing) {
+      autoRunFlag = false;
+      autoStopFinishing = true;
+      setAutoRunUIState(true);
     }
     return;
   }

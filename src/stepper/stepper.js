@@ -33,16 +33,16 @@ export class Stepper {
     this.element.appendChild(this.downButton);
   }
 
-  setEnabled(enabled = true) {
-    const isEnabled = Boolean(enabled);
+  setClickable(isClickable = true) {
+    const clickable = Boolean(isClickable);
     if (this.upButton) {
-      this.upButton.disabled = !isEnabled;
+      this.upButton.disabled = !clickable;
     }
     if (this.downButton) {
-      this.downButton.disabled = !isEnabled;
+      this.downButton.disabled = !clickable;
     }
     if (this.element) {
-      this.element.classList.toggle("is-disabled", !isEnabled);
+      this.element.classList.toggle("is-non-clickable", !clickable);
     }
   }
 

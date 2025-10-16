@@ -394,7 +394,7 @@ export class ControlPanel extends EventTarget {
     this.isAdvancedEnabled = false;
     this.onWinMode = "reset";
     this.onLossMode = "reset";
-    this.strategyControlsDisabled = false;
+    this.strategyControlsNonClickable = false;
   }
 
   createSectionLabel(text) {
@@ -804,14 +804,14 @@ export class ControlPanel extends EventTarget {
   updateStrategyButtons(mode, resetButton, increaseButton, input, field) {
     if (!resetButton || !increaseButton || !input || !field) return;
     const isIncrease = mode === "increase";
-    const controlsDisabled = Boolean(this.strategyControlsDisabled);
+    const controlsNonClickable = Boolean(this.strategyControlsNonClickable);
     resetButton.classList.toggle("is-active", !isIncrease);
     increaseButton.classList.toggle("is-active", isIncrease);
-    resetButton.disabled = controlsDisabled;
-    increaseButton.disabled = controlsDisabled;
-    const allowInput = !controlsDisabled && isIncrease;
+    resetButton.disabled = controlsNonClickable;
+    increaseButton.disabled = controlsNonClickable;
+    const allowInput = !controlsNonClickable && isIncrease;
     input.disabled = !allowInput;
-    field.classList.toggle("is-disabled", !allowInput);
+    field.classList.toggle("is-non-clickable", !allowInput);
   }
 
   adjustBetValue(delta) {
@@ -970,39 +970,39 @@ export class ControlPanel extends EventTarget {
     this.autoStartButton.dataset.mode = normalized;
   }
 
-  setModeToggleEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setModeToggleClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.manualButton) {
-      this.manualButton.disabled = !isEnabled;
-      this.manualButton.classList.toggle("is-disabled", !isEnabled);
+      this.manualButton.disabled = !clickable;
+      this.manualButton.classList.toggle("is-non-clickable", !clickable);
     }
     if (this.autoButton) {
-      this.autoButton.disabled = !isEnabled;
-      this.autoButton.classList.toggle("is-disabled", !isEnabled);
+      this.autoButton.disabled = !clickable;
+      this.autoButton.classList.toggle("is-non-clickable", !clickable);
     }
   }
 
-  setBetControlsEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setBetControlsClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.betInput) {
-      this.betInput.disabled = !isEnabled;
+      this.betInput.disabled = !clickable;
     }
     if (this.betBox) {
-      this.betBox.classList.toggle("is-disabled", !isEnabled);
+      this.betBox.classList.toggle("is-non-clickable", !clickable);
     }
     if (this.betInputWrapper) {
-      this.betInputWrapper.classList.toggle("is-disabled", !isEnabled);
+      this.betInputWrapper.classList.toggle("is-non-clickable", !clickable);
     }
-    if (this.betStepper?.setEnabled) {
-      this.betStepper.setEnabled(isEnabled);
+    if (this.betStepper?.setClickable) {
+      this.betStepper.setClickable(clickable);
     }
     if (this.halfButton) {
-      this.halfButton.disabled = !isEnabled;
-      this.halfButton.classList.toggle("is-disabled", !isEnabled);
+      this.halfButton.disabled = !clickable;
+      this.halfButton.classList.toggle("is-non-clickable", !clickable);
     }
     if (this.doubleButton) {
-      this.doubleButton.disabled = !isEnabled;
-      this.doubleButton.classList.toggle("is-disabled", !isEnabled);
+      this.doubleButton.disabled = !clickable;
+      this.doubleButton.classList.toggle("is-non-clickable", !clickable);
     }
   }
 
@@ -1019,52 +1019,52 @@ export class ControlPanel extends EventTarget {
     this.updateNumberOfBetsIcon();
   }
 
-  setNumberOfBetsEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setNumberOfBetsClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.autoNumberOfBetsField) {
-      this.autoNumberOfBetsField.classList.toggle("is-disabled", !isEnabled);
+      this.autoNumberOfBetsField.classList.toggle("is-non-clickable", !clickable);
     }
     if (this.autoNumberOfBetsInput) {
-      this.autoNumberOfBetsInput.disabled = !isEnabled;
-      this.autoNumberOfBetsInput.classList.toggle("is-disabled", !isEnabled);
+      this.autoNumberOfBetsInput.disabled = !clickable;
+      this.autoNumberOfBetsInput.classList.toggle("is-non-clickable", !clickable);
     }
-    if (this.autoNumberOfBetsStepper?.setEnabled) {
-      this.autoNumberOfBetsStepper.setEnabled(isEnabled);
+    if (this.autoNumberOfBetsStepper?.setClickable) {
+      this.autoNumberOfBetsStepper.setClickable(clickable);
     }
   }
 
-  setAdvancedToggleEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setAdvancedToggleClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.autoAdvancedToggle) {
-      this.autoAdvancedToggle.disabled = !isEnabled;
-      this.autoAdvancedToggle.classList.toggle("is-disabled", !isEnabled);
+      this.autoAdvancedToggle.disabled = !clickable;
+      this.autoAdvancedToggle.classList.toggle("is-non-clickable", !clickable);
     }
   }
 
-  setAdvancedStrategyControlsEnabled(enabled) {
-    this.strategyControlsDisabled = !enabled;
+  setAdvancedStrategyControlsClickable(isClickable) {
+    this.strategyControlsNonClickable = !isClickable;
     this.updateOnWinMode();
     this.updateOnLossMode();
   }
 
-  setStopOnProfitEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setStopOnProfitClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.autoStopOnProfitField?.input) {
-      this.autoStopOnProfitField.input.disabled = !isEnabled;
+      this.autoStopOnProfitField.input.disabled = !clickable;
       this.autoStopOnProfitField.wrapper.classList.toggle(
-        "is-disabled",
-        !isEnabled
+        "is-non-clickable",
+        !clickable
       );
     }
   }
 
-  setStopOnLossEnabled(enabled) {
-    const isEnabled = Boolean(enabled);
+  setStopOnLossClickable(isClickable) {
+    const clickable = Boolean(isClickable);
     if (this.autoStopOnLossField?.input) {
-      this.autoStopOnLossField.input.disabled = !isEnabled;
+      this.autoStopOnLossField.input.disabled = !clickable;
       this.autoStopOnLossField.wrapper.classList.toggle(
-        "is-disabled",
-        !isEnabled
+        "is-non-clickable",
+        !clickable
       );
     }
   }
