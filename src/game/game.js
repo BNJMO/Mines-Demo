@@ -1218,6 +1218,19 @@ export async function createGame(mount, opts = {}) {
     selectedTile = null;
 
     let bombHit = false;
+    let pendingReveals = 0;
+    let winFinalized = false;
+
+    const finalizeAutoWin = () => {
+      if (winFinalized || bombHit || pendingReveals > 0) {
+        return;
+      }
+      if (revealedSafe < totalSafe) {
+        winFinalized = true;
+        revealAllTiles(undefined, { stagger: false });
+        onWin();
+      }
+    };
 
     for (const entry of results) {
       const key = `${entry.row},${entry.col}`;
@@ -1237,10 +1250,23 @@ export async function createGame(mount, opts = {}) {
         bombHit = true;
       }
 
-      revealTileWithFlip(tile, isBomb ? "bomb" : "diamond", true, {
-        useSelectionBase,
-        staggerRevealAll: false,
-      });
+      const started = revealTileWithFlip(
+        tile,
+        isBomb ? "bomb" : "diamond",
+        true,
+        {
+          useSelectionBase,
+          staggerRevealAll: false,
+          onComplete: () => {
+            pendingReveals = Math.max(0, pendingReveals - 1);
+            finalizeAutoWin();
+          },
+        }
+      );
+
+      if (started) {
+        pendingReveals += 1;
+      }
     }
 
     clearAutoSelections({ emit: false });
@@ -1250,10 +1276,7 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     onChange(getState());
 
-    if (!bombHit && revealedSafe < totalSafe) {
-      revealAllTiles(undefined, { stagger: false });
-      onWin();
-    }
+    finalizeAutoWin();
   }
 
   function flipFace(graphic, w, h, r, color, stroke = true) {
@@ -1323,8 +1346,9 @@ export async function createGame(mount, opts = {}) {
     const {
       useSelectionBase = false,
       staggerRevealAll = true,
+      onComplete = null,
     } = options;
-    if (tile._animating || tile.revealed) return;
+    if (tile._animating || tile.revealed) return false;
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
@@ -1357,6 +1381,7 @@ export async function createGame(mount, opts = {}) {
         icon.destroyed
       ) {
         tile._animating = false;
+        onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
         return;
       }
 
@@ -1389,6 +1414,7 @@ export async function createGame(mount, opts = {}) {
             icon.destroyed
           ) {
             tile._animating = false;
+            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1471,6 +1497,7 @@ export async function createGame(mount, opts = {}) {
         complete: () => {
           if (tile.destroyed || !wrap.scale || wrap.destroyed) {
             tile._animating = false;
+            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1493,12 +1520,16 @@ export async function createGame(mount, opts = {}) {
 
             onChange(getState());
           }
+
+          onComplete?.(tile, { face, revealedByPlayer });
         },
       });
       try {
         window.__mines_tiles = tiles.length;
       } catch {}
     }, flipDelay);
+
+    return true;
   }
 
   function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
