@@ -310,9 +310,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
 
   finalizeRound({ preserveAutoSelections: shouldPreserveSelections });
 
-  if (!completed) {
-    game?.reset?.();
-  }
+  game?.reset?.();
 
   autoStopFinishing = false;
   setAutoRunUIState(false);

@@ -1239,6 +1239,7 @@ export async function createGame(mount, opts = {}) {
 
       revealTileWithFlip(tile, isBomb ? "bomb" : "diamond", true, {
         useSelectionBase,
+        staggerRevealAll: false,
       });
     }
 
@@ -1250,7 +1251,7 @@ export async function createGame(mount, opts = {}) {
     onChange(getState());
 
     if (!bombHit && revealedSafe < totalSafe) {
-      revealAllTiles();
+      revealAllTiles(undefined, { stagger: false });
       onWin();
     }
   }
@@ -1319,7 +1320,10 @@ export async function createGame(mount, opts = {}) {
     revealedByPlayer = true,
     options = {}
   ) {
-    const { useSelectionBase = false } = options;
+    const {
+      useSelectionBase = false,
+      staggerRevealAll = true,
+    } = options;
     if (tile._animating || tile.revealed) return;
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
@@ -1476,7 +1480,7 @@ export async function createGame(mount, opts = {}) {
 
           if (revealedByPlayer) {
             if (face === "bomb") {
-              revealAllTiles(tile);
+              revealAllTiles(tile, { stagger: staggerRevealAll });
               onGameOver();
             } else {
               revealedSafe += 1;
@@ -1497,7 +1501,7 @@ export async function createGame(mount, opts = {}) {
     }, flipDelay);
   }
 
-  function revealAllTiles(triggeredBombTile) {
+  function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
     const unrevealed = tiles.filter((t) => !t.revealed);
     const bombsNeeded = mines - 1;
     let available = unrevealed.filter((t) => t !== triggeredBombTile);
@@ -1518,10 +1522,13 @@ export async function createGame(mount, opts = {}) {
       const key = `${t.row},${t.col}`;
       const isBomb = bombPositions.has(key);
 
-      // stagger them slightly for effect
-      setTimeout(() => {
+      if (stagger && revealAllIntervalDelay > 0) {
+        setTimeout(() => {
+          revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
+        }, revealAllIntervalDelay * idx);
+      } else {
         revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
-      }, revealAllIntervalDelay * idx);
+      }
     });
   }
 
