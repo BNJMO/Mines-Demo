@@ -44,11 +44,15 @@ function setControlPanelBetMode(mode) {
 }
 
 function setControlPanelBetState(isClickable) {
-  controlPanel?.setBetButtonState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setBetButtonState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function setControlPanelRandomState(isClickable) {
-  controlPanel?.setRandomPickState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setRandomPickState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function setControlPanelAutoStartState(isClickable) {
@@ -59,7 +63,9 @@ function setControlPanelAutoStartState(isClickable) {
 }
 
 function setControlPanelMinesState(isClickable) {
-  controlPanel?.setMinesSelectState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setMinesSelectState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function normalizeMinesValue(value, maxMines) {
@@ -184,7 +190,9 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
-  const selections = storedAutoSelections.map((selection) => ({ ...selection }));
+  const selections = storedAutoSelections.map((selection) => ({
+    ...selection,
+  }));
   if (selections.length === 0) {
     stopAutoBetProcess();
     return;
@@ -558,9 +566,13 @@ function handleAutoSelectionChange(count) {
     const selections = game?.getAutoSelections?.() ?? [];
     if (Array.isArray(selections)) {
       if (count > 0) {
-        storedAutoSelections = selections.map((selection) => ({ ...selection }));
+        storedAutoSelections = selections.map((selection) => ({
+          ...selection,
+        }));
       } else if (!autoRunActive && !autoRoundInProgress) {
-        storedAutoSelections = selections.map((selection) => ({ ...selection }));
+        storedAutoSelections = selections.map((selection) => ({
+          ...selection,
+        }));
       }
     }
   }
@@ -710,7 +722,6 @@ const opts = {
   onChange: handleGameStateChange,
 };
 
-
 (async () => {
   const totalTiles = opts.grid * opts.grid;
   const maxMines = Math.max(1, totalTiles - 1);
@@ -765,9 +776,7 @@ const opts = {
     });
     controlPanel.addEventListener("mineschanged", (event) => {
       const shouldSyncGame =
-        controlPanelMode === "auto" &&
-        !autoRunActive &&
-        !autoRoundInProgress;
+        controlPanelMode === "auto" && !autoRunActive && !autoRoundInProgress;
 
       applyMinesOption(event.detail.value, { syncGame: shouldSyncGame });
     });
@@ -788,7 +797,9 @@ const opts = {
   try {
     game = await createGame("#game", opts);
     window.game = game;
-    autoResetDelayMs = Number(game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS);
+    autoResetDelayMs = Number(
+      game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS
+    );
     const state = game?.getState?.();
     if (state) {
       controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
@@ -808,4 +819,3 @@ const opts = {
     }
   }
 })();
-
