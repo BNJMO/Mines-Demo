@@ -233,6 +233,41 @@
   gap: 8px;
 }
 
+.server-dummy__field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 100%;
+}
+
+.server-dummy__input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(49, 86, 108, 0.8);
+  background: rgba(9, 27, 38, 0.9);
+  color: #d9e6ef;
+  font-size: 12px;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.server-dummy__input::placeholder {
+  color: rgba(165, 196, 214, 0.6);
+}
+
+.server-dummy__input:focus {
+  outline: none;
+  border-color: rgba(127, 181, 255, 0.8);
+  box-shadow: 0 0 0 2px rgba(31, 142, 250, 0.25);
+}
+
+.server-dummy__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .server-dummy__button {
   padding: 8px 10px;
   border-radius: 8px;

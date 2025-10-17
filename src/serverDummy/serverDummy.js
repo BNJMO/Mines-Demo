@@ -136,8 +136,47 @@ export function createServerDummy(relay, options = {}) {
 
   const manualControls = createControlsGroup("Manual Actions");
   const autoControls = createControlsGroup("Auto Actions");
+  const profitControls = createControlsGroup("PROFIT");
 
   const buttons = [];
+  const inputs = [];
+
+  createInputRow({
+    placeholder: "Profit multiplier",
+    type: "number",
+    step: "0.01",
+    inputMode: "decimal",
+    mountPoint: profitControls,
+    buttonLabel: "Update Multiplier",
+    onSubmit: ({ input }) => {
+      const raw = input.value.trim();
+      const payload = { value: raw === "" ? null : raw };
+      const numeric = Number(raw);
+      if (Number.isFinite(numeric)) {
+        payload.numericValue = numeric;
+      }
+      serverRelay.deliver("profit:update-multiplier", payload);
+      input.value = "";
+    },
+  });
+
+  createInputRow({
+    placeholder: "Total profit",
+    type: "text",
+    inputMode: "decimal",
+    mountPoint: profitControls,
+    buttonLabel: "Update Profit",
+    onSubmit: ({ input }) => {
+      const raw = input.value.trim();
+      const payload = { value: raw === "" ? null : raw };
+      const numeric = Number(raw);
+      if (Number.isFinite(numeric)) {
+        payload.numericValue = numeric;
+      }
+      serverRelay.deliver("profit:update-total", payload);
+      input.value = "";
+    },
+  });
 
   function appendLog(direction, type, payload) {
     const entry = createLogEntry(direction, type, payload);
@@ -158,6 +197,54 @@ export function createServerDummy(relay, options = {}) {
     mountPoint.appendChild(button);
     buttons.push(button);
     return button;
+  }
+
+  function createInputRow({
+    placeholder,
+    type = "text",
+    step,
+    inputMode,
+    onSubmit,
+    mountPoint,
+    buttonLabel,
+  }) {
+    const row = document.createElement("div");
+    row.className = "server-dummy__field-row";
+    (mountPoint ?? controlsSection).appendChild(row);
+
+    const input = document.createElement("input");
+    input.type = type;
+    input.placeholder = placeholder;
+    input.className = "server-dummy__input";
+    if (step !== undefined) {
+      input.step = step;
+    }
+    if (inputMode) {
+      input.inputMode = inputMode;
+    }
+    row.appendChild(input);
+    inputs.push(input);
+
+    const button = createButton(
+      buttonLabel ?? "Submit",
+      () => {
+        if (typeof onSubmit === "function") {
+          onSubmit({ input, button });
+        }
+      },
+      row
+    );
+
+    if (typeof onSubmit === "function") {
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          button.click();
+        }
+      });
+    }
+
+    return { row, input, button };
   }
 
   const state = {
@@ -248,6 +335,9 @@ export function createServerDummy(relay, options = {}) {
     }
     buttons.forEach((button) => {
       button.disabled = normalized;
+    });
+    inputs.forEach((input) => {
+      input.disabled = normalized;
     });
   }
 
