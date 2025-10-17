@@ -298,9 +298,15 @@ export async function createGame(mount, opts = {}) {
     hideWinPopup();
     bombPositions.clear();
     shouldPlayStartSound = true;
+    const preservedAutoSelections = preserveAutoSelections
+      ? getAutoSelectionCoordinates()
+      : null;
     const emitAutoSelectionChange = !preserveAutoSelections;
     buildBoard({ emitAutoSelectionChange });
     centerBoard();
+    if (preserveAutoSelections && preservedAutoSelections?.length) {
+      applyAutoSelectionsFromCoordinates(preservedAutoSelections);
+    }
     onChange(getState());
   }
 
