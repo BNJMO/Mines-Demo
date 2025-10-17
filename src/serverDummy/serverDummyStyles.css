@@ -8,8 +8,8 @@
   right: 4px;
   width: 420px;
   max-width: calc(100% - 32px);
-  height: calc(100vh - 8px);
-  max-height: calc(100vh - 8px);
+  height: calc(90vh - 8px);
+  max-height: calc(90vh - 8px);
   background: rgba(9, 27, 38, 0.92);
   border: 1px solid rgba(34, 56, 69, 0.6);
   border-radius: 16px;
@@ -165,6 +165,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.server-dummy__log-list::-webkit-scrollbar {
+  display: none;
 }
 
 .server-dummy__log-entry {
