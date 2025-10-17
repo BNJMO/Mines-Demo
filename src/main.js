@@ -44,11 +44,15 @@ function setControlPanelBetMode(mode) {
 }
 
 function setControlPanelBetState(isClickable) {
-  controlPanel?.setBetButtonState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setBetButtonState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function setControlPanelRandomState(isClickable) {
-  controlPanel?.setRandomPickState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setRandomPickState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
 }
 
 function setControlPanelAutoStartState(isClickable) {
@@ -59,7 +63,36 @@ function setControlPanelAutoStartState(isClickable) {
 }
 
 function setControlPanelMinesState(isClickable) {
-  controlPanel?.setMinesSelectState?.(isClickable ? "clickable" : "non-clickable");
+  controlPanel?.setMinesSelectState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
+}
+
+function normalizeMinesValue(value, maxMines) {
+  const numeric = Math.floor(Number(value));
+  let mines = Number.isFinite(numeric) ? numeric : 1;
+  mines = Math.max(1, mines);
+  if (Number.isFinite(maxMines)) {
+    mines = Math.min(mines, maxMines);
+  }
+  return mines;
+}
+
+function applyMinesOption(value, { syncGame = false } = {}) {
+  const maxMines = controlPanel?.getMaxMines?.();
+  const mines = normalizeMinesValue(value, maxMines);
+
+  opts.mines = mines;
+
+  if (syncGame) {
+    if (typeof game?.setMines === "function") {
+      game.setMines(mines);
+    } else {
+      game?.reset?.();
+    }
+  }
+
+  return mines;
 }
 
 function setGameBoardInteractivity(enabled) {
@@ -157,7 +190,9 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
-  const selections = storedAutoSelections.map((selection) => ({ ...selection }));
+  const selections = storedAutoSelections.map((selection) => ({
+    ...selection,
+  }));
   if (selections.length === 0) {
     stopAutoBetProcess();
     return;
@@ -445,22 +480,9 @@ function handleCashout() {
 }
 
 function handleBet() {
-  const selectedMines = controlPanel?.getMinesValue?.();
-  const maxMines = controlPanel?.getMaxMines?.();
-  const normalized = Math.floor(Number(selectedMines));
-  let mines = Number.isFinite(normalized) ? normalized : 1;
-  mines = Math.max(1, mines);
-  if (Number.isFinite(maxMines)) {
-    mines = Math.min(mines, maxMines);
-  }
-
-  opts.mines = mines;
-
-  if (typeof game?.setMines === "function") {
-    game.setMines(mines);
-  } else {
-    game?.reset?.();
-  }
+  applyMinesOption(controlPanel?.getMinesValue?.(), {
+    syncGame: true,
+  });
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
 }
@@ -544,9 +566,13 @@ function handleAutoSelectionChange(count) {
     const selections = game?.getAutoSelections?.() ?? [];
     if (Array.isArray(selections)) {
       if (count > 0) {
-        storedAutoSelections = selections.map((selection) => ({ ...selection }));
+        storedAutoSelections = selections.map((selection) => ({
+          ...selection,
+        }));
       } else if (!autoRunActive && !autoRoundInProgress) {
-        storedAutoSelections = selections.map((selection) => ({ ...selection }));
+        storedAutoSelections = selections.map((selection) => ({
+          ...selection,
+        }));
       }
     }
   }
@@ -696,7 +722,6 @@ const opts = {
   onChange: handleGameStateChange,
 };
 
-
 (async () => {
   const totalTiles = opts.grid * opts.grid;
   const maxMines = Math.max(1, totalTiles - 1);
@@ -750,8 +775,10 @@ const opts = {
       console.debug(`Bet value updated to ${event.detail.value}`);
     });
     controlPanel.addEventListener("mineschanged", (event) => {
-      const mines = event.detail.value;
-      opts.mines = mines;
+      const shouldSyncGame =
+        controlPanelMode === "auto" && !autoRunActive && !autoRoundInProgress;
+
+      applyMinesOption(event.detail.value, { syncGame: shouldSyncGame });
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
@@ -770,7 +797,9 @@ const opts = {
   try {
     game = await createGame("#game", opts);
     window.game = game;
-    autoResetDelayMs = Number(game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS);
+    autoResetDelayMs = Number(
+      game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS
+    );
     const state = game?.getState?.();
     if (state) {
       controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
@@ -790,4 +819,3 @@ const opts = {
     }
   }
 })();
-
