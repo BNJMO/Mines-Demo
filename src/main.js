@@ -62,6 +62,33 @@ function setControlPanelMinesState(isClickable) {
   controlPanel?.setMinesSelectState?.(isClickable ? "clickable" : "non-clickable");
 }
 
+function normalizeMinesValue(value, maxMines) {
+  const numeric = Math.floor(Number(value));
+  let mines = Number.isFinite(numeric) ? numeric : 1;
+  mines = Math.max(1, mines);
+  if (Number.isFinite(maxMines)) {
+    mines = Math.min(mines, maxMines);
+  }
+  return mines;
+}
+
+function applyMinesOption(value, { syncGame = false } = {}) {
+  const maxMines = controlPanel?.getMaxMines?.();
+  const mines = normalizeMinesValue(value, maxMines);
+
+  opts.mines = mines;
+
+  if (syncGame) {
+    if (typeof game?.setMines === "function") {
+      game.setMines(mines);
+    } else {
+      game?.reset?.();
+    }
+  }
+
+  return mines;
+}
+
 function setGameBoardInteractivity(enabled) {
   const gameNode = document.querySelector("#game");
   if (!gameNode) {
@@ -445,22 +472,9 @@ function handleCashout() {
 }
 
 function handleBet() {
-  const selectedMines = controlPanel?.getMinesValue?.();
-  const maxMines = controlPanel?.getMaxMines?.();
-  const normalized = Math.floor(Number(selectedMines));
-  let mines = Number.isFinite(normalized) ? normalized : 1;
-  mines = Math.max(1, mines);
-  if (Number.isFinite(maxMines)) {
-    mines = Math.min(mines, maxMines);
-  }
-
-  opts.mines = mines;
-
-  if (typeof game?.setMines === "function") {
-    game.setMines(mines);
-  } else {
-    game?.reset?.();
-  }
+  applyMinesOption(controlPanel?.getMinesValue?.(), {
+    syncGame: true,
+  });
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
 }
@@ -750,12 +764,11 @@ const opts = {
       console.debug(`Bet value updated to ${event.detail.value}`);
     });
     controlPanel.addEventListener("mineschanged", (event) => {
-      const mines = event.detail.value;
-      opts.mines = mines;
+      applyMinesOption(event.detail.value);
       // finalizeRound();
       // storedAutoSelections = [];
       // game?.clearAutoSelections?.();
-      // game?.setMines?.(mines);
+      // game?.setMines?.(event.detail.value);
       // if (controlPanelMode === "auto" && !autoRunActive) {
       //   prepareForNewRoundState({ preserveAutoSelections: true });
       // }
