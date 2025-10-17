@@ -191,6 +191,10 @@ export function createServerDummy(relay, options = {}) {
     serverRelay.deliver("finalize-round", {});
   });
 
+  createButton("Cashout", () => {
+    serverRelay.deliver("cashout", {});
+  });
+
   mount.prepend(container);
 
   function setDemoMode(enabled) {
