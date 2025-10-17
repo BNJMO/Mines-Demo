@@ -963,7 +963,11 @@ export async function createGame(mount, opts = {}) {
     onAutoSelectionChange(autoSelectedTiles.size);
   }
 
-  function setAutoTileSelected(tile, selected, { emit = true } = {}) {
+  function setAutoTileSelected(
+    tile,
+    selected,
+    { emit = true, refresh = true } = {}
+  ) {
     if (!tile) return;
 
     if (selected) {
@@ -991,7 +995,9 @@ export async function createGame(mount, opts = {}) {
     }
 
     tile._pressed = false;
-    refreshTileTint(tile);
+    if (refresh) {
+      refreshTileTint(tile);
+    }
     hoverTile(tile, false);
 
     if (emit) {
@@ -1275,7 +1281,7 @@ export async function createGame(mount, opts = {}) {
 
       const useSelectionBase = Boolean(tile.isAutoSelected);
       if (tile.isAutoSelected) {
-        setAutoTileSelected(tile, false, { emit: false });
+        setAutoTileSelected(tile, false, { emit: false, refresh: false });
       }
 
       const normalizedResult = String(entry?.result ?? "").toLowerCase();
