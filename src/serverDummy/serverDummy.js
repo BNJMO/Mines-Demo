@@ -41,9 +41,13 @@ export function createServerDummy(relay, options = {}) {
   const mount = options.mount ?? document.querySelector(".app-wrapper") ?? document.body;
   const onDemoModeToggle = options.onDemoModeToggle ?? (() => {});
   const initialDemoMode = Boolean(options.initialDemoMode ?? true);
+  const initialCollapsed = Boolean(options.initialCollapsed ?? true);
 
   const container = document.createElement("div");
   container.className = "server-dummy";
+  if (initialCollapsed) {
+    container.classList.add("server-dummy--collapsed");
+  }
 
   const header = document.createElement("div");
   header.className = "server-dummy__header";
@@ -76,7 +80,7 @@ export function createServerDummy(relay, options = {}) {
   minimizeButton.type = "button";
   minimizeButton.className = "server-dummy__minimize";
   minimizeButton.setAttribute("aria-label", "Toggle dummy server visibility");
-  minimizeButton.textContent = "−";
+  minimizeButton.textContent = initialCollapsed ? "+" : "−";
   minimizeButton.addEventListener("click", () => {
     const collapsed = container.classList.toggle("server-dummy--collapsed");
     minimizeButton.textContent = collapsed ? "+" : "−";
