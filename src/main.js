@@ -39,6 +39,9 @@ let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
 
+let totalProfitMultiplierValue = 1;
+let totalProfitAmountDisplayValue = "0.00000000";
+
 const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
@@ -51,6 +54,53 @@ function withRelaySuppressed(callback) {
   } finally {
     suppressRelay = false;
   }
+}
+
+function coerceNumericValue(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  if (value != null) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  return null;
+}
+
+function setTotalProfitMultiplierValue(value) {
+  const numeric = coerceNumericValue(value);
+  const normalized = numeric != null && numeric > 0 ? numeric : 1;
+  totalProfitMultiplierValue = normalized;
+  controlPanel?.setTotalProfitMultiplier?.(normalized);
+}
+
+function normalizeTotalProfitAmount(value) {
+  const numeric = coerceNumericValue(value);
+  if (numeric != null) {
+    const clamped = Math.max(0, numeric);
+    return clamped.toFixed(8);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return "0.00000000";
+}
+
+function setTotalProfitAmountValue(value) {
+  const normalized = normalizeTotalProfitAmount(value);
+  totalProfitAmountDisplayValue = normalized;
+  controlPanel?.setProfitValue?.(normalized);
 }
 
 function sendRelayMessage(type, payload = {}) {
@@ -130,6 +180,18 @@ serverRelay.addEventListener("incoming", (event) => {
           handleCashout();
         }
         break;
+      case "profit:update-multiplier": {
+        const incomingValue =
+          payload?.numericValue ?? payload?.value ?? null;
+        setTotalProfitMultiplierValue(incomingValue);
+        break;
+      }
+      case "profit:update-total": {
+        const incomingValue =
+          payload?.numericValue ?? payload?.value ?? null;
+        setTotalProfitAmountValue(incomingValue);
+        break;
+      }
       default:
         break;
     }
@@ -666,7 +728,10 @@ function handleGameOver() {
 
 function handleGameWin() {
   game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(24.75, "0.00000003");
+  game?.showWinPopup?.(
+    totalProfitMultiplierValue,
+    totalProfitAmountDisplayValue
+  );
   markManualRoundForReset();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
@@ -800,19 +865,10 @@ function handleStartAutobetClick() {
 }
 
 function showCashoutPopup() {
-  const betAmount = controlPanel?.getBetValue?.() ?? 0;
-  const state = lastKnownGameState;
-
-  let multiplier = 1;
-  if (state && typeof state.totalSafe === "number" && state.totalSafe > 0) {
-    const progress = Math.max(
-      0,
-      Math.min(state.revealedSafe / state.totalSafe, 1)
-    );
-    multiplier = 1 + progress;
-  }
-
-  game?.showWinPopup?.(multiplier, betAmount);
+  game?.showWinPopup?.(
+    totalProfitMultiplierValue,
+    totalProfitAmountDisplayValue
+  );
 }
 const opts = {
   // Window visuals
@@ -997,9 +1053,9 @@ const opts = {
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     finalizeRound();
     controlPanel.setBetAmountDisplay("$0.00");
-    controlPanel.setTotalProfitMultiplier(0.0);
+    setTotalProfitMultiplierValue(0.0);
     controlPanel.setProfitOnWinDisplay("$0.00");
-    controlPanel.setProfitValue("0.00000000");
+    setTotalProfitAmountValue("0.00000000");
     handleAutoSelectionChange(autoSelectionCount);
   } catch (err) {
     console.error("Control panel initialization failed:", err);
