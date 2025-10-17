@@ -273,7 +273,7 @@ function startAutoRoundIfNeeded() {
   }
 
   if (!roundActive) {
-    game?.reset?.();
+    game?.reset?.({ preserveAutoSelections: true });
     prepareForNewRoundState({ preserveAutoSelections: true });
   }
 
@@ -485,7 +485,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
 
   finalizeRound({ preserveAutoSelections: shouldPreserveSelections });
 
-  game?.reset?.();
+  game?.reset?.({ preserveAutoSelections: shouldPreserveSelections });
 
   autoStopFinishing = false;
   setAutoRunUIState(false);
@@ -935,7 +935,7 @@ const opts = {
         finalizeRound();
       } else {
         if (previousMode === "manual" && manualRoundNeedsReset) {
-          game?.reset?.();
+          game?.reset?.({ preserveAutoSelections: true });
           manualRoundNeedsReset = false;
         }
         if (!roundActive && !autoRunActive) {

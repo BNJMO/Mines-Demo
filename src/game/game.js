@@ -293,14 +293,20 @@ export async function createGame(mount, opts = {}) {
   // Game setup and state. TODO: remove later
 
   // Public API for host integration
-  function reset() {
+  function reset({ preserveAutoSelections = false } = {}) {
     gameOver = false;
-    clearSelection();
     hideWinPopup();
     bombPositions.clear();
     shouldPlayStartSound = true;
-    buildBoard();
+    const preservedAutoSelections = preserveAutoSelections
+      ? getAutoSelectionCoordinates()
+      : null;
+    const emitAutoSelectionChange = !preserveAutoSelections;
+    buildBoard({ emitAutoSelectionChange });
     centerBoard();
+    if (preserveAutoSelections && preservedAutoSelections?.length) {
+      applyAutoSelectionsFromCoordinates(preservedAutoSelections);
+    }
     onChange(getState());
   }
 
@@ -957,7 +963,11 @@ export async function createGame(mount, opts = {}) {
     onAutoSelectionChange(autoSelectedTiles.size);
   }
 
-  function setAutoTileSelected(tile, selected, { emit = true } = {}) {
+  function setAutoTileSelected(
+    tile,
+    selected,
+    { emit = true, refresh = true, releaseHover = true } = {}
+  ) {
     if (!tile) return;
 
     if (selected) {
@@ -985,8 +995,12 @@ export async function createGame(mount, opts = {}) {
     }
 
     tile._pressed = false;
-    refreshTileTint(tile);
-    hoverTile(tile, false);
+    if (refresh) {
+      refreshTileTint(tile);
+    }
+    if (releaseHover) {
+      hoverTile(tile, false);
+    }
 
     if (emit) {
       notifyAutoSelectionChange();
@@ -1269,7 +1283,11 @@ export async function createGame(mount, opts = {}) {
 
       const useSelectionBase = Boolean(tile.isAutoSelected);
       if (tile.isAutoSelected) {
-        setAutoTileSelected(tile, false, { emit: false });
+        setAutoTileSelected(tile, false, {
+          emit: false,
+          refresh: false,
+          releaseHover: false,
+        });
       }
 
       const normalizedResult = String(entry?.result ?? "").toLowerCase();
@@ -1592,8 +1610,8 @@ export async function createGame(mount, opts = {}) {
     });
   }
 
-  function buildBoard() {
-    clearSelection();
+  function buildBoard({ emitAutoSelectionChange = true } = {}) {
+    clearSelection({ emitAutoSelectionChange });
     cleanupExplosionSprites();
     const removed = board.removeChildren();
     for (const child of removed) {
@@ -1696,14 +1714,14 @@ export async function createGame(mount, opts = {}) {
     onChange(getState());
   }
 
-  function clearSelection() {
+  function clearSelection({ emitAutoSelectionChange = true } = {}) {
     if (selectedTile && !selectedTile.revealed) {
       hoverTile(selectedTile, false);
       refreshTileTint(selectedTile);
     }
     waitingForChoice = false;
     selectedTile = null;
-    clearAutoSelections();
+    clearAutoSelections({ emit: emitAutoSelectionChange });
   }
 
   function applyAutoSelectionsFromCoordinates(
