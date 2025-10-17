@@ -752,13 +752,6 @@ const opts = {
     controlPanel.addEventListener("mineschanged", (event) => {
       const mines = event.detail.value;
       opts.mines = mines;
-      // finalizeRound();
-      // storedAutoSelections = [];
-      // game?.clearAutoSelections?.();
-      // game?.setMines?.(mines);
-      // if (controlPanelMode === "auto" && !autoRunActive) {
-      //   prepareForNewRoundState({ preserveAutoSelections: true });
-      // }
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
