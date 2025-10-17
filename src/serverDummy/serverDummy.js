@@ -176,8 +176,8 @@ export function createServerDummy(relay, options = {}) {
   createButton(
     "On Round Won",
     () => {
-      serverRelay.deliver("reveal-card", {
-        result: "diamond",
+      serverRelay.deliver("round-result", {
+        result: "win",
         selection: state.lastManualSelection,
       });
     },
@@ -187,8 +187,8 @@ export function createServerDummy(relay, options = {}) {
   createButton(
     "On Round Lost",
     () => {
-      serverRelay.deliver("reveal-card", {
-        result: "bomb",
+      serverRelay.deliver("round-result", {
+        result: "lost",
         selection: state.lastManualSelection,
       });
     },
@@ -210,7 +210,7 @@ export function createServerDummy(relay, options = {}) {
       const results = selections.map((selection) => ({
         row: selection?.row,
         col: selection?.col,
-        result: "diamond",
+        result: "win",
       }));
       serverRelay.deliver("auto-round-result", { results });
     },
@@ -224,7 +224,7 @@ export function createServerDummy(relay, options = {}) {
       const results = selections.map((selection, index) => ({
         row: selection?.row,
         col: selection?.col,
-        result: index === 0 ? "bomb" : "diamond",
+        result: index === 0 ? "lost" : "win",
       }));
       serverRelay.deliver("auto-round-result", { results });
     },

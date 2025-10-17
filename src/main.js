@@ -81,7 +81,7 @@ function applyServerReveal(payload = {}) {
   const result = String(payload?.result ?? "").toLowerCase();
   clearSelectionDelay();
   selectionPending = false;
-  if (result === "bomb") {
+  if (result === "lost") {
     game?.SetSelectedCardIsBomb?.();
   } else {
     game?.setSelectedCardIsDiamond?.();
@@ -113,7 +113,7 @@ serverRelay.addEventListener("incoming", (event) => {
       case "start-round":
         performBetRound();
         break;
-      case "reveal-card":
+      case "round-result":
         applyServerReveal(payload);
         break;
       case "auto-round-result":
