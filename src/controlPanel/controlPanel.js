@@ -308,10 +308,12 @@ export class ControlPanel extends EventTarget {
     this.autoNumberOfBetsInput.addEventListener("input", () => {
       this.sanitizeNumberOfBets();
       this.updateNumberOfBetsIcon();
+      this.dispatchNumberOfBetsChange();
     });
     this.autoNumberOfBetsInput.addEventListener("blur", () => {
       this.sanitizeNumberOfBets();
       this.updateNumberOfBetsIcon();
+      this.dispatchNumberOfBetsChange();
     });
     this.autoNumberOfBetsField.appendChild(this.autoNumberOfBetsInput);
 
@@ -372,6 +374,12 @@ export class ControlPanel extends EventTarget {
 
     this.autoStopOnProfitField = this.createCurrencyField();
     this.autoAdvancedContent.appendChild(this.autoStopOnProfitField.wrapper);
+    this.autoStopOnProfitField.input.addEventListener("input", () => {
+      this.dispatchStopOnProfitChange(this.autoStopOnProfitField.input.value);
+    });
+    this.autoStopOnProfitField.input.addEventListener("blur", () => {
+      this.dispatchStopOnProfitChange(this.autoStopOnProfitField.input.value);
+    });
 
     const lossRow = document.createElement("div");
     lossRow.className = "auto-advanced-summary-row";
@@ -386,6 +394,12 @@ export class ControlPanel extends EventTarget {
 
     this.autoStopOnLossField = this.createCurrencyField();
     this.autoAdvancedContent.appendChild(this.autoStopOnLossField.wrapper);
+    this.autoStopOnLossField.input.addEventListener("input", () => {
+      this.dispatchStopOnLossChange(this.autoStopOnLossField.input.value);
+    });
+    this.autoStopOnLossField.input.addEventListener("blur", () => {
+      this.dispatchStopOnLossChange(this.autoStopOnLossField.input.value);
+    });
 
     this.autoStartButton = document.createElement("button");
     this.autoStartButton.type = "button";
@@ -488,6 +502,13 @@ export class ControlPanel extends EventTarget {
     });
     increaseButton.addEventListener("click", () => {
       this.setStrategyMode(key, "increase");
+    });
+
+    input.addEventListener("input", () => {
+      this.dispatchStrategyValueChange(key, input.value);
+    });
+    input.addEventListener("blur", () => {
+      this.dispatchStrategyValueChange(key, input.value);
     });
 
     return row;
@@ -769,6 +790,7 @@ export class ControlPanel extends EventTarget {
     const next = Math.max(0, current + delta);
     this.autoNumberOfBetsInput.value = String(next);
     this.updateNumberOfBetsIcon();
+    this.dispatchNumberOfBetsChange();
   }
 
   updateNumberOfBetsIcon() {
@@ -791,11 +813,19 @@ export class ControlPanel extends EventTarget {
   setStrategyMode(key, mode) {
     const normalized = mode === "increase" ? "increase" : "reset";
     if (key === "win") {
+      if (this.onWinMode === normalized) {
+        return;
+      }
       this.onWinMode = normalized;
       this.updateOnWinMode();
+      this.dispatchStrategyModeChange("win");
     } else {
+      if (this.onLossMode === normalized) {
+        return;
+      }
       this.onLossMode = normalized;
       this.updateOnLossMode();
+      this.dispatchStrategyModeChange("loss");
     }
   }
 
@@ -877,6 +907,47 @@ export class ControlPanel extends EventTarget {
     this.dispatchEvent(
       new CustomEvent("betvaluechange", {
         detail: { value: value, numericValue: this.getBetValue() },
+      })
+    );
+  }
+
+  dispatchNumberOfBetsChange() {
+    this.dispatchEvent(
+      new CustomEvent("numberofbetschange", {
+        detail: { value: this.getNumberOfBetsValue() },
+      })
+    );
+  }
+
+  dispatchStrategyModeChange(key) {
+    const mode = key === "win" ? this.onWinMode : this.onLossMode;
+    this.dispatchEvent(
+      new CustomEvent("strategychange", {
+        detail: { key: key === "win" ? "win" : "loss", mode },
+      })
+    );
+  }
+
+  dispatchStrategyValueChange(key, value) {
+    this.dispatchEvent(
+      new CustomEvent("strategyvaluechange", {
+        detail: { key: key === "win" ? "win" : "loss", value },
+      })
+    );
+  }
+
+  dispatchStopOnProfitChange(value) {
+    this.dispatchEvent(
+      new CustomEvent("stoponprofitchange", {
+        detail: { value },
+      })
+    );
+  }
+
+  dispatchStopOnLossChange(value) {
+    this.dispatchEvent(
+      new CustomEvent("stoponlosschange", {
+        detail: { value },
       })
     );
   }

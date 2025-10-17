@@ -1,5 +1,7 @@
 import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
+import { ServerRelay } from "./serverRelay.js";
+import { createServerDummy } from "./serverDummy/serverDummy.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -14,6 +16,10 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
+let demoMode = true;
+const serverRelay = new ServerRelay();
+let serverDummyUI = null;
+let suppressRelay = false;
 let betButtonMode = "bet";
 let roundActive = false;
 let cashoutAvailable = false;
@@ -37,6 +43,110 @@ const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
 const SERVER_RESPONSE_DELAY_MS = 250;
+
+function withRelaySuppressed(callback) {
+  suppressRelay = true;
+  try {
+    return callback?.();
+  } finally {
+    suppressRelay = false;
+  }
+}
+
+function sendRelayMessage(type, payload = {}) {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+  serverRelay.send(type, payload);
+}
+
+function setDemoMode(value) {
+  const next = Boolean(value);
+  if (demoMode === next) {
+    serverRelay.setDemoMode(next);
+    serverDummyUI?.setDemoMode?.(next);
+    return;
+  }
+
+  demoMode = next;
+  serverRelay.setDemoMode(next);
+  serverDummyUI?.setDemoMode?.(next);
+
+  if (demoMode) {
+    clearSelectionDelay();
+  }
+}
+
+function applyServerReveal(payload = {}) {
+  const result = String(payload?.result ?? "").toLowerCase();
+  clearSelectionDelay();
+  selectionPending = false;
+  if (result === "bomb") {
+    game?.SetSelectedCardIsBomb?.();
+  } else {
+    game?.setSelectedCardIsDiamond?.();
+  }
+}
+
+function applyAutoResultsFromServer(results = []) {
+  clearSelectionDelay();
+  selectionPending = false;
+  if (!Array.isArray(results) || results.length === 0) {
+    return;
+  }
+  game?.revealAutoSelections?.(results);
+}
+
+const serverDummyMount =
+  document.querySelector(".app-wrapper") ?? document.body;
+serverDummyUI = createServerDummy(serverRelay, {
+  mount: serverDummyMount,
+  onDemoModeToggle: (value) => setDemoMode(value),
+  initialDemoMode: demoMode,
+});
+serverRelay.setDemoMode(demoMode);
+
+serverRelay.addEventListener("incoming", (event) => {
+  const { type, payload } = event.detail ?? {};
+  withRelaySuppressed(() => {
+    switch (type) {
+      case "start-round":
+        performBetRound();
+        break;
+      case "reveal-card":
+        applyServerReveal(payload);
+        break;
+      case "auto-round-result":
+        applyAutoResultsFromServer(payload?.results);
+        break;
+      case "stop-autobet":
+        stopAutoBetProcess({ completed: Boolean(payload?.completed) });
+        break;
+      case "finalize-round":
+        finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
+        break;
+      case "cashout":
+        if (roundActive && cashoutAvailable) {
+          handleCashout();
+        }
+        break;
+      default:
+        break;
+    }
+  });
+});
+
+serverRelay.addEventListener("demomodechange", (event) => {
+  const value = Boolean(event.detail?.value);
+  if (demoMode === value) {
+    return;
+  }
+  demoMode = value;
+  serverDummyUI?.setDemoMode?.(value);
+  if (demoMode) {
+    clearSelectionDelay();
+  }
+});
 
 function setControlPanelBetMode(mode) {
   betButtonMode = mode === "bet" ? "bet" : "cashout";
@@ -208,6 +318,16 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
 
   clearSelectionDelay();
 
+  if (!demoMode && !suppressRelay) {
+    const payload = {
+      selections: selections.map((selection) => ({
+        ...selection,
+      })),
+    };
+    sendRelayMessage("game:auto-round-request", payload);
+    return;
+  }
+
   const results = [];
   let bombAssigned = false;
 
@@ -309,6 +429,18 @@ function beginAutoBetProcess() {
   autoRoundInProgress = false;
   autoStopShouldComplete = false;
   autoStopFinishing = false;
+
+  if (!demoMode && !suppressRelay) {
+    const payload = {
+      selections: storedAutoSelections.map((selection) => ({
+        ...selection,
+      })),
+      numberOfBets: Number.isFinite(autoBetsRemaining)
+        ? autoBetsRemaining
+        : 0,
+    };
+    sendRelayMessage("action:start-autobet", payload);
+  }
 
   setAutoRunUIState(true);
   executeAutoBetRound();
@@ -473,18 +605,35 @@ function handleCashout() {
     return;
   }
 
+  if (!demoMode && !suppressRelay) {
+    sendRelayMessage("action:cashout", {});
+    return;
+  }
+
   markManualRoundForReset();
   game?.revealRemainingTiles?.();
   showCashoutPopup();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
-function handleBet() {
+function performBetRound() {
   applyMinesOption(controlPanel?.getMinesValue?.(), {
     syncGame: true,
   });
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
+}
+
+function handleBet() {
+  if (!demoMode && !suppressRelay) {
+    sendRelayMessage("action:bet", {
+      bet: controlPanel?.getBetValue?.(),
+      mines: controlPanel?.getMinesValue?.(),
+    });
+    return;
+  }
+
+  performBetRound();
 }
 
 function handleGameStateChange(state) {
@@ -523,7 +672,7 @@ function handleRandomPickClick() {
   game?.selectRandomTile?.();
 }
 
-function handleCardSelected() {
+function handleCardSelected(selection) {
   if (!roundActive) {
     return;
   }
@@ -538,6 +687,15 @@ function handleCardSelected() {
   }
 
   beginSelectionDelay();
+
+  if (!demoMode && !suppressRelay) {
+    const payload = {
+      row: selection?.row,
+      col: selection?.col,
+    };
+    sendRelayMessage("game:manual-selection", payload);
+    return;
+  }
 
   selectionDelayHandle = setTimeout(() => {
     selectionDelayHandle = null;
@@ -604,6 +762,15 @@ function handleAutoSelectionChange(count) {
 
   const canClick = count > 0 && !selectionPending;
   setControlPanelAutoStartState(canClick);
+
+  if (!demoMode && !suppressRelay && controlPanelMode === "auto") {
+    const selectionsToSend = storedAutoSelections.map((selection) => ({
+      ...selection,
+    }));
+    sendRelayMessage("game:auto-selections", {
+      selections: selectionsToSend,
+    });
+  }
 }
 
 function handleStartAutobetClick() {
@@ -612,6 +779,7 @@ function handleStartAutobetClick() {
       autoRunFlag = false;
       autoStopFinishing = true;
       setAutoRunUIState(true);
+      sendRelayMessage("action:stop-autobet", { reason: "user" });
     }
     return;
   }
@@ -716,7 +884,7 @@ const opts = {
   // Event callback for when a card is selected
   getMode: () => controlPanelMode,
   onAutoSelectionChange: (count) => handleAutoSelectionChange(count),
-  onCardSelected: () => handleCardSelected(),
+  onCardSelected: (selection) => handleCardSelected(selection),
   onWin: handleGameWin,
   onGameOver: handleGameOver,
   onChange: handleGameStateChange,
@@ -773,12 +941,48 @@ const opts = {
     });
     controlPanel.addEventListener("betvaluechange", (event) => {
       console.debug(`Bet value updated to ${event.detail.value}`);
+      sendRelayMessage("control:bet-value", {
+        value: event.detail?.value,
+        numericValue: event.detail?.numericValue,
+      });
     });
     controlPanel.addEventListener("mineschanged", (event) => {
       const shouldSyncGame =
         controlPanelMode === "auto" && !autoRunActive && !autoRoundInProgress;
 
       applyMinesOption(event.detail.value, { syncGame: shouldSyncGame });
+      sendRelayMessage("control:mines", {
+        value: event.detail?.value,
+        totalTiles: event.detail?.totalTiles,
+        gems: event.detail?.gems,
+      });
+    });
+    controlPanel.addEventListener("numberofbetschange", (event) => {
+      sendRelayMessage("control:number-of-bets", {
+        value: event.detail?.value,
+      });
+    });
+    controlPanel.addEventListener("strategychange", (event) => {
+      sendRelayMessage("control:strategy-mode", {
+        key: event.detail?.key,
+        mode: event.detail?.mode,
+      });
+    });
+    controlPanel.addEventListener("strategyvaluechange", (event) => {
+      sendRelayMessage("control:strategy-value", {
+        key: event.detail?.key,
+        value: event.detail?.value,
+      });
+    });
+    controlPanel.addEventListener("stoponprofitchange", (event) => {
+      sendRelayMessage("control:stop-on-profit", {
+        value: event.detail?.value,
+      });
+    });
+    controlPanel.addEventListener("stoponlosschange", (event) => {
+      sendRelayMessage("control:stop-on-loss", {
+        value: event.detail?.value,
+      });
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);

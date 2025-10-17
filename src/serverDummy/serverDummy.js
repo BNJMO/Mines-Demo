@@ -1,0 +1,219 @@
+import { ServerRelay } from "../serverRelay.js";
+
+function createLogEntry(direction, type, payload) {
+  const entry = document.createElement("div");
+  entry.className = `server-dummy__log-entry server-dummy__log-entry--${direction}`;
+
+  const header = document.createElement("div");
+  const directionLabel = document.createElement("span");
+  directionLabel.className = "server-dummy__log-direction";
+  directionLabel.textContent =
+    direction === "incoming" ? "Server → App" : "App → Server";
+  header.appendChild(directionLabel);
+
+  const typeLabel = document.createElement("span");
+  typeLabel.className = "server-dummy__log-type";
+  typeLabel.textContent = type ?? "unknown";
+  header.appendChild(typeLabel);
+
+  entry.appendChild(header);
+
+  const payloadNode = document.createElement("pre");
+  payloadNode.className = "server-dummy__log-payload";
+  payloadNode.textContent = JSON.stringify(payload ?? {}, null, 2);
+  entry.appendChild(payloadNode);
+
+  return entry;
+}
+
+function ensureRelay(relay) {
+  if (!relay) {
+    throw new Error("A ServerRelay instance is required");
+  }
+  if (!(relay instanceof ServerRelay)) {
+    throw new Error("ServerDummy expects a ServerRelay instance");
+  }
+  return relay;
+}
+
+export function createServerDummy(relay, options = {}) {
+  const serverRelay = ensureRelay(relay);
+  const mount = options.mount ?? document.querySelector(".app-wrapper") ?? document.body;
+  const onDemoModeToggle = options.onDemoModeToggle ?? (() => {});
+  const initialDemoMode = Boolean(options.initialDemoMode ?? true);
+
+  const container = document.createElement("div");
+  container.className = "server-dummy";
+
+  const header = document.createElement("div");
+  header.className = "server-dummy__header";
+  container.appendChild(header);
+
+  const title = document.createElement("div");
+  title.className = "server-dummy__title";
+  title.textContent = "Dummy Server";
+  header.appendChild(title);
+
+  const toggleLabel = document.createElement("label");
+  toggleLabel.className = "server-dummy__toggle";
+  toggleLabel.textContent = "Demo Mode";
+
+  const toggleInput = document.createElement("input");
+  toggleInput.type = "checkbox";
+  toggleInput.checked = initialDemoMode;
+  toggleInput.addEventListener("change", () => {
+    onDemoModeToggle(Boolean(toggleInput.checked));
+  });
+
+  toggleLabel.appendChild(toggleInput);
+  header.appendChild(toggleLabel);
+
+  const body = document.createElement("div");
+  body.className = "server-dummy__body";
+  container.appendChild(body);
+
+  const logSection = document.createElement("div");
+  logSection.className = "server-dummy__log";
+  body.appendChild(logSection);
+
+  const logTitle = document.createElement("div");
+  logTitle.className = "server-dummy__log-title";
+  logTitle.textContent = "Relay Log";
+  logSection.appendChild(logTitle);
+
+  const logList = document.createElement("div");
+  logList.className = "server-dummy__log-list";
+  logSection.appendChild(logList);
+
+  const controlsSection = document.createElement("div");
+  controlsSection.className = "server-dummy__controls";
+  body.appendChild(controlsSection);
+
+  const buttons = [];
+
+  function appendLog(direction, type, payload) {
+    const entry = createLogEntry(direction, type, payload);
+    logList.appendChild(entry);
+    logList.scrollTop = logList.scrollHeight;
+  }
+
+  function createButton(label, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.className = "server-dummy__button";
+    button.addEventListener("click", () => {
+      if (typeof onClick === "function") {
+        onClick();
+      }
+    });
+    controlsSection.appendChild(button);
+    buttons.push(button);
+    return button;
+  }
+
+  const state = {
+    lastManualSelection: null,
+    lastAutoSelections: [],
+  };
+
+  createButton("Start Round", () => {
+    serverRelay.deliver("start-round", {});
+  });
+
+  createButton("Reveal Safe", () => {
+    serverRelay.deliver("reveal-card", {
+      result: "diamond",
+      selection: state.lastManualSelection,
+    });
+  });
+
+  createButton("Reveal Bomb", () => {
+    serverRelay.deliver("reveal-card", {
+      result: "bomb",
+      selection: state.lastManualSelection,
+    });
+  });
+
+  createButton("Auto: Diamonds", () => {
+    const selections = state.lastAutoSelections ?? [];
+    const results = selections.map((selection) => ({
+      row: selection?.row,
+      col: selection?.col,
+      result: "diamond",
+    }));
+    serverRelay.deliver("auto-round-result", { results });
+  });
+
+  createButton("Auto: Bomb", () => {
+    const selections = state.lastAutoSelections ?? [];
+    const results = selections.map((selection, index) => ({
+      row: selection?.row,
+      col: selection?.col,
+      result: index === 0 ? "bomb" : "diamond",
+    }));
+    serverRelay.deliver("auto-round-result", { results });
+  });
+
+  createButton("Stop Autobet", () => {
+    serverRelay.deliver("stop-autobet", { completed: false });
+  });
+
+  createButton("Finalize Round", () => {
+    serverRelay.deliver("finalize-round", {});
+  });
+
+  mount.prepend(container);
+
+  function setDemoMode(enabled) {
+    const normalized = Boolean(enabled);
+    if (toggleInput.checked !== normalized) {
+      toggleInput.checked = normalized;
+    }
+    buttons.forEach((button) => {
+      button.disabled = normalized;
+    });
+  }
+
+  setDemoMode(initialDemoMode);
+
+  const outgoingHandler = (event) => {
+    const { type, payload } = event.detail ?? {};
+    appendLog("outgoing", type, payload);
+
+    switch (type) {
+      case "game:manual-selection":
+        state.lastManualSelection = payload ?? null;
+        break;
+      case "game:auto-selections":
+        state.lastAutoSelections = Array.isArray(payload?.selections)
+          ? payload.selections.map((selection) => ({ ...selection }))
+          : [];
+        break;
+      default:
+        break;
+    }
+  };
+
+  const incomingHandler = (event) => {
+    const { type, payload } = event.detail ?? {};
+    appendLog("incoming", type, payload);
+  };
+
+  serverRelay.addEventListener("outgoing", outgoingHandler);
+  serverRelay.addEventListener("incoming", incomingHandler);
+
+  serverRelay.addEventListener("demomodechange", (event) => {
+    setDemoMode(Boolean(event.detail?.value));
+  });
+
+  return {
+    element: container,
+    setDemoMode,
+    destroy() {
+      serverRelay.removeEventListener("outgoing", outgoingHandler);
+      serverRelay.removeEventListener("incoming", incomingHandler);
+      container.remove();
+    },
+  };
+}
