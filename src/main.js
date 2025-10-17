@@ -764,14 +764,12 @@ const opts = {
       console.debug(`Bet value updated to ${event.detail.value}`);
     });
     controlPanel.addEventListener("mineschanged", (event) => {
-      applyMinesOption(event.detail.value);
-      // finalizeRound();
-      // storedAutoSelections = [];
-      // game?.clearAutoSelections?.();
-      // game?.setMines?.(event.detail.value);
-      // if (controlPanelMode === "auto" && !autoRunActive) {
-      //   prepareForNewRoundState({ preserveAutoSelections: true });
-      // }
+      const shouldSyncGame =
+        controlPanelMode === "auto" &&
+        !autoRunActive &&
+        !autoRoundInProgress;
+
+      applyMinesOption(event.detail.value, { syncGame: shouldSyncGame });
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
