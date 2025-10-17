@@ -4,8 +4,8 @@
 
 .server-dummy {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 4px;
+  right: 4px;
   width: 420px;
   max-width: calc(100% - 32px);
   height: 540px;
