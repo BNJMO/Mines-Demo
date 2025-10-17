@@ -395,10 +395,18 @@ function handleAutoRoundFinished() {
   }
 
   if (Number.isFinite(autoBetsRemaining) && autoBetsRemaining <= 0) {
+    const shouldSignalCompletion = !autoStopShouldComplete;
     autoRunFlag = false;
     autoStopShouldComplete = true;
     autoStopFinishing = true;
     setAutoRunUIState(true);
+
+    if (shouldSignalCompletion && !demoMode && !suppressRelay) {
+      sendRelayMessage("action:stop-autobet", {
+        reason: "completed",
+        completed: true,
+      });
+    }
   }
 
   scheduleNextAutoBetRound();

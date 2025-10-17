@@ -187,10 +187,6 @@ export function createServerDummy(relay, options = {}) {
     serverRelay.deliver("stop-autobet", { completed: false });
   });
 
-  createButton("Finalize Round", () => {
-    serverRelay.deliver("finalize-round", {});
-  });
-
   createButton("Cashout", () => {
     serverRelay.deliver("cashout", {});
   });
