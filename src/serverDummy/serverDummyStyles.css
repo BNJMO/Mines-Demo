@@ -8,7 +8,7 @@
   right: 16px;
   width: 420px;
   max-width: calc(100% - 32px);
-  height: 340px;
+  height: 540px;
   background: rgba(9, 27, 38, 0.92);
   border: 1px solid rgba(34, 56, 69, 0.6);
   border-radius: 16px;
@@ -209,8 +209,28 @@
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   background: rgba(17, 40, 53, 0.78);
+}
+
+.server-dummy__controls-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.server-dummy__controls-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(165, 196, 214, 0.8);
+}
+
+.server-dummy__controls-group-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .server-dummy__button {
@@ -257,6 +277,18 @@
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 12px;
+  }
+
+  .server-dummy__controls-group {
+    flex: 1 1 160px;
+    max-width: 240px;
+  }
+
+  .server-dummy__controls-group-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .server-dummy__button {

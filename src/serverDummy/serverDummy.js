@@ -117,6 +117,26 @@ export function createServerDummy(relay, options = {}) {
   controlsSection.className = "server-dummy__controls";
   body.appendChild(controlsSection);
 
+  function createControlsGroup(title) {
+    const group = document.createElement("div");
+    group.className = "server-dummy__controls-group";
+
+    const heading = document.createElement("div");
+    heading.className = "server-dummy__controls-group-title";
+    heading.textContent = title;
+    group.appendChild(heading);
+
+    const buttonsContainer = document.createElement("div");
+    buttonsContainer.className = "server-dummy__controls-group-buttons";
+    group.appendChild(buttonsContainer);
+
+    controlsSection.appendChild(group);
+    return buttonsContainer;
+  }
+
+  const manualControls = createControlsGroup("Manual Actions");
+  const autoControls = createControlsGroup("Auto Actions");
+
   const buttons = [];
 
   function appendLog(direction, type, payload) {
@@ -125,7 +145,7 @@ export function createServerDummy(relay, options = {}) {
     logList.scrollTop = logList.scrollHeight;
   }
 
-  function createButton(label, onClick) {
+  function createButton(label, onClick, mountPoint = controlsSection) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
@@ -135,7 +155,7 @@ export function createServerDummy(relay, options = {}) {
         onClick();
       }
     });
-    controlsSection.appendChild(button);
+    mountPoint.appendChild(button);
     buttons.push(button);
     return button;
   }
@@ -145,51 +165,79 @@ export function createServerDummy(relay, options = {}) {
     lastAutoSelections: [],
   };
 
-  createButton("Start Round", () => {
-    serverRelay.deliver("start-round", {});
-  });
+  createButton(
+    "Start Round",
+    () => {
+      serverRelay.deliver("start-round", {});
+    },
+    manualControls
+  );
 
-  createButton("Reveal Safe", () => {
-    serverRelay.deliver("reveal-card", {
-      result: "diamond",
-      selection: state.lastManualSelection,
-    });
-  });
+  createButton(
+    "On Round Won",
+    () => {
+      serverRelay.deliver("reveal-card", {
+        result: "diamond",
+        selection: state.lastManualSelection,
+      });
+    },
+    manualControls
+  );
 
-  createButton("Reveal Bomb", () => {
-    serverRelay.deliver("reveal-card", {
-      result: "bomb",
-      selection: state.lastManualSelection,
-    });
-  });
+  createButton(
+    "On Round Lost",
+    () => {
+      serverRelay.deliver("reveal-card", {
+        result: "bomb",
+        selection: state.lastManualSelection,
+      });
+    },
+    manualControls
+  );
 
-  createButton("Auto: Diamonds", () => {
-    const selections = state.lastAutoSelections ?? [];
-    const results = selections.map((selection) => ({
-      row: selection?.row,
-      col: selection?.col,
-      result: "diamond",
-    }));
-    serverRelay.deliver("auto-round-result", { results });
-  });
+  createButton(
+    "Cashout",
+    () => {
+      serverRelay.deliver("cashout", {});
+    },
+    manualControls
+  );
 
-  createButton("Auto: Bomb", () => {
-    const selections = state.lastAutoSelections ?? [];
-    const results = selections.map((selection, index) => ({
-      row: selection?.row,
-      col: selection?.col,
-      result: index === 0 ? "bomb" : "diamond",
-    }));
-    serverRelay.deliver("auto-round-result", { results });
-  });
+  createButton(
+    "On Round Won",
+    () => {
+      const selections = state.lastAutoSelections ?? [];
+      const results = selections.map((selection) => ({
+        row: selection?.row,
+        col: selection?.col,
+        result: "diamond",
+      }));
+      serverRelay.deliver("auto-round-result", { results });
+    },
+    autoControls
+  );
 
-  createButton("Stop Autobet", () => {
-    serverRelay.deliver("stop-autobet", { completed: false });
-  });
+  createButton(
+    "On Round Lost",
+    () => {
+      const selections = state.lastAutoSelections ?? [];
+      const results = selections.map((selection, index) => ({
+        row: selection?.row,
+        col: selection?.col,
+        result: index === 0 ? "bomb" : "diamond",
+      }));
+      serverRelay.deliver("auto-round-result", { results });
+    },
+    autoControls
+  );
 
-  createButton("Cashout", () => {
-    serverRelay.deliver("cashout", {});
-  });
+  createButton(
+    "Stop Autobet",
+    () => {
+      serverRelay.deliver("stop-autobet", { completed: false });
+    },
+    autoControls
+  );
 
   mount.prepend(container);
 
