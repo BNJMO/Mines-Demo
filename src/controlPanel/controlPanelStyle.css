@@ -289,12 +289,12 @@
 
 .control-bet-btn.is-non-clickable,
 .control-bet-btn:disabled {
-  background: linear-gradient(135deg, #3b3f00 0%, #3b3f00 100%);
+  background: linear-gradient(135deg, #656B00 0%, #656B00 100%);
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
   transform: none;
-  color: #8b8d52;
+  color: #091b26;
 }
 
 .control-bet-btn.is-non-clickable:hover,
