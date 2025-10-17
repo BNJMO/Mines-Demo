@@ -54,6 +54,10 @@ export function createServerDummy(relay, options = {}) {
   title.textContent = "Dummy Server";
   header.appendChild(title);
 
+  const headerControls = document.createElement("div");
+  headerControls.className = "server-dummy__header-controls";
+  header.appendChild(headerControls);
+
   const toggleLabel = document.createElement("label");
   toggleLabel.className = "server-dummy__toggle";
   toggleLabel.textContent = "Demo Mode";
@@ -66,7 +70,18 @@ export function createServerDummy(relay, options = {}) {
   });
 
   toggleLabel.appendChild(toggleInput);
-  header.appendChild(toggleLabel);
+  headerControls.appendChild(toggleLabel);
+
+  const minimizeButton = document.createElement("button");
+  minimizeButton.type = "button";
+  minimizeButton.className = "server-dummy__minimize";
+  minimizeButton.setAttribute("aria-label", "Toggle dummy server visibility");
+  minimizeButton.textContent = "−";
+  minimizeButton.addEventListener("click", () => {
+    const collapsed = container.classList.toggle("server-dummy--collapsed");
+    minimizeButton.textContent = collapsed ? "+" : "−";
+  });
+  headerControls.appendChild(minimizeButton);
 
   const body = document.createElement("div");
   body.className = "server-dummy__body";
@@ -76,14 +91,27 @@ export function createServerDummy(relay, options = {}) {
   logSection.className = "server-dummy__log";
   body.appendChild(logSection);
 
-  const logTitle = document.createElement("div");
-  logTitle.className = "server-dummy__log-title";
-  logTitle.textContent = "Relay Log";
-  logSection.appendChild(logTitle);
-
   const logList = document.createElement("div");
   logList.className = "server-dummy__log-list";
   logSection.appendChild(logList);
+
+  const logHeader = document.createElement("div");
+  logHeader.className = "server-dummy__log-header";
+  logSection.insertBefore(logHeader, logList);
+
+  const logTitle = document.createElement("div");
+  logTitle.className = "server-dummy__log-title";
+  logTitle.textContent = "Relay Log";
+  logHeader.appendChild(logTitle);
+
+  const clearButton = document.createElement("button");
+  clearButton.type = "button";
+  clearButton.className = "server-dummy__clear-log";
+  clearButton.textContent = "Clear";
+  clearButton.addEventListener("click", () => {
+    logList.textContent = "";
+  });
+  logHeader.appendChild(clearButton);
 
   const controlsSection = document.createElement("div");
   controlsSection.className = "server-dummy__controls";
