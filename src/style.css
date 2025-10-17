@@ -22,6 +22,7 @@ body {
   font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   background: #091b26;
   color: #ffffff;
+  --app-body-vertical-padding: 80px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -53,6 +54,7 @@ body {
   box-shadow: 0 24px 48px rgba(9, 27, 38, 0.35);
   flex-direction: row;
   align-items: stretch;
+  --app-container-vertical-padding: 32px;
 }
 
 @media (max-width: 1100px), (orientation: portrait) {
@@ -64,10 +66,12 @@ body {
 
 @media (max-width: 768px) {
   body {
+    --app-body-vertical-padding: 0px;
     padding: 0px;
   }
 
   .app-container {
+    --app-container-vertical-padding: 48px;
     padding: 24px;
     gap: 24px;
   }
@@ -75,6 +79,7 @@ body {
 
 @media (orientation: portrait) {
   .app-container {
+    --app-container-vertical-padding: 32px;
     padding: 16px;
   }
 }

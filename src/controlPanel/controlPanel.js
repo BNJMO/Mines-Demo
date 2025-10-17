@@ -82,6 +82,10 @@ export class ControlPanel extends EventTarget {
     this.container.className = "control-panel";
     this.host.appendChild(this.container);
 
+    this.scrollContainer = document.createElement("div");
+    this.scrollContainer.className = "control-panel-scroll";
+    this.container.appendChild(this.scrollContainer);
+
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
@@ -125,7 +129,7 @@ export class ControlPanel extends EventTarget {
     this.autoButton.addEventListener("click", () => this.setMode("auto"));
 
     this.toggleWrapper.append(this.manualButton, this.autoButton);
-    this.container.appendChild(this.toggleWrapper);
+    this.scrollContainer.appendChild(this.toggleWrapper);
   }
 
   buildBetAmountDisplay() {
@@ -141,7 +145,7 @@ export class ControlPanel extends EventTarget {
     this.betAmountValue.className = "control-row-value";
     row.appendChild(this.betAmountValue);
 
-    this.container.appendChild(row);
+    this.scrollContainer.appendChild(row);
   }
 
   buildBetControls() {
@@ -202,7 +206,7 @@ export class ControlPanel extends EventTarget {
       separator,
       this.doubleButton
     );
-    this.container.appendChild(this.betBox);
+    this.scrollContainer.appendChild(this.betBox);
   }
 
   buildMinesLabel() {
@@ -214,7 +218,7 @@ export class ControlPanel extends EventTarget {
     label.textContent = this.options.minesLabel;
     row.appendChild(label);
 
-    this.container.appendChild(row);
+    this.scrollContainer.appendChild(row);
   }
 
   buildMinesSelect() {
@@ -238,7 +242,7 @@ export class ControlPanel extends EventTarget {
     arrow.setAttribute("aria-hidden", "true");
     this.minesSelectWrapper.appendChild(arrow);
 
-    this.container.appendChild(this.minesSelectWrapper);
+    this.scrollContainer.appendChild(this.minesSelectWrapper);
 
     this.setMinesSelectState(this.minesSelectState);
   }
@@ -252,7 +256,7 @@ export class ControlPanel extends EventTarget {
     label.textContent = this.options.gemsLabel;
     row.appendChild(label);
 
-    this.container.appendChild(row);
+    this.scrollContainer.appendChild(row);
   }
 
   buildGemsDisplay() {
@@ -263,14 +267,14 @@ export class ControlPanel extends EventTarget {
     this.gemsValue.className = "control-gems-value";
     this.gemsBox.appendChild(this.gemsValue);
 
-    this.container.appendChild(this.gemsBox);
+    this.scrollContainer.appendChild(this.gemsBox);
   }
 
   buildModeSections() {
     this.manualSection = document.createElement("div");
     this.manualSection.className =
       "control-mode-section control-mode-section--manual";
-    this.container.appendChild(this.manualSection);
+    this.scrollContainer.appendChild(this.manualSection);
 
     this.buildBetButton();
     this.buildRandomPickButton();
@@ -280,7 +284,7 @@ export class ControlPanel extends EventTarget {
     this.autoSection = document.createElement("div");
     this.autoSection.className =
       "control-mode-section control-mode-section--auto";
-    this.container.appendChild(this.autoSection);
+    this.scrollContainer.appendChild(this.autoSection);
 
     this.buildAutoControls();
   }
@@ -392,7 +396,7 @@ export class ControlPanel extends EventTarget {
       this.dispatchEvent(new CustomEvent("startautobet"));
     });
 
-    this.autoSection.appendChild(this.autoStartButton);
+    this.container.appendChild(this.autoStartButton);
 
     this.setAutoStartButtonState(this.autoStartButtonState);
 
@@ -519,7 +523,7 @@ export class ControlPanel extends EventTarget {
     this.betButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("bet"));
     });
-    const parent = this.manualSection ?? this.container;
+    const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(this.betButton);
 
     this.setBetButtonMode(this.betButtonMode);
@@ -534,7 +538,7 @@ export class ControlPanel extends EventTarget {
     this.randomPickButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("randompick"));
     });
-    const parent = this.manualSection ?? this.container;
+    const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(this.randomPickButton);
 
     this.setRandomPickState(this.randomPickButtonState);
@@ -636,7 +640,7 @@ export class ControlPanel extends EventTarget {
     this.profitOnWinValue.className = "control-row-value";
     row.appendChild(this.profitOnWinValue);
 
-    const parent = this.manualSection ?? this.container;
+    const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(row);
   }
 
@@ -667,7 +671,7 @@ export class ControlPanel extends EventTarget {
     icon.className = "control-profit-icon";
     this.profitBox.appendChild(icon);
 
-    const parent = this.manualSection ?? this.container;
+    const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(this.profitBox);
   }
 
@@ -726,31 +730,27 @@ export class ControlPanel extends EventTarget {
   }
 
   updateResponsiveLayout() {
-    if (!this.container) return;
+    if (!this.container || !this.scrollContainer) return;
     const isPortrait = Boolean(this._layoutMediaQuery?.matches);
     this.container.classList.toggle("is-portrait", isPortrait);
 
-    if (!this.autoStartButton || !this.toggleWrapper) {
-      return;
+    if (this.autoStartButton) {
+      if (isPortrait) {
+        this.container.insertBefore(
+          this.autoStartButton,
+          this.container.firstChild
+        );
+      } else {
+        const referenceNode = this.gameName ?? null;
+        this.container.insertBefore(this.autoStartButton, referenceNode);
+      }
     }
 
-    if (isPortrait) {
-      this.container.insertBefore(
-        this.autoStartButton,
-        this.container.firstChild
+    if (this.toggleWrapper) {
+      this.scrollContainer.insertBefore(
+        this.toggleWrapper,
+        this.scrollContainer.firstChild
       );
-      if (this.gameName) {
-        this.container.insertBefore(this.toggleWrapper, this.gameName);
-      } else {
-        this.container.appendChild(this.toggleWrapper);
-      }
-    } else {
-      this.container.insertBefore(this.toggleWrapper, this.container.firstChild);
-      if (this.autoSection) {
-        this.autoSection.appendChild(this.autoStartButton);
-      } else {
-        this.container.appendChild(this.autoStartButton);
-      }
     }
   }
 
