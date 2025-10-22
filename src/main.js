@@ -441,6 +441,15 @@ function scheduleNextAutoBetRound() {
     }
 
     if (!autoRunFlag || autoStopShouldComplete) {
+      if (
+        !demoMode &&
+        !suppressRelay &&
+        controlPanelMode === "auto" &&
+        autoStopFinishing
+      ) {
+        return;
+      }
+
       const completed = autoStopShouldComplete;
       autoStopShouldComplete = false;
       stopAutoBetProcess({ completed });
