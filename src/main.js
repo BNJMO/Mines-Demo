@@ -519,15 +519,16 @@ function beginAutoBetProcess() {
   autoStopFinishing = false;
 
   if (!demoMode && !suppressRelay) {
-    const payload = {
+    const createAutobetPayload = () => ({
       selections: storedAutoSelections.map((selection) => ({
         ...selection,
       })),
       numberOfBets: Number.isFinite(autoBetsRemaining)
         ? autoBetsRemaining
         : 0,
-    };
-    sendRelayMessage("action:start-autobet", payload);
+    });
+    sendRelayMessage("control:start-autobet", createAutobetPayload());
+    sendRelayMessage("action:start-autobet", createAutobetPayload());
   }
 
   setAutoRunUIState(true);
