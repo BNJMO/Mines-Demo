@@ -160,19 +160,19 @@ serverRelay.addEventListener("incoming", (event) => {
   const { type, payload } = event.detail ?? {};
   withRelaySuppressed(() => {
     switch (type) {
-      case "start-round":
-        performBetRound();
+      case "start-bet":
+        performBet();
         break;
-      case "round-result":
+      case "bet-result":
         applyServerReveal(payload);
         break;
-      case "auto-round-result":
+      case "auto-bet-result":
         applyAutoResultsFromServer(payload?.results);
         break;
       case "stop-autobet":
         stopAutoBetProcess({ completed: Boolean(payload?.completed) });
         break;
-      case "finalize-round":
+      case "finalize-bet":
         finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
         break;
       case "cashout":
@@ -686,7 +686,7 @@ function handleCashout() {
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
-function performBetRound() {
+function performBet() {
   applyMinesOption(controlPanel?.getMinesValue?.(), {
     syncGame: true,
   });
@@ -703,7 +703,7 @@ function handleBet() {
     return;
   }
 
-  performBetRound();
+  performBet();
 }
 
 function handleGameStateChange(state) {

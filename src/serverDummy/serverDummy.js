@@ -257,17 +257,17 @@ export function createServerDummy(relay, options = {}) {
   };
 
   createButton(
-    "Start Round",
+    "Start Bet",
     () => {
-      serverRelay.deliver("start-round", {});
+      serverRelay.deliver("start-bet", {});
     },
     manualControls
   );
 
   createButton(
-    "On Round Won",
+    "On Bet Won",
     () => {
-      serverRelay.deliver("round-result", {
+      serverRelay.deliver("bet-result", {
         result: "win",
         selection: state.lastManualSelection,
       });
@@ -276,9 +276,9 @@ export function createServerDummy(relay, options = {}) {
   );
 
   createButton(
-    "On Round Lost",
+    "On Bet Lost",
     () => {
-      serverRelay.deliver("round-result", {
+      serverRelay.deliver("bet-result", {
         result: "lost",
         selection: state.lastManualSelection,
       });
@@ -295,7 +295,7 @@ export function createServerDummy(relay, options = {}) {
   );
 
   createButton(
-    "On Round Won",
+    "On Bet Won",
     () => {
       const selections = state.lastAutoSelections ?? [];
       const results = selections.map((selection) => ({
@@ -303,13 +303,13 @@ export function createServerDummy(relay, options = {}) {
         col: selection?.col,
         result: "win",
       }));
-      serverRelay.deliver("auto-round-result", { results });
+      serverRelay.deliver("auto-bet-result", { results });
     },
     autoControls
   );
 
   createButton(
-    "On Round Lost",
+    "On Bet Lost",
     () => {
       const selections = state.lastAutoSelections ?? [];
       const results = selections.map((selection, index) => ({
@@ -317,7 +317,7 @@ export function createServerDummy(relay, options = {}) {
         col: selection?.col,
         result: index === 0 ? "lost" : "win",
       }));
-      serverRelay.deliver("auto-round-result", { results });
+      serverRelay.deliver("auto-bet-result", { results });
     },
     autoControls
   );
