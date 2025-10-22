@@ -162,6 +162,7 @@ serverRelay.addEventListener("incoming", (event) => {
     switch (type) {
       case "start-bet":
         performBet();
+        setControlPanelRandomState(true);
         break;
       case "bet-result":
         applyServerReveal(payload);
@@ -238,6 +239,14 @@ function setControlPanelMinesState(isClickable) {
   controlPanel?.setMinesSelectState?.(
     isClickable ? "clickable" : "non-clickable"
   );
+}
+
+function disableServerRoundSetupControls() {
+  setControlPanelBetState(false);
+  setControlPanelRandomState(false);
+  setControlPanelMinesState(false);
+  controlPanel?.setModeToggleClickable?.(false);
+  controlPanel?.setBetControlsClickable?.(false);
 }
 
 function normalizeMinesValue(value, maxMines) {
@@ -696,6 +705,7 @@ function performBet() {
 
 function handleBet() {
   if (!demoMode && !suppressRelay) {
+    disableServerRoundSetupControls();
     sendRelayMessage("action:bet", {
       bet: controlPanel?.getBetValue?.(),
       mines: controlPanel?.getMinesValue?.(),
