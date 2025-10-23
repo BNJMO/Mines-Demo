@@ -37,6 +37,9 @@ export class ControlPanel extends EventTarget {
       gameName: options.gameName ?? "Game Name",
       minesLabel: options.minesLabel ?? "Mines",
       gemsLabel: options.gemsLabel ?? "Gems",
+      animationsLabel: options.animationsLabel ?? "Animations",
+      initialAnimationsEnabled:
+        options.initialAnimationsEnabled ?? true,
       initialMines: options.initialMines ?? 1,
       maxMines: options.maxMines,
       totalTiles: options.totalTiles,
@@ -46,6 +49,8 @@ export class ControlPanel extends EventTarget {
     this.host.innerHTML = "";
 
     this.mode = this.options.initialMode === "auto" ? "auto" : "manual";
+
+    this.animationsEnabled = Boolean(this.options.initialAnimationsEnabled);
 
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
@@ -94,7 +99,7 @@ export class ControlPanel extends EventTarget {
     this.buildGemsLabel();
     this.buildGemsDisplay();
     this.buildModeSections();
-    this.buildGameName();
+    this.buildFooter();
 
     this.setBetAmountDisplay(this.options.initialBetAmountDisplay);
     this.setProfitOnWinDisplay(this.options.initialProfitOnWinDisplay);
@@ -108,6 +113,7 @@ export class ControlPanel extends EventTarget {
     this.updateNumberOfBetsIcon();
     this.updateOnWinMode();
     this.updateOnLossMode();
+    this.updateAnimationToggle();
 
     this.setupResponsiveLayout();
   }
@@ -696,11 +702,36 @@ export class ControlPanel extends EventTarget {
     parent.appendChild(this.profitBox);
   }
 
-  buildGameName() {
+  buildFooter() {
+    this.footer = document.createElement("div");
+    this.footer.className = "control-panel-footer";
+    this.container.appendChild(this.footer);
+
     this.gameName = document.createElement("div");
     this.gameName.className = "control-game-name";
     this.gameName.textContent = this.options.gameName;
-    this.container.appendChild(this.gameName);
+    this.footer.appendChild(this.gameName);
+
+    this.animationToggleWrapper = document.createElement("div");
+    this.animationToggleWrapper.className = "control-animations-toggle";
+    this.footer.appendChild(this.animationToggleWrapper);
+
+    const label = document.createElement("span");
+    label.className = "control-animations-label";
+    label.textContent = this.options.animationsLabel;
+    this.animationToggleWrapper.appendChild(label);
+
+    this.animationToggleButton = this.createSwitchButton({
+      onToggle: (isActive) => {
+        this.setAnimationsEnabled(isActive);
+      },
+    });
+    this.animationToggleButton.classList.add("control-animations-switch");
+    this.animationToggleButton.setAttribute(
+      "aria-label",
+      "Toggle game animations"
+    );
+    this.animationToggleWrapper.appendChild(this.animationToggleButton);
   }
 
   setMode(mode) {
@@ -762,7 +793,7 @@ export class ControlPanel extends EventTarget {
           this.container.firstChild
         );
       } else {
-        const referenceNode = this.gameName ?? null;
+        const referenceNode = this.footer ?? null;
         this.container.insertBefore(this.autoStartButton, referenceNode);
       }
     }
@@ -985,6 +1016,43 @@ export class ControlPanel extends EventTarget {
     if (this.gameName) {
       this.gameName.textContent = name;
     }
+  }
+
+  setAnimationsEnabled(value, { emit = true } = {}) {
+    const normalized = Boolean(value);
+    if (this.animationsEnabled === normalized) {
+      this.updateAnimationToggle();
+      return;
+    }
+    this.animationsEnabled = normalized;
+    this.updateAnimationToggle();
+    if (emit) {
+      this.dispatchAnimationsChange();
+    }
+  }
+
+  getAnimationsEnabled() {
+    return Boolean(this.animationsEnabled);
+  }
+
+  updateAnimationToggle() {
+    if (!this.animationToggleButton) return;
+    this.animationToggleButton.classList.toggle(
+      "is-on",
+      Boolean(this.animationsEnabled)
+    );
+    this.animationToggleButton.setAttribute(
+      "aria-pressed",
+      String(Boolean(this.animationsEnabled))
+    );
+  }
+
+  dispatchAnimationsChange() {
+    this.dispatchEvent(
+      new CustomEvent("animationschange", {
+        detail: { enabled: Boolean(this.animationsEnabled) },
+      })
+    );
   }
 
   setBetButtonMode(mode) {
