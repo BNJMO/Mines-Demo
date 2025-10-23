@@ -918,6 +918,7 @@ const opts = {
   hoverExitDuration: 200,
   hoverTiltAxis: "x",
   hoverSkewAmount: 0.02,
+  disableAnimations: false,
 
   // Card Selected Wiggle
   wiggleSelectionEnabled: true,
@@ -1068,6 +1069,11 @@ const opts = {
         value: event.detail?.value,
       });
     });
+    controlPanel.addEventListener("animationschange", (event) => {
+      const enabled = Boolean(event.detail?.enabled);
+      opts.disableAnimations = !enabled;
+      game?.setAnimationsEnabled?.(enabled);
+    });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
@@ -1077,6 +1083,7 @@ const opts = {
     controlPanel.setProfitOnWinDisplay("$0.00");
     setTotalProfitAmountValue("0.00000000");
     handleAutoSelectionChange(autoSelectionCount);
+    opts.disableAnimations = !(controlPanel.getAnimationsEnabled?.() ?? true);
   } catch (err) {
     console.error("Control panel initialization failed:", err);
   }
@@ -1092,6 +1099,10 @@ const opts = {
     if (state) {
       controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
       controlPanel?.setMinesValue?.(state.mines, { emit: false });
+    }
+    const animationsEnabled = controlPanel?.getAnimationsEnabled?.();
+    if (animationsEnabled != null) {
+      game?.setAnimationsEnabled?.(Boolean(animationsEnabled));
     }
   } catch (e) {
     console.error("Game initialization failed:", e);

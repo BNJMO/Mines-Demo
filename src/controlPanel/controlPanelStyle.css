@@ -363,13 +363,36 @@
   opacity: 0.85;
 }
 
+.control-panel-footer {
+  margin-top: auto;
+  padding: 48px 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
 .control-game-name {
   font-weight: 700;
   font-size: 1.1rem;
-  padding-top: 48px;
-  padding-left: 16px;
   color: #ffffff;
-  margin-top: auto;
+}
+
+.control-animations-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #9a9da6;
+  font-weight: 600;
+}
+
+.control-animations-label {
+  font-size: 0.95rem;
+}
+
+.control-animations-switch {
+  flex: 0 0 auto;
 }
 
 .control-mode-section {

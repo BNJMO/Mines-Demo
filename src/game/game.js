@@ -119,7 +119,7 @@ export async function createGame(mount, opts = {}) {
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
 
   // Animation Options
-  const disableAnimations = opts.disableAnimations ?? false;
+  let disableAnimations = opts.disableAnimations ?? false;
   /* Card Hover */
   const hoverEnabled = opts.hoverEnabled ?? true;
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
@@ -868,6 +868,35 @@ export async function createGame(mount, opts = {}) {
   function stopWiggle(t) {
     t._wiggleToken = Symbol("wiggle-cancelled");
     t._animating = false;
+  }
+
+  function setAnimationsEnabled(enabled) {
+    const nextDisabled = !Boolean(enabled);
+    if (disableAnimations === nextDisabled) {
+      return;
+    }
+
+    disableAnimations = nextDisabled;
+
+    if (disableAnimations) {
+      for (const tile of tiles) {
+        if (!tile) continue;
+        stopHover(tile);
+        stopWiggle(tile);
+        forceFlatPose(tile);
+        refreshTileTint(tile);
+      }
+
+      if (winPopup?.container) {
+        const { container } = winPopup;
+        container.alpha = 1;
+        if (container.scale?.set) {
+          container.scale.set(1);
+        } else if (container.scale != null) {
+          container.scale = 1;
+        }
+      }
+    }
   }
 
   function isAutoModeActive() {
@@ -1789,5 +1818,6 @@ export async function createGame(mount, opts = {}) {
     revealRemainingTiles,
     getAutoResetDelay,
     showWinPopup: spawnWinPopup,
+    setAnimationsEnabled,
   };
 }
