@@ -153,7 +153,14 @@ serverDummyUI = createServerDummy(serverRelay, {
   mount: serverDummyMount,
   onDemoModeToggle: (value) => setDemoMode(value),
   initialDemoMode: demoMode,
+  initialHidden: true,
+  onVisibilityChange: (isVisible) => {
+    controlPanel?.setDummyServerPanelVisibility?.(isVisible);
+  },
 });
+controlPanel?.setDummyServerPanelVisibility?.(
+  serverDummyUI?.isVisible?.() ?? false
+);
 serverRelay.setDemoMode(demoMode);
 
 serverRelay.addEventListener("incoming", (event) => {
@@ -1074,6 +1081,9 @@ const opts = {
       opts.disableAnimations = !enabled;
       game?.setAnimationsEnabled?.(enabled);
     });
+    controlPanel.addEventListener("showdummyserver", () => {
+      serverDummyUI?.show?.();
+    });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
@@ -1084,6 +1094,9 @@ const opts = {
     setTotalProfitAmountValue("0.00000000");
     handleAutoSelectionChange(autoSelectionCount);
     opts.disableAnimations = !(controlPanel.getAnimationsEnabled?.() ?? true);
+    controlPanel.setDummyServerPanelVisibility(
+      serverDummyUI?.isVisible?.() ?? false
+    );
   } catch (err) {
     console.error("Control panel initialization failed:", err);
   }
