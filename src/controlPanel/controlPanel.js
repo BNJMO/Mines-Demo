@@ -38,6 +38,8 @@ export class ControlPanel extends EventTarget {
       minesLabel: options.minesLabel ?? "Mines",
       gemsLabel: options.gemsLabel ?? "Gems",
       animationsLabel: options.animationsLabel ?? "Animations",
+      showDummyServerLabel:
+        options.showDummyServerLabel ?? "Show Dummy Server",
       initialAnimationsEnabled:
         options.initialAnimationsEnabled ?? true,
       initialMines: options.initialMines ?? 1,
@@ -712,9 +714,13 @@ export class ControlPanel extends EventTarget {
     this.gameName.textContent = this.options.gameName;
     this.footer.appendChild(this.gameName);
 
+    this.footerActions = document.createElement("div");
+    this.footerActions.className = "control-footer-actions";
+    this.footer.appendChild(this.footerActions);
+
     this.animationToggleWrapper = document.createElement("div");
     this.animationToggleWrapper.className = "control-animations-toggle";
-    this.footer.appendChild(this.animationToggleWrapper);
+    this.footerActions.appendChild(this.animationToggleWrapper);
 
     const label = document.createElement("span");
     label.className = "control-animations-label";
@@ -732,6 +738,18 @@ export class ControlPanel extends EventTarget {
       "Toggle game animations"
     );
     this.animationToggleWrapper.appendChild(this.animationToggleButton);
+
+    this.showDummyServerButton = document.createElement("button");
+    this.showDummyServerButton.type = "button";
+    this.showDummyServerButton.className = "control-show-dummy-server";
+    this.showDummyServerButton.textContent = this.options.showDummyServerLabel;
+    this.showDummyServerButton.addEventListener("click", () => {
+      if (this.showDummyServerButton.disabled) {
+        return;
+      }
+      this.dispatchEvent(new CustomEvent("showdummyserver"));
+    });
+    this.footerActions.appendChild(this.showDummyServerButton);
   }
 
   setMode(mode) {
@@ -1053,6 +1071,14 @@ export class ControlPanel extends EventTarget {
         detail: { enabled: Boolean(this.animationsEnabled) },
       })
     );
+  }
+
+  setDummyServerPanelVisibility(isVisible) {
+    if (!this.showDummyServerButton) return;
+    const disabled = Boolean(isVisible);
+    this.showDummyServerButton.disabled = disabled;
+    this.showDummyServerButton.classList.toggle("is-disabled", disabled);
+    this.showDummyServerButton.setAttribute("aria-disabled", String(disabled));
   }
 
   setBetButtonMode(mode) {
