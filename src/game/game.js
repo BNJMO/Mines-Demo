@@ -294,6 +294,7 @@ export async function createGame(mount, opts = {}) {
   let tiles = [];
   let roundOutcome = "pending";
   let roundWinningTexture = null;
+  let roundLayoutPrepared = false;
   let gameOver = false;
   let shouldPlayStartSound = true;
   let revealedSafe = 0;
@@ -316,6 +317,7 @@ export async function createGame(mount, opts = {}) {
     hideWinPopup();
     roundOutcome = "pending";
     roundWinningTexture = null;
+    roundLayoutPrepared = false;
     activeCardPool = [];
     shouldPlayStartSound = true;
     const preservedAutoSelections = preserveAutoSelections
@@ -358,7 +360,7 @@ export async function createGame(mount, opts = {}) {
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
 
-  function setSelectedCardIsDiamond() {
+  function revealCurrentlySelectedTile(expectedWinning = null) {
     if (selectedTile?._animating) {
       stopHover(selectedTile);
       stopWiggle(selectedTile);
@@ -369,40 +371,43 @@ export async function createGame(mount, opts = {}) {
       !selectedTile ||
       selectedTile.revealed ||
       selectedTile._animating
-    )
+    ) {
       return;
+    }
+
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    if (!ensureRoundLayout("win", tile)) {
-      console.warn("Unable to prepare winning layout");
-      return;
+
+    if (!roundLayoutPrepared) {
+      const fallbackOutcome = expectedWinning === false ? "loss" : "win";
+      if (!ensureRoundLayout(fallbackOutcome, tile)) {
+        console.warn("Unable to prepare layout for selection");
+        return;
+      }
     }
-    revealTileWithFlip(tile, { outcome: "win" });
+
+    const isWinning = Boolean(tile.isWinningCard);
+    if (expectedWinning != null && expectedWinning !== isWinning) {
+      console.warn("Selection outcome mismatch with expected result");
+    }
+
+    revealTileWithFlip(tile, {
+      outcome: isWinning ? "win" : "loss",
+      isWinning,
+    });
+  }
+
+  function setSelectedCardIsDiamond() {
+    revealCurrentlySelectedTile(true);
   }
 
   function SetSelectedCardIsBomb() {
-    if (selectedTile?._animating) {
-      stopHover(selectedTile);
-      stopWiggle(selectedTile);
-    }
+    revealCurrentlySelectedTile(false);
+  }
 
-    if (
-      !waitingForChoice ||
-      !selectedTile ||
-      selectedTile.revealed ||
-      selectedTile._animating
-    )
-      return;
-
-    waitingForChoice = false;
-    const tile = selectedTile;
-    selectedTile = null;
-    if (!ensureRoundLayout("loss", tile)) {
-      console.warn("Unable to prepare loss layout");
-      return;
-    }
-    revealTileWithFlip(tile, { outcome: "loss" });
+  function revealSelectedTile() {
+    revealCurrentlySelectedTile(null);
   }
 
   // Game functions
@@ -753,6 +758,7 @@ export async function createGame(mount, opts = {}) {
 
     revealedSafe = 0;
     roundOutcome = outcome;
+    roundLayoutPrepared = true;
     return true;
   }
 
@@ -764,7 +770,209 @@ export async function createGame(mount, opts = {}) {
     if (roundOutcome !== "pending" && roundOutcome !== outcome) {
       return false;
     }
+    if (roundLayoutPrepared && roundOutcome === outcome) {
+      return true;
+    }
+
     return assignRoundLayout(outcome, selectedTile);
+  }
+
+  function getTextureByIdentifier(identifier, pool) {
+    if (identifier == null) {
+      return null;
+    }
+
+    const normalizeId = (value) => {
+      if (typeof value === "string") {
+        return value.trim();
+      }
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const index = Math.max(0, Math.floor(value) - 1);
+        return `card-${index}`;
+      }
+      return null;
+    };
+
+    const normalizedId = normalizeId(identifier);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const searchPool = Array.isArray(pool) && pool.length ? pool : loadedCardTextures;
+    return (
+      searchPool.find((entry) => entry?.id === normalizedId) ??
+      loadedCardTextures.find((entry) => entry?.id === normalizedId) ??
+      null
+    );
+  }
+
+  function assignTextureToTile(tile, textureEntry, { isWinning = false } = {}) {
+    tile.cardTexture = textureEntry?.texture ?? null;
+    tile.cardTextureId = textureEntry?.id ?? null;
+    tile.isWinningCard = Boolean(isWinning && textureEntry);
+  }
+
+  function distributeNonWinningTextures(
+    tilesToAssign,
+    pool,
+    { excludedId = null, initialCounts = new Map() } = {}
+  ) {
+    if (!tilesToAssign?.length) {
+      return true;
+    }
+
+    const usablePool = pool.filter(
+      (entry) => entry && (!excludedId || entry.id !== excludedId)
+    );
+    if (!usablePool.length) {
+      return false;
+    }
+
+    const limitPerType = Math.max(1, MATCHING_CARDS_REQUIRED - 1);
+    const counts = new Map(initialCounts);
+
+    for (const tile of tilesToAssign) {
+      let candidates = usablePool.filter(
+        (entry) => (counts.get(entry.id) ?? 0) < limitPerType
+      );
+
+      if (!candidates.length) {
+        let minCount = Infinity;
+        for (const entry of usablePool) {
+          const count = counts.get(entry.id) ?? 0;
+          if (count < minCount) {
+            minCount = count;
+            candidates = [entry];
+          } else if (count === minCount) {
+            candidates.push(entry);
+          }
+        }
+      }
+
+      const selected = pickRandomTexture(candidates.length ? candidates : usablePool);
+      assignTextureToTile(tile, selected, { isWinning: false });
+      if (selected?.id) {
+        counts.set(selected.id, (counts.get(selected.id) ?? 0) + 1);
+      }
+    }
+
+    return true;
+  }
+
+  function expandPoolForLossScenario(pool) {
+    const totalTiles = tiles.filter((t) => t && !t.destroyed).length;
+    const requiredTypes = Math.max(
+      1,
+      Math.ceil(totalTiles / Math.max(1, MATCHING_CARDS_REQUIRED - 1))
+    );
+
+    if (pool.length >= requiredTypes) {
+      return pool;
+    }
+
+    const extras = loadedCardTextures.filter((entry) => !pool.includes(entry));
+    if (!extras.length) {
+      return pool;
+    }
+
+    const additional = extras.slice();
+    shuffleInPlace(additional);
+    const needed = Math.max(0, requiredTypes - pool.length);
+    return pool.concat(additional.slice(0, needed));
+  }
+
+  function applyPredeterminedLayout(outcome, winningCardType) {
+    const tilesToAssign = tiles.filter((tile) => tile && !tile.destroyed);
+    if (!tilesToAssign.length) {
+      return false;
+    }
+
+    let pool = refreshActiveCardPool();
+    if (!pool.length) {
+      return false;
+    }
+
+    if (outcome === "loss") {
+      pool = expandPoolForLossScenario(pool);
+    }
+
+    tilesToAssign.forEach((tile) => {
+      tile.isWinningCard = false;
+      tile.cardTexture = null;
+      tile.cardTextureId = null;
+    });
+
+    const forcedSelectedTile =
+      waitingForChoice && selectedTile && !selectedTile.destroyed
+        ? selectedTile
+        : null;
+
+    if (outcome === "win") {
+      let winningEntry = getTextureByIdentifier(winningCardType, pool);
+      if (!winningEntry) {
+        winningEntry = pickRandomTexture(pool);
+      }
+      if (!winningEntry) {
+        return false;
+      }
+
+      roundWinningTexture = winningEntry;
+
+      const availableTiles = tilesToAssign.filter((tile) => tile !== forcedSelectedTile);
+      const shuffled = shuffleInPlace(availableTiles.slice());
+      let winningTiles = [];
+      if (forcedSelectedTile) {
+        winningTiles.push(forcedSelectedTile);
+      }
+      const needed = Math.max(0, MATCHING_CARDS_REQUIRED - winningTiles.length);
+      winningTiles = winningTiles.concat(shuffled.slice(0, needed));
+      const assignedSet = new Set(winningTiles);
+      const remainingTiles = tilesToAssign.filter((tile) => !assignedSet.has(tile));
+
+      winningTiles.forEach((tile) =>
+        assignTextureToTile(tile, winningEntry, { isWinning: true })
+      );
+
+      const counts = new Map();
+      counts.set(winningEntry.id, winningTiles.length);
+      if (!distributeNonWinningTextures(remainingTiles, pool, {
+        excludedId: winningEntry.id,
+        initialCounts: counts,
+      })) {
+        return false;
+      }
+
+      totalSafe = Math.min(MATCHING_CARDS_REQUIRED, winningTiles.length);
+    } else {
+      if (forcedSelectedTile) {
+        assignTextureToTile(forcedSelectedTile, null, { isWinning: false });
+      }
+      roundWinningTexture = null;
+      const success = distributeNonWinningTextures(tilesToAssign, pool);
+      if (!success) {
+        return false;
+      }
+      totalSafe = 0;
+    }
+
+    revealedSafe = 0;
+    roundOutcome = outcome;
+    roundLayoutPrepared = true;
+    return true;
+  }
+
+  function determineBetResult(isWin, winningCardType) {
+    const desiredOutcome = isWin ? "win" : "loss";
+
+    if (roundLayoutPrepared && roundOutcome === desiredOutcome) {
+      return true;
+    }
+
+    const applied = applyPredeterminedLayout(desiredOutcome, winningCardType);
+    if (applied) {
+      onChange(getState());
+    }
+    return applied;
   }
 
   async function loadSoundEffects() {
@@ -1418,24 +1626,13 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     selectedTile = null;
 
-    let lossTriggered = false;
     let pendingReveals = 0;
 
     const finalizeAutoRound = () => {
       if (pendingReveals > 0) {
         return;
       }
-
-      if (!lossTriggered && roundOutcome === "win") {
-        const target = Math.max(1, totalSafe || MATCHING_CARDS_REQUIRED);
-        if (revealedSafe >= target) {
-          const wasGameOver = gameOver;
-          completeWin();
-          if (gameOver !== wasGameOver) {
-            onChange(getState());
-          }
-        }
-      }
+      finalizeRoundIfComplete();
     };
 
     for (const entry of results) {
@@ -1455,15 +1652,11 @@ export async function createGame(mount, opts = {}) {
       }
 
       const normalizedResult = String(entry?.result ?? "").toLowerCase();
-      const isLoss = normalizedResult === "lost";
-
-      const desiredOutcome = isLoss ? "loss" : "win";
-      if (!ensureRoundLayout(desiredOutcome, tile)) {
-        continue;
-      }
-
-      if (isLoss) {
-        lossTriggered = true;
+      if (!roundLayoutPrepared) {
+        const fallbackOutcome = normalizedResult === "lost" ? "loss" : "win";
+        if (!ensureRoundLayout(fallbackOutcome, tile)) {
+          continue;
+        }
       }
 
       const started = revealTileWithFlip(
@@ -1528,6 +1721,26 @@ export async function createGame(mount, opts = {}) {
       const tileSize = tile._tileSize;
       flipInset(inset, tileSize, tileSize, radius, pad, color);
     }
+  }
+
+  function isRoundFullyRevealed() {
+    return tiles.every((tile) => tile?.revealed);
+  }
+
+  function finalizeRoundIfComplete() {
+    if (gameOver || !isRoundFullyRevealed()) {
+      return;
+    }
+
+    if (roundOutcome === "win") {
+      completeWin();
+    } else {
+      gameOver = true;
+      onGameOver();
+      onChange(getState());
+      return;
+    }
+    onChange(getState());
   }
 
   function completeWin() {
@@ -1759,26 +1972,21 @@ export async function createGame(mount, opts = {}) {
           tile._animating = false;
           tile.revealed = true;
 
-          if (revealedByPlayer) {
-            const isWinning = revealContext?.isWinning ?? tile.isWinningCard;
-            if (!isWinning) {
-              gameOver = true;
-              revealAllTiles(tile, { stagger: staggerRevealAll });
-              onGameOver();
-            } else {
-              revealedSafe += 1;
-              if (
-                !gameOver &&
-                revealedSafe >= Math.max(1, totalSafe || MATCHING_CARDS_REQUIRED)
-              ) {
-                completeWin();
-              }
-            }
+          const isWinning = revealContext?.isWinning ?? tile.isWinningCard;
+          if (isWinning) {
+            revealedSafe = Math.min(
+              Math.max(totalSafe, MATCHING_CARDS_REQUIRED),
+              revealedSafe + 1
+            );
+          }
 
+          if (revealedByPlayer) {
             onChange(getState());
           }
 
           onComplete?.(tile, { revealedByPlayer });
+
+          finalizeRoundIfComplete();
         },
       });
       try {
@@ -1838,6 +2046,7 @@ export async function createGame(mount, opts = {}) {
     totalSafe = 0;
     roundOutcome = "pending";
     roundWinningTexture = null;
+    roundLayoutPrepared = false;
     activeCardPool = [];
 
     const layout = layoutSizes();
@@ -2000,6 +2209,7 @@ export async function createGame(mount, opts = {}) {
     destroy,
     setSelectedCardIsDiamond,
     SetSelectedCardIsBomb,
+    revealSelectedTile,
     selectRandomTile,
     getAutoSelections: getAutoSelectionCoordinates,
     revealAutoSelections,
@@ -2009,5 +2219,6 @@ export async function createGame(mount, opts = {}) {
     getAutoResetDelay,
     showWinPopup: spawnWinPopup,
     setAnimationsEnabled,
+    determineBetResult,
   };
 }

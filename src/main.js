@@ -136,6 +136,8 @@ function applyServerReveal(payload = {}) {
   const result = String(payload?.result ?? "").toLowerCase();
   clearSelectionDelay();
   selectionPending = false;
+  const isWin = result !== "lost";
+  game?.determineBetResult?.(isWin, payload?.winningCardType);
   if (result === "lost") {
     game?.SetSelectedCardIsBomb?.();
   } else {
@@ -149,7 +151,15 @@ function applyAutoResultsFromServer(results = []) {
   if (!Array.isArray(results) || results.length === 0) {
     return;
   }
-  game?.revealAutoSelections?.(results);
+  const normalized = results.map((entry) => entry || {});
+  const isWin = normalized.every(
+    (entry) => String(entry?.result ?? "").toLowerCase() !== "lost"
+  );
+  const winningCardType = normalized.find(
+    (entry) => entry?.winningCardType != null
+  )?.winningCardType;
+  game?.determineBetResult?.(isWin, winningCardType);
+  game?.revealAutoSelections?.(normalized);
 }
 
 const serverDummyMount =
@@ -741,11 +751,19 @@ function handleCashout() {
 }
 
 function performBet() {
-  applyCardTypeOption(controlPanel?.getCardTypeValue?.(), {
+  const cardTypes = applyCardTypeOption(controlPanel?.getCardTypeValue?.(), {
     syncGame: true,
   });
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
+
+  if (demoMode || suppressRelay) {
+    const totalTypes = Math.max(1, Math.floor(cardTypes ?? 1));
+    const winningCardType =
+      Math.floor(Math.random() * totalTypes) + 1;
+    const isWin = Math.random() >= 0.15;
+    game?.determineBetResult?.(isWin, winningCardType);
+  }
 }
 
 function handleBet() {
@@ -847,13 +865,7 @@ function handleCardSelected(selection) {
       return;
     }
 
-    const triggerLoss = Math.random() < 0.15;
-
-    if (triggerLoss) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
+    game?.revealSelectedTile?.();
 
     selectionPending = false;
   }, SERVER_RESPONSE_DELAY_MS);
