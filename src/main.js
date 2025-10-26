@@ -26,7 +26,7 @@ let cashoutAvailable = false;
 let lastKnownGameState = null;
 let selectionDelayHandle = null;
 let selectionPending = false;
-let minesSelectionLocked = false;
+let cardTypeSelectionLocked = false;
 let controlPanelMode = "manual";
 let autoSelectionCount = 0;
 let storedAutoSelections = [];
@@ -46,6 +46,7 @@ const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
 const SERVER_RESPONSE_DELAY_MS = 250;
+const MIN_CARD_TYPES = 5;
 
 function withRelaySuppressed(callback) {
   suppressRelay = true;
@@ -235,6 +236,12 @@ function setControlPanelRandomState(isClickable) {
   );
 }
 
+function setControlPanelRevealAllState(isClickable) {
+  controlPanel?.setRevealAllButtonState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
+}
+
 function setControlPanelAutoStartState(isClickable) {
   const shouldEnable = isClickable && !autoStopFinishing;
   controlPanel?.setAutoStartButtonState?.(
@@ -242,8 +249,8 @@ function setControlPanelAutoStartState(isClickable) {
   );
 }
 
-function setControlPanelMinesState(isClickable) {
-  controlPanel?.setMinesSelectState?.(
+function setControlPanelCardTypeState(isClickable) {
+  controlPanel?.setCardTypeSelectState?.(
     isClickable ? "clickable" : "non-clickable"
   );
 }
@@ -251,36 +258,42 @@ function setControlPanelMinesState(isClickable) {
 function disableServerRoundSetupControls() {
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
-  setControlPanelMinesState(false);
+  setControlPanelRevealAllState(false);
+  setControlPanelCardTypeState(false);
   controlPanel?.setModeToggleClickable?.(false);
   controlPanel?.setBetControlsClickable?.(false);
 }
 
-function normalizeMinesValue(value, maxMines) {
+function normalizeCardTypeValue(value, minCardTypes, maxCardTypes) {
   const numeric = Math.floor(Number(value));
-  let mines = Number.isFinite(numeric) ? numeric : 1;
-  mines = Math.max(1, mines);
-  if (Number.isFinite(maxMines)) {
-    mines = Math.min(mines, maxMines);
+  const fallbackMin = Number.isFinite(minCardTypes)
+    ? Math.max(1, minCardTypes)
+    : 1;
+  let cardTypes = Number.isFinite(numeric) ? numeric : fallbackMin;
+  cardTypes = Math.max(fallbackMin, cardTypes);
+  if (Number.isFinite(maxCardTypes)) {
+    cardTypes = Math.min(cardTypes, maxCardTypes);
   }
-  return mines;
+  return cardTypes;
 }
 
-function applyMinesOption(value, { syncGame = false } = {}) {
-  const maxMines = controlPanel?.getMaxMines?.();
-  const mines = normalizeMinesValue(value, maxMines);
+function applyCardTypeOption(value, { syncGame = false } = {}) {
+  const minCardTypes = controlPanel?.getMinCardTypes?.();
+  const maxCardTypes = controlPanel?.getMaxCardTypes?.();
+  const cardTypes = normalizeCardTypeValue(value, minCardTypes, maxCardTypes);
 
-  opts.mines = mines;
+  opts.cardTypes = cardTypes;
+  opts.mines = cardTypes;
 
   if (syncGame) {
     if (typeof game?.setMines === "function") {
-      game.setMines(mines);
+      game.setMines(cardTypes);
     } else {
       game?.reset?.();
     }
   }
 
-  return mines;
+  return cardTypes;
 }
 
 function setGameBoardInteractivity(enabled) {
@@ -304,6 +317,7 @@ function beginSelectionDelay() {
   selectionPending = true;
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
 }
 
 function setAutoRunUIState(active) {
@@ -321,7 +335,8 @@ function setAutoRunUIState(active) {
     }
     controlPanel.setModeToggleClickable?.(false);
     controlPanel.setBetControlsClickable?.(false);
-    setControlPanelMinesState(false);
+    setControlPanelCardTypeState(false);
+    setControlPanelRevealAllState(false);
     controlPanel.setNumberOfBetsClickable?.(false);
     controlPanel.setAdvancedToggleClickable?.(false);
     controlPanel.setAdvancedStrategyControlsClickable?.(false);
@@ -338,8 +353,13 @@ function setAutoRunUIState(active) {
     controlPanel.setAdvancedStrategyControlsClickable?.(true);
     controlPanel.setStopOnProfitClickable?.(true);
     controlPanel.setStopOnLossClickable?.(true);
-    if (roundActive && !minesSelectionLocked) {
-      setControlPanelMinesState(true);
+    if (roundActive && !cardTypeSelectionLocked) {
+      setControlPanelCardTypeState(true);
+    }
+    if (roundActive && !selectionPending) {
+      setControlPanelRevealAllState(true);
+    } else {
+      setControlPanelRevealAllState(false);
     }
     handleAutoSelectionChange(autoSelectionCount);
   }
@@ -390,7 +410,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   selectionPending = true;
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
-  setControlPanelMinesState(false);
+  setControlPanelCardTypeState(false);
   setGameBoardInteractivity(false);
   setControlPanelAutoStartState(true);
 
@@ -600,6 +620,7 @@ function applyRoundInteractiveState(state) {
   if (selectionPending || state?.waitingForChoice) {
     setControlPanelBetState(false);
     setControlPanelRandomState(false);
+    setControlPanelRevealAllState(false);
     cashoutAvailable = (state?.revealedSafe ?? 0) > 0;
     return;
   }
@@ -608,6 +629,7 @@ function applyRoundInteractiveState(state) {
   cashoutAvailable = hasRevealedSafe;
   setControlPanelBetState(hasRevealedSafe);
   setControlPanelRandomState(true);
+  setControlPanelRevealAllState(true);
 }
 
 function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
@@ -617,16 +639,17 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   setControlPanelBetMode("cashout");
   setControlPanelBetState(false);
   setControlPanelRandomState(true);
+  setControlPanelRevealAllState(true);
   setGameBoardInteractivity(true);
-  minesSelectionLocked = false;
+  cardTypeSelectionLocked = false;
 
   if (controlPanelMode !== "auto") {
     manualRoundNeedsReset = false;
-    setControlPanelMinesState(false);
+    setControlPanelCardTypeState(false);
     controlPanel?.setModeToggleClickable?.(false);
     controlPanel?.setBetControlsClickable?.(false);
   } else if (!autoRunActive) {
-    setControlPanelMinesState(true);
+    setControlPanelCardTypeState(true);
     controlPanel?.setModeToggleClickable?.(true);
     controlPanel?.setBetControlsClickable?.(true);
   }
@@ -652,18 +675,19 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
   clearSelectionDelay();
   setControlPanelBetMode("bet");
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
   setGameBoardInteractivity(false);
-  minesSelectionLocked = false;
-  setControlPanelMinesState(true);
+  cardTypeSelectionLocked = false;
+  setControlPanelCardTypeState(true);
 
   if (autoRunActive) {
     setControlPanelBetState(false);
-    setControlPanelMinesState(false);
+    setControlPanelCardTypeState(false);
     controlPanel?.setModeToggleClickable?.(false);
     controlPanel?.setBetControlsClickable?.(false);
   } else {
     setControlPanelBetState(true);
-    setControlPanelMinesState(true);
+    setControlPanelCardTypeState(true);
     controlPanel?.setModeToggleClickable?.(true);
     controlPanel?.setBetControlsClickable?.(true);
   }
@@ -713,7 +737,7 @@ function handleCashout() {
 }
 
 function performBet() {
-  applyMinesOption(controlPanel?.getMinesValue?.(), {
+  applyCardTypeOption(controlPanel?.getCardTypeValue?.(), {
     syncGame: true,
   });
   prepareForNewRoundState();
@@ -723,9 +747,11 @@ function performBet() {
 function handleBet() {
   if (!demoMode && !suppressRelay) {
     disableServerRoundSetupControls();
+    const cardTypes = controlPanel?.getCardTypeValue?.();
     sendRelayMessage("action:bet", {
       bet: controlPanel?.getBetValue?.(),
-      mines: controlPanel?.getMinesValue?.(),
+      cardTypes,
+      mines: cardTypes,
     });
     return;
   }
@@ -772,6 +798,23 @@ function handleRandomPickClick() {
   game?.selectRandomTile?.();
 }
 
+function handleRevealAllClick() {
+  if (!roundActive) {
+    return;
+  }
+
+  setControlPanelRevealAllState(false);
+
+  if (!demoMode && !suppressRelay) {
+    sendRelayMessage("action:reveal-all", {});
+    return;
+  }
+
+  markManualRoundForReset();
+  game?.revealRemainingTiles?.();
+  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
+}
+
 function handleCardSelected(selection) {
   if (!roundActive) {
     return;
@@ -781,9 +824,9 @@ function handleCardSelected(selection) {
     return;
   }
 
-  if (!minesSelectionLocked) {
-    minesSelectionLocked = true;
-    setControlPanelMinesState(false);
+  if (!cardTypeSelectionLocked) {
+    cardTypeSelectionLocked = true;
+    setControlPanelCardTypeState(false);
   }
 
   beginSelectionDelay();
@@ -847,12 +890,12 @@ function handleAutoSelectionChange(count) {
     return;
   }
 
-  if (count > 0 && !minesSelectionLocked) {
-    minesSelectionLocked = true;
-    setControlPanelMinesState(false);
+  if (count > 0 && !cardTypeSelectionLocked) {
+    cardTypeSelectionLocked = true;
+    setControlPanelCardTypeState(false);
   } else if (count === 0 && !autoRunActive) {
-    minesSelectionLocked = false;
-    setControlPanelMinesState(true);
+    cardTypeSelectionLocked = false;
+    setControlPanelCardTypeState(true);
   }
 
   if (autoRunActive) {
@@ -984,17 +1027,20 @@ const opts = {
 
 (async () => {
   const totalTiles = opts.grid * opts.grid;
-  const maxMines = Math.max(1, totalTiles - 1);
-  const initialMines = Math.max(1, Math.min(opts.mines ?? 1, maxMines));
-  opts.mines = initialMines;
+  const maxInitialCardTypes = Math.max(MIN_CARD_TYPES, totalTiles - 1);
+  const initialCardTypes = Math.max(
+    MIN_CARD_TYPES,
+    Math.min(opts.mines ?? MIN_CARD_TYPES, maxInitialCardTypes)
+  );
+  opts.mines = initialCardTypes;
+  opts.cardTypes = initialCardTypes;
 
   // Initialize Control Panel
   try {
     controlPanel = new ControlPanel("#control-panel", {
       gameName: "Mines",
-      totalTiles,
-      maxMines,
-      initialMines,
+      initialCardTypes,
+      minCardTypes: MIN_CARD_TYPES,
     });
     controlPanelMode = controlPanel?.getMode?.() ?? "manual";
     controlPanel.addEventListener("modechange", (event) => {
@@ -1038,15 +1084,21 @@ const opts = {
         numericValue: event.detail?.numericValue,
       });
     });
-    controlPanel.addEventListener("mineschanged", (event) => {
+    controlPanel.addEventListener("cardtypeschanged", (event) => {
       const shouldSyncGame =
         controlPanelMode === "auto" && !autoRunActive && !autoRoundInProgress;
 
-      applyMinesOption(event.detail.value, { syncGame: shouldSyncGame });
+      const nextValue = applyCardTypeOption(event.detail?.value, {
+        syncGame: shouldSyncGame,
+      });
+      sendRelayMessage("control:card-types", {
+        value: event.detail?.value ?? nextValue,
+        normalizedValue: nextValue,
+        min: event.detail?.minCardTypes,
+        max: event.detail?.maxCardTypes,
+      });
       sendRelayMessage("control:mines", {
-        value: event.detail?.value,
-        totalTiles: event.detail?.totalTiles,
-        gems: event.detail?.gems,
+        value: nextValue,
       });
     });
     controlPanel.addEventListener("numberofbetschange", (event) => {
@@ -1086,6 +1138,7 @@ const opts = {
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
+    controlPanel.addEventListener("revealall", handleRevealAllClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     finalizeRound();
     controlPanel.setBetAmountDisplay("$0.00");
@@ -1110,8 +1163,7 @@ const opts = {
     );
     const state = game?.getState?.();
     if (state) {
-      controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
-      controlPanel?.setMinesValue?.(state.mines, { emit: false });
+      controlPanel?.setCardTypeValue?.(state.mines, { emit: false });
     }
     const animationsEnabled = controlPanel?.getAnimationsEnabled?.();
     if (animationsEnabled != null) {

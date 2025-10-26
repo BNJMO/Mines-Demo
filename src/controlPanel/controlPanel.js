@@ -3,6 +3,15 @@ import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.png";
 import infinityIconUrl from "../../assets/sprites/controlPanel/Infinity.png";
 import percentageIconUrl from "../../assets/sprites/controlPanel/Percentage.png";
 
+const DEFAULT_MIN_CARD_TYPES = 5;
+const cardTypeSpriteMatchCount = Object.keys(
+  import.meta.glob("../../assets/sprites/cardType_*.png")
+).length;
+const detectedCardTypeCount = Math.max(
+  DEFAULT_MIN_CARD_TYPES,
+  cardTypeSpriteMatchCount
+);
+
 function resolveMount(mount) {
   if (!mount) {
     throw new Error("Control panel mount target is required");
@@ -26,7 +35,7 @@ export class ControlPanel extends EventTarget {
     super();
     this.options = {
       betAmountLabel: options.betAmountLabel ?? "Bet Amount",
-      profitOnWinLabel: options.profitOnWinLabel ?? "Profit on Win",
+      profitOnWinLabel: options.profitOnWinLabel ?? "Total Profit",
       initialTotalProfitMultiplier:
         options.initialTotalProfitMultiplier ?? 1,
       initialBetValue: options.initialBetValue ?? "0.00000000",
@@ -35,16 +44,16 @@ export class ControlPanel extends EventTarget {
       initialProfitValue: options.initialProfitValue ?? "0.00000000",
       initialMode: options.initialMode ?? "manual",
       gameName: options.gameName ?? "Game Name",
-      minesLabel: options.minesLabel ?? "Mines",
-      gemsLabel: options.gemsLabel ?? "Gems",
+      cardTypesLabel:
+        options.cardTypesLabel ?? "Number of card types",
       animationsLabel: options.animationsLabel ?? "Animations",
       showDummyServerLabel:
         options.showDummyServerLabel ?? "Show Dummy Server",
       initialAnimationsEnabled:
         options.initialAnimationsEnabled ?? true,
-      initialMines: options.initialMines ?? 1,
-      maxMines: options.maxMines,
-      totalTiles: options.totalTiles,
+      initialCardTypes: options.initialCardTypes,
+      minCardTypes: options.minCardTypes,
+      maxCardTypes: options.maxCardTypes,
     };
 
     this.host = resolveMount(mount);
@@ -57,32 +66,48 @@ export class ControlPanel extends EventTarget {
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
     this.randomPickButtonState = "clickable";
-    this.minesSelectState = "clickable";
+    this.cardTypeSelectState = "clickable";
+    this.revealAllButtonState = "non-clickable";
     this.autoStartButtonState = "non-clickable";
     this.autoStartButtonMode = "start";
 
     this.totalProfitMultiplier = 1;
 
-    const totalTilesOption = Number(this.options.totalTiles);
-    const normalizedTotalTiles =
-      Number.isFinite(totalTilesOption) && totalTilesOption > 0
-        ? Math.floor(totalTilesOption)
-        : NaN;
-    this.totalTiles = normalizedTotalTiles >= 2 ? normalizedTotalTiles : 2;
-
-    const maxMinesOption = Number(this.options.maxMines);
-    const fallbackMax = this.totalTiles - 1;
-    const normalizedMaxMines =
-      Number.isFinite(maxMinesOption) && maxMinesOption > 0
-        ? Math.floor(maxMinesOption)
-        : fallbackMax;
-    this.maxMines = Math.max(
-      1,
-      Math.min(normalizedMaxMines, this.totalTiles - 1)
+    const minCardTypesOption = Math.floor(
+      Number(this.options.minCardTypes ?? DEFAULT_MIN_CARD_TYPES)
     );
-    this.currentMines = Math.max(
-      1,
-      Math.min(Math.floor(Number(this.options.initialMines) || 1), this.maxMines)
+    this.minCardTypes = Math.max(
+      DEFAULT_MIN_CARD_TYPES,
+      Number.isFinite(minCardTypesOption)
+        ? minCardTypesOption
+        : DEFAULT_MIN_CARD_TYPES
+    );
+
+    const inferredMaxCardTypes = Math.max(
+      this.minCardTypes,
+      detectedCardTypeCount
+    );
+    const maxCardTypesOption = Math.floor(
+      Number(this.options.maxCardTypes ?? inferredMaxCardTypes)
+    );
+    this.maxCardTypes = Math.max(
+      this.minCardTypes,
+      Number.isFinite(maxCardTypesOption)
+        ? maxCardTypesOption
+        : inferredMaxCardTypes
+    );
+
+    const initialCardTypesOption = Math.floor(
+      Number(this.options.initialCardTypes ?? this.maxCardTypes)
+    );
+    this.currentCardTypes = Math.max(
+      this.minCardTypes,
+      Math.min(
+        Number.isFinite(initialCardTypesOption)
+          ? initialCardTypesOption
+          : this.maxCardTypes,
+        this.maxCardTypes
+      )
     );
 
     this.container = document.createElement("div");
@@ -96,10 +121,8 @@ export class ControlPanel extends EventTarget {
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
-    this.buildMinesLabel();
-    this.buildMinesSelect();
-    this.buildGemsLabel();
-    this.buildGemsDisplay();
+    this.buildCardTypesLabel();
+    this.buildCardTypeSelect();
     this.buildModeSections();
     this.buildFooter();
 
@@ -108,7 +131,7 @@ export class ControlPanel extends EventTarget {
     this.setTotalProfitMultiplier(this.options.initialTotalProfitMultiplier);
     this.setProfitValue(this.options.initialProfitValue);
     this.setBetInputValue(this.options.initialBetValue, { emit: false });
-    this.refreshMinesOptions({ emit: false });
+    this.refreshCardTypeOptions({ emit: false });
     this.updateModeButtons();
     this.updateModeSections();
     this.updateAdvancedVisibility();
@@ -217,65 +240,47 @@ export class ControlPanel extends EventTarget {
     this.scrollContainer.appendChild(this.betBox);
   }
 
-  buildMinesLabel() {
+  buildCardTypesLabel() {
     const row = document.createElement("div");
     row.className = "control-row";
 
     const label = document.createElement("span");
     label.className = "control-row-label";
-    label.textContent = this.options.minesLabel;
+    label.textContent = this.options.cardTypesLabel;
     row.appendChild(label);
 
     this.scrollContainer.appendChild(row);
   }
 
-  buildMinesSelect() {
-    this.minesSelectWrapper = document.createElement("div");
-    this.minesSelectWrapper.className = "control-select-field";
+  buildCardTypeSelect() {
+    this.cardTypeSelectWrapper = document.createElement("div");
+    this.cardTypeSelectWrapper.className = "control-select-field";
 
-    this.minesSelect = document.createElement("select");
-    this.minesSelect.className = "control-select";
-    this.minesSelect.setAttribute("aria-label", this.options.minesLabel);
-    this.minesSelect.addEventListener("change", () => {
-      const value = Math.floor(Number(this.minesSelect.value) || 1);
-      this.currentMines = Math.max(1, Math.min(value, this.maxMines));
-      this.updateGemsValue();
-      this.dispatchMinesChange();
+    this.cardTypeSelect = document.createElement("select");
+    this.cardTypeSelect.className = "control-select";
+    this.cardTypeSelect.setAttribute(
+      "aria-label",
+      this.options.cardTypesLabel
+    );
+    this.cardTypeSelect.addEventListener("change", () => {
+      const value = Math.floor(Number(this.cardTypeSelect.value) || 0);
+      this.currentCardTypes = Math.max(
+        this.minCardTypes,
+        Math.min(value, this.maxCardTypes)
+      );
+      this.dispatchCardTypeChange();
     });
 
-    this.minesSelectWrapper.appendChild(this.minesSelect);
+    this.cardTypeSelectWrapper.appendChild(this.cardTypeSelect);
 
     const arrow = document.createElement("span");
     arrow.className = "control-select-arrow";
     arrow.setAttribute("aria-hidden", "true");
-    this.minesSelectWrapper.appendChild(arrow);
+    this.cardTypeSelectWrapper.appendChild(arrow);
 
-    this.scrollContainer.appendChild(this.minesSelectWrapper);
+    this.scrollContainer.appendChild(this.cardTypeSelectWrapper);
 
-    this.setMinesSelectState(this.minesSelectState);
-  }
-
-  buildGemsLabel() {
-    const row = document.createElement("div");
-    row.className = "control-row";
-
-    const label = document.createElement("span");
-    label.className = "control-row-label";
-    label.textContent = this.options.gemsLabel;
-    row.appendChild(label);
-
-    this.scrollContainer.appendChild(row);
-  }
-
-  buildGemsDisplay() {
-    this.gemsBox = document.createElement("div");
-    this.gemsBox.className = "control-gems-box";
-
-    this.gemsValue = document.createElement("span");
-    this.gemsValue.className = "control-gems-value";
-    this.gemsBox.appendChild(this.gemsValue);
-
-    this.scrollContainer.appendChild(this.gemsBox);
+    this.setCardTypeSelectState(this.cardTypeSelectState);
   }
 
   buildModeSections() {
@@ -286,6 +291,7 @@ export class ControlPanel extends EventTarget {
 
     this.buildBetButton();
     this.buildRandomPickButton();
+    this.buildRevealAllButton();
     this.buildProfitOnWinDisplay();
     this.buildProfitDisplay();
 
@@ -573,84 +579,106 @@ export class ControlPanel extends EventTarget {
     this.setRandomPickState(this.randomPickButtonState);
   }
 
-  refreshMinesOptions({ emit = true } = {}) {
-    if (!this.minesSelect) return;
-    const selected = Math.max(1, Math.min(this.currentMines, this.maxMines));
+  buildRevealAllButton() {
+    this.revealAllButton = document.createElement("button");
+    this.revealAllButton.type = "button";
+    this.revealAllButton.className = "control-bet-btn control-reveal-btn";
+    this.revealAllButton.textContent = "Reveal All";
+    this.revealAllButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("revealall"));
+    });
+    const parent = this.manualSection ?? this.scrollContainer;
+    parent.appendChild(this.revealAllButton);
 
-    this.minesSelect.innerHTML = "";
-    for (let i = 1; i <= this.maxMines; i += 1) {
+    this.setRevealAllButtonState(this.revealAllButtonState);
+  }
+
+  refreshCardTypeOptions({ emit = true } = {}) {
+    if (!this.cardTypeSelect) return;
+    const selected = Math.max(
+      this.minCardTypes,
+      Math.min(this.currentCardTypes, this.maxCardTypes)
+    );
+
+    this.cardTypeSelect.innerHTML = "";
+    for (let i = this.minCardTypes; i <= this.maxCardTypes; i += 1) {
       const option = document.createElement("option");
       option.value = String(i);
       option.textContent = String(i);
       if (i === selected) {
         option.selected = true;
       }
-      this.minesSelect.appendChild(option);
+      this.cardTypeSelect.appendChild(option);
     }
 
-    this.currentMines = selected;
-    this.updateGemsValue();
+    this.currentCardTypes = selected;
     if (emit) {
-      this.dispatchMinesChange();
+      this.dispatchCardTypeChange();
     }
   }
 
-  setMinesValue(value, { emit = true } = {}) {
+  setCardTypeValue(value, { emit = true } = {}) {
     const numeric = Math.floor(Number(value));
-    const clamped = Math.max(1, Math.min(Number.isFinite(numeric) ? numeric : 1, this.maxMines));
-    this.currentMines = clamped;
-    if (this.minesSelect) {
-      this.minesSelect.value = String(clamped);
+    const clamped = Math.max(
+      this.minCardTypes,
+      Math.min(
+        Number.isFinite(numeric) ? numeric : this.minCardTypes,
+        this.maxCardTypes
+      )
+    );
+    this.currentCardTypes = clamped;
+    if (this.cardTypeSelect) {
+      this.cardTypeSelect.value = String(clamped);
     }
-    this.updateGemsValue();
     if (emit) {
-      this.dispatchMinesChange();
+      this.dispatchCardTypeChange();
     }
   }
 
-  setMaxMines(value, { emit = true } = {}) {
+  setMaxCardTypes(value, { emit = true } = {}) {
     const numeric = Math.floor(Number(value));
-    const normalized = Number.isFinite(numeric) ? numeric : this.totalTiles - 1;
-    this.maxMines = Math.max(1, Math.min(normalized, this.totalTiles - 1));
-    this.refreshMinesOptions({ emit });
+    const normalized = Number.isFinite(numeric) ? numeric : this.maxCardTypes;
+    this.maxCardTypes = Math.max(this.minCardTypes, normalized);
+    this.currentCardTypes = Math.max(
+      this.minCardTypes,
+      Math.min(this.currentCardTypes, this.maxCardTypes)
+    );
+    this.refreshCardTypeOptions({ emit });
   }
 
-  setTotalTiles(value, { emit = true } = {}) {
+  setMinCardTypes(value, { emit = true } = {}) {
     const numeric = Math.floor(Number(value));
-    const normalized = Math.max(2, Number.isFinite(numeric) ? numeric : this.totalTiles);
-    this.totalTiles = normalized;
-    this.maxMines = Math.max(1, Math.min(this.maxMines, this.totalTiles - 1));
-    this.refreshMinesOptions({ emit });
+    const normalized = Number.isFinite(numeric) ? numeric : this.minCardTypes;
+    this.minCardTypes = Math.max(DEFAULT_MIN_CARD_TYPES, normalized);
+    if (this.maxCardTypes < this.minCardTypes) {
+      this.maxCardTypes = this.minCardTypes;
+    }
+    this.currentCardTypes = Math.max(
+      this.minCardTypes,
+      Math.min(this.currentCardTypes, this.maxCardTypes)
+    );
+    this.refreshCardTypeOptions({ emit });
   }
 
-  getMinesValue() {
-    return this.currentMines;
+  getCardTypeValue() {
+    return this.currentCardTypes;
   }
 
-  getMaxMines() {
-    return this.maxMines;
+  getMaxCardTypes() {
+    return this.maxCardTypes;
   }
 
-  getTotalTiles() {
-    return this.totalTiles;
+  getMinCardTypes() {
+    return this.minCardTypes;
   }
 
-  getGemsValue() {
-    return Math.max(0, this.totalTiles - this.currentMines);
-  }
-
-  updateGemsValue() {
-    if (!this.gemsValue) return;
-    this.gemsValue.textContent = String(this.getGemsValue());
-  }
-
-  dispatchMinesChange() {
+  dispatchCardTypeChange() {
     this.dispatchEvent(
-      new CustomEvent("mineschanged", {
+      new CustomEvent("cardtypeschanged", {
         detail: {
-          value: this.getMinesValue(),
-          totalTiles: this.getTotalTiles(),
-          gems: this.getGemsValue(),
+          value: this.getCardTypeValue(),
+          minCardTypes: this.getMinCardTypes(),
+          maxCardTypes: this.getMaxCardTypes(),
         },
       })
     );
@@ -675,8 +703,7 @@ export class ControlPanel extends EventTarget {
 
   updateTotalProfitLabel() {
     if (!this.profitOnWinLabel) return;
-    const formattedMultiplier = this.totalProfitMultiplier.toFixed(2);
-    this.profitOnWinLabel.textContent = `Total Profit(${formattedMultiplier}x)`;
+    this.profitOnWinLabel.textContent = this.options.profitOnWinLabel;
   }
 
   setTotalProfitMultiplier(value) {
@@ -1114,6 +1141,18 @@ export class ControlPanel extends EventTarget {
     this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
   }
 
+  setRevealAllButtonState(state) {
+    if (!this.revealAllButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.revealAllButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.revealAllButton.disabled = !isClickable;
+    this.revealAllButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
   setAutoStartButtonState(state) {
     if (!this.autoStartButton) return;
     const normalized =
@@ -1126,17 +1165,20 @@ export class ControlPanel extends EventTarget {
     this.autoStartButton.classList.toggle("is-non-clickable", !isClickable);
   }
 
-  setMinesSelectState(state) {
-    if (!this.minesSelect || !this.minesSelectWrapper) return;
+  setCardTypeSelectState(state) {
+    if (!this.cardTypeSelect || !this.cardTypeSelectWrapper) return;
     const normalized =
       state === "clickable" || state === true || state === "enabled"
         ? "clickable"
         : "non-clickable";
-    this.minesSelectState = normalized;
+    this.cardTypeSelectState = normalized;
     const isClickable = normalized === "clickable";
-    this.minesSelect.disabled = !isClickable;
-    this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
-    this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
+    this.cardTypeSelect.disabled = !isClickable;
+    this.cardTypeSelect.setAttribute("aria-disabled", String(!isClickable));
+    this.cardTypeSelectWrapper.classList.toggle(
+      "is-non-clickable",
+      !isClickable
+    );
   }
 
   setAutoStartButtonMode(mode) {

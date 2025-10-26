@@ -150,48 +150,44 @@ export function createServerDummy(relay, options = {}) {
     return buttonsContainer;
   }
 
-  const manualControls = createControlsGroup("Manual Actions");
-  const autoControls = createControlsGroup("Auto Actions");
-  const profitControls = createControlsGroup("PROFIT");
+  const actionsControls = createControlsGroup("Actions");
 
   const buttons = [];
   const inputs = [];
 
-  createInputRow({
-    placeholder: "Profit multiplier",
-    type: "number",
-    step: "0.01",
-    inputMode: "decimal",
-    mountPoint: profitControls,
-    buttonLabel: "Update Multiplier",
-    onSubmit: ({ input }) => {
-      const raw = input.value.trim();
-      const payload = { value: raw === "" ? null : raw };
-      const numeric = Number(raw);
-      if (Number.isFinite(numeric)) {
-        payload.numericValue = numeric;
-      }
-      serverRelay.deliver("profit:update-multiplier", payload);
-      input.value = "";
-    },
-  });
+  const state = {
+    lastManualSelection: null,
+    lastAutoSelections: [],
+    winningCardType: 1,
+  };
 
-  createInputRow({
-    placeholder: "Total profit",
-    type: "text",
-    inputMode: "decimal",
-    mountPoint: profitControls,
-    buttonLabel: "Update Profit",
-    onSubmit: ({ input }) => {
-      const raw = input.value.trim();
-      const payload = { value: raw === "" ? null : raw };
-      const numeric = Number(raw);
-      if (Number.isFinite(numeric)) {
-        payload.numericValue = numeric;
-      }
-      serverRelay.deliver("profit:update-total", payload);
-      input.value = "";
-    },
+  const winningCardTypeRow = document.createElement("div");
+  winningCardTypeRow.className = "server-dummy__field-row";
+  actionsControls.appendChild(winningCardTypeRow);
+
+  const winningCardTypeLabel = document.createElement("label");
+  winningCardTypeLabel.className = "server-dummy__field-label";
+  winningCardTypeLabel.textContent = "Winning card type";
+  winningCardTypeRow.appendChild(winningCardTypeLabel);
+
+  const winningCardTypeInput = document.createElement("input");
+  winningCardTypeInput.type = "number";
+  winningCardTypeInput.min = "1";
+  winningCardTypeInput.step = "1";
+  winningCardTypeInput.value = String(state.winningCardType);
+  winningCardTypeInput.className = "server-dummy__input";
+  winningCardTypeRow.appendChild(winningCardTypeInput);
+  inputs.push(winningCardTypeInput);
+
+  const getWinningCardType = () => {
+    const numeric = Number.parseInt(winningCardTypeInput.value, 10);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+  };
+
+  winningCardTypeInput.addEventListener("input", () => {
+    const numeric = Number.parseInt(winningCardTypeInput.value, 10);
+    state.winningCardType =
+      Number.isFinite(numeric) && numeric > 0 ? numeric : null;
   });
 
   function appendLog(direction, type, payload) {
@@ -215,57 +211,13 @@ export function createServerDummy(relay, options = {}) {
     return button;
   }
 
-  function createInputRow({
-    placeholder,
-    type = "text",
-    step,
-    inputMode,
-    onSubmit,
-    mountPoint,
-    buttonLabel,
-  }) {
-    const row = document.createElement("div");
-    row.className = "server-dummy__field-row";
-    (mountPoint ?? controlsSection).appendChild(row);
 
-    const input = document.createElement("input");
-    input.type = type;
-    input.placeholder = placeholder;
-    input.className = "server-dummy__input";
-    if (step !== undefined) {
-      input.step = step;
+  const appendWinningCardType = (payload = {}) => {
+    const winningCardType = getWinningCardType();
+    if (winningCardType != null) {
+      return { ...payload, winningCardType };
     }
-    if (inputMode) {
-      input.inputMode = inputMode;
-    }
-    row.appendChild(input);
-    inputs.push(input);
-
-    const button = createButton(
-      buttonLabel ?? "Submit",
-      () => {
-        if (typeof onSubmit === "function") {
-          onSubmit({ input, button });
-        }
-      },
-      row
-    );
-
-    if (typeof onSubmit === "function") {
-      input.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          button.click();
-        }
-      });
-    }
-
-    return { row, input, button };
-  }
-
-  const state = {
-    lastManualSelection: null,
-    lastAutoSelections: [],
+    return payload;
   };
 
   createButton(
@@ -273,29 +225,38 @@ export function createServerDummy(relay, options = {}) {
     () => {
       serverRelay.deliver("start-bet", {});
     },
-    manualControls
+    actionsControls
   );
 
   createButton(
-    "On Bet Won",
+    "Resolve Win",
     () => {
-      serverRelay.deliver("bet-result", {
+      const payload = appendWinningCardType({
         result: "win",
         selection: state.lastManualSelection,
       });
+      serverRelay.deliver("bet-result", payload);
     },
-    manualControls
+    actionsControls
   );
 
   createButton(
-    "On Bet Lost",
+    "Resolve Loss",
     () => {
       serverRelay.deliver("bet-result", {
         result: "lost",
         selection: state.lastManualSelection,
       });
     },
-    manualControls
+    actionsControls
+  );
+
+  createButton(
+    "Finalize Bet",
+    () => {
+      serverRelay.deliver("finalize-bet", {});
+    },
+    actionsControls
   );
 
   createButton(
@@ -303,35 +264,50 @@ export function createServerDummy(relay, options = {}) {
     () => {
       serverRelay.deliver("cashout", {});
     },
-    manualControls
+    actionsControls
   );
 
   createButton(
-    "On Autobet Won",
+    "Auto Win",
     () => {
       const selections = state.lastAutoSelections ?? [];
-      const results = selections.map((selection) => ({
-        row: selection?.row,
-        col: selection?.col,
-        result: "win",
-      }));
+      const winningCardType = getWinningCardType();
+      const results = selections.map((selection) => {
+        const result = {
+          row: selection?.row,
+          col: selection?.col,
+          result: "win",
+        };
+        if (winningCardType != null) {
+          result.winningCardType = winningCardType;
+        }
+        return result;
+      });
       serverRelay.deliver("auto-bet-result", { results });
     },
-    autoControls
+    actionsControls
   );
 
   createButton(
-    "On Autobet Lost",
+    "Auto Loss",
     () => {
       const selections = state.lastAutoSelections ?? [];
-      const results = selections.map((selection, index) => ({
-        row: selection?.row,
-        col: selection?.col,
-        result: index === 0 ? "lost" : "win",
-      }));
+      const winningCardType = getWinningCardType();
+      const results = selections.map((selection, index) => {
+        const outcome = index === 0 ? "lost" : "win";
+        const result = {
+          row: selection?.row,
+          col: selection?.col,
+          result: outcome,
+        };
+        if (outcome === "win" && winningCardType != null) {
+          result.winningCardType = winningCardType;
+        }
+        return result;
+      });
       serverRelay.deliver("auto-bet-result", { results });
     },
-    autoControls
+    actionsControls
   );
 
   createButton(
@@ -339,7 +315,7 @@ export function createServerDummy(relay, options = {}) {
     () => {
       serverRelay.deliver("stop-autobet", { completed: false });
     },
-    autoControls
+    actionsControls
   );
 
   mount.prepend(container);
