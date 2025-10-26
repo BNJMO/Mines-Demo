@@ -310,6 +310,12 @@ function applyCardTypeOption(value, { syncGame = false } = {}) {
   return cardTypes;
 }
 
+function getConfiguredCardTypeCount() {
+  const configured = Number(opts.cardTypes ?? opts.mines ?? MIN_CARD_TYPES);
+  const numeric = Number.isFinite(configured) ? configured : MIN_CARD_TYPES;
+  return Math.max(1, Math.floor(numeric));
+}
+
 function setGameBoardInteractivity(enabled) {
   const gameNode = document.querySelector("#game");
   if (!gameNode) {
@@ -441,19 +447,24 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   }
 
   const results = [];
-  let lossAssigned = false;
+  const totalTypes = getConfiguredCardTypeCount();
+  const winningCardType = Math.floor(Math.random() * totalTypes) + 1;
+  const isWinRound = Math.random() < 0.5;
+  game?.determineBetResult?.(isWinRound, winningCardType);
 
-  for (const selection of selections) {
-    const triggerLoss = !lossAssigned && Math.random() < 0.15;
-    if (triggerLoss) {
-      lossAssigned = true;
-    }
+  let lossIndex = -1;
+  if (!isWinRound && selections.length > 0) {
+    lossIndex = Math.floor(Math.random() * selections.length);
+  }
+
+  selections.forEach((selection, index) => {
+    const triggerLoss = index === lossIndex;
     results.push({
       row: selection.row,
       col: selection.col,
       result: triggerLoss ? "lost" : "won",
     });
-  }
+  });
 
   selectionDelayHandle = setTimeout(() => {
     selectionDelayHandle = null;
@@ -758,10 +769,13 @@ function performBet() {
   manualRoundNeedsReset = false;
 
   if (demoMode || suppressRelay) {
-    const totalTypes = Math.max(1, Math.floor(cardTypes ?? 1));
+    const totalTypes = Math.max(
+      1,
+      Math.floor(cardTypes ?? getConfiguredCardTypeCount())
+    );
     const winningCardType =
       Math.floor(Math.random() * totalTypes) + 1;
-    const isWin = Math.random() >= 0.15;
+    const isWin = Math.random() < 0.5;
     game?.determineBetResult?.(isWin, winningCardType);
   }
 }
