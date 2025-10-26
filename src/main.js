@@ -13,7 +13,7 @@ import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
+import winningCardRevealedSoundUrl from "../assets/sounds/WinningCardRevealed.wav";
 import lostSoundUrl from "../assets/sounds/Lost.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
@@ -139,9 +139,9 @@ function applyServerReveal(payload = {}) {
   const isWin = result !== "lost";
   game?.determineBetResult?.(isWin, payload?.winningCardType);
   if (result === "lost") {
-    game?.SetSelectedCardIsBomb?.();
+    game?.setSelectedCardIsLoss?.();
   } else {
-    game?.setSelectedCardIsDiamond?.();
+    game?.setSelectedCardIsWin?.();
   }
 }
 
@@ -1014,7 +1014,7 @@ const opts = {
   flipDuration: 300,
   flipEaseFunction: "easeInOutSine",
 
-  // Bomb Explosion shake
+  // Loss explosion shake
   explosionShakeEnabled: true,
   explosionShakeDuration: 1000,
   explosionShakeAmplitude: 12,
@@ -1022,7 +1022,7 @@ const opts = {
   explosionShakeBaseFrequency: 8,
   explosionShakeSecondaryFrequency: 13,
 
-  // Bomb Explosion spritesheet
+  // Loss explosion spritesheet
   explosionSheetEnabled: true,
   explosionSheetPath: explosionSheetUrl,
   explosionSheetCols: 7,
@@ -1035,12 +1035,12 @@ const opts = {
   tileTapDownSoundPath: tileTapDownSoundUrl,
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
-  diamondRevealedSoundPath: diamondRevealedSoundUrl,
+  winningCardRevealedSoundPath: winningCardRevealedSoundUrl,
   lossSoundPath: lostSoundUrl,
   winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
-  diamondRevealPitchMin: 1.0,
-  diamondRevealPitchMax: 1.25,
+  winningCardRevealPitchMin: 1.0,
+  winningCardRevealPitchMax: 1.25,
 
   // Win pop-up
   winPopupShowDuration: 260,

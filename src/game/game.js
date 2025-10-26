@@ -23,7 +23,7 @@ import cardType5Url from "../../assets/sprites/cardType_5.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
+import winningCardRevealedSoundUrl from "../../assets/sounds/WinningCardRevealed.wav";
 import lostSoundUrl from "../../assets/sounds/Lost.wav";
 import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
@@ -43,10 +43,10 @@ const PALETTE = {
   safeAUnrevealed: 0x0f181e,
   safeB: 0x0f181e, // inner
   safeBUnrevealed: 0x0f181e,
-  bombA: 0x0f181e,
-  bombAUnrevealed: 0x0f181e,
-  bombB: 0x0f181e,
-  bombBUnrevealed: 0x0f181e,
+  lossA: 0x0f181e,
+  lossAUnrevealed: 0x0f181e,
+  lossB: 0x0f181e,
+  lossBUnrevealed: 0x0f181e,
   winPopupBorder: 0xeaff00,
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
@@ -163,7 +163,7 @@ export async function createGame(mount, opts = {}) {
   const flipDuration = opts.flipDuration ?? 300;
   const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
-  /* Bomb Explosion shake */
+  /* Loss Explosion shake */
   const explosionShakeEnabled = opts.explosionShakeEnabled ?? true;
   const explosionShakeDuration = opts.explosionShakeDuration ?? 1000;
   const explosionShakeAmplitude = opts.explosionShakeAmplitude ?? 6;
@@ -173,7 +173,7 @@ export async function createGame(mount, opts = {}) {
   const explosionShakeSecondaryFrequency =
     opts.explosionShakeSecondaryFrequency ?? 13;
 
-  /* Bomb Explosion spritesheet */
+  /* Loss Explosion spritesheet */
   const explosionSheetEnabled = opts.explosionSheetEnabled ?? true;
   const explosionSheetPath = opts.explosionSheetPath ?? explosionSheetUrl;
   const explosionSheetCols = opts.explosionSheetCols ?? 7;
@@ -186,20 +186,23 @@ export async function createGame(mount, opts = {}) {
   const tileTapDownSoundPath = opts.tileTapDownSoundPath ?? tileTapDownSoundUrl;
   const tileFlipSoundPath = opts.tileFlipSoundPath ?? tileFlipSoundUrl;
   const tileHoverSoundPath = opts.tileHoverSoundPath ?? tileHoverSoundUrl;
-  const diamondRevealedSoundPath =
-    opts.diamondRevealedSoundPath ?? diamondRevealedSoundUrl;
-  const lossSoundPath =
-    opts.lossSoundPath ?? opts.bombRevealedSoundPath ?? lostSoundUrl;
+  const winningCardRevealedSoundPath =
+    opts.winningCardRevealedSoundPath ?? winningCardRevealedSoundUrl;
+  const lossSoundPath = opts.lossSoundPath ?? lostSoundUrl;
   const winSoundPath = opts.winSoundPath ?? winSoundUrl;
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
-  const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
-  const diamondRevealPitchMax = Number(opts.diamondRevealPitchMax ?? 1.5);
+  const winningCardRevealPitchMin = Number(
+    opts.winningCardRevealPitchMin ?? 1.0
+  );
+  const winningCardRevealPitchMax = Number(
+    opts.winningCardRevealPitchMax ?? 1.5
+  );
 
   const soundEffectPaths = {
     tileTapDown: tileTapDownSoundPath,
     tileFlip: tileFlipSoundPath,
     tileHover: tileHoverSoundPath,
-    diamondRevealed: diamondRevealedSoundPath,
+    winningCardRevealed: winningCardRevealedSoundPath,
     loss: lossSoundPath,
     win: winSoundPath,
     gameStart: gameStartSoundPath,
@@ -215,7 +218,7 @@ export async function createGame(mount, opts = {}) {
     tileHover: "mines.tileHover",
     tileTapDown: "mines.tileTapDown",
     tileFlip: "mines.tileFlip",
-    diamondRevealed: "mines.diamondRevealed",
+    winningCardRevealed: "mines.winningCardRevealed",
     loss: "scratch.loss",
     win: "mines.win",
     gameStart: "mines.gameStart",
@@ -398,11 +401,11 @@ export async function createGame(mount, opts = {}) {
     });
   }
 
-  function setSelectedCardIsDiamond() {
+  function setSelectedCardIsWin() {
     revealCurrentlySelectedTile(true);
   }
 
-  function SetSelectedCardIsBomb() {
+  function setSelectedCardIsLoss() {
     revealCurrentlySelectedTile(false);
   }
 
@@ -1076,11 +1079,11 @@ export async function createGame(mount, opts = {}) {
     anim.play();
   }
 
-  function bombShakeTile(tile) {
-    if (!explosionShakeEnabled || !tile || tile.destroyed || tile._bombShaking)
+  function lossShakeTile(tile) {
+    if (!explosionShakeEnabled || !tile || tile.destroyed || tile._lossShaking)
       return;
 
-    tile._bombShaking = true;
+    tile._lossShaking = true;
 
     const duration = explosionShakeDuration;
     const amp = explosionShakeAmplitude;
@@ -1112,7 +1115,7 @@ export async function createGame(mount, opts = {}) {
           (Math.cos(w1 + phiY1) + 0.5 * Math.sin(w2 + phiY2)) * amp * decay;
 
         if (!tile || tile.destroyed) {
-          tile && (tile._bombShaking = false);
+          tile && (tile._lossShaking = false);
           return;
         }
 
@@ -1123,14 +1126,14 @@ export async function createGame(mount, opts = {}) {
       },
       complete: () => {
         if (!tile || tile.destroyed) {
-          tile && (tile._bombShaking = false);
+          tile && (tile._lossShaking = false);
           return;
         }
 
         tile.x = bx;
         tile.y = by;
         tile.rotation = r0;
-        tile._bombShaking = false;
+        tile._lossShaking = false;
       },
     });
   }
@@ -1974,24 +1977,24 @@ export async function createGame(mount, opts = {}) {
                 ? AUTO_SELECTION_COLOR
                 : isWinning
                 ? PALETTE.safeA
-                : PALETTE.bombA
+                : PALETTE.lossA
               : isWinning
               ? PALETTE.safeAUnrevealed
-              : PALETTE.bombAUnrevealed;
+              : PALETTE.lossAUnrevealed;
             const insetPalette = revealedByPlayer
               ? isWinning
                 ? PALETTE.safeB
-                : PALETTE.bombB
+                : PALETTE.lossB
               : isWinning
               ? PALETTE.safeBUnrevealed
-              : PALETTE.bombBUnrevealed;
+              : PALETTE.lossBUnrevealed;
             flipFace(card, tileSize, tileSize, radius, facePalette);
             flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
             if (revealedByPlayer) {
               if (isWinning) {
-                const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
-                const maxPitch = Math.max(0.01, Number(diamondRevealPitchMax));
+                const minPitch = Math.max(0.01, Number(winningCardRevealPitchMin));
+                const maxPitch = Math.max(0.01, Number(winningCardRevealPitchMax));
                 const safeProgress =
                   totalSafe <= 1
                     ? 1
@@ -2002,7 +2005,7 @@ export async function createGame(mount, opts = {}) {
                 const pitch =
                   minPitch +
                   (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
-                playSoundEffect("diamondRevealed", { speed: pitch });
+                playSoundEffect("winningCardRevealed", { speed: pitch });
               } else {
                 playSoundEffect("loss");
               }
@@ -2259,8 +2262,8 @@ export async function createGame(mount, opts = {}) {
     setMines,
     getState,
     destroy,
-    setSelectedCardIsDiamond,
-    SetSelectedCardIsBomb,
+    setSelectedCardIsWin,
+    setSelectedCardIsLoss,
     revealSelectedTile,
     selectRandomTile,
     getAutoSelections: getAutoSelectionCoordinates,

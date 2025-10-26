@@ -28,7 +28,7 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
 
   function reset() {
     tiles.forEach((t) => {
-      t.classList.remove('revealed', 'bomb', 'diamond');
+      t.classList.remove('revealed', 'loss', 'win');
       t.textContent = '';
     });
   }
@@ -39,8 +39,8 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
   }
 
   // Minimal API to satisfy main.js controls
-  function setSelectedCardIsDiamond() {}
-  function SetSelectedCardIsBomb() {}
+  function setSelectedCardIsWin() {}
+  function setSelectedCardIsLoss() {}
   function showWinPopup() {}
 
   // Basic interactivity: tap reveals random content with a simple rule
@@ -50,18 +50,18 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
     if (t.classList.contains('revealed')) return;
 
     // Very simple randomization similar to main.js example
-    const isBomb = Math.random() < Math.min(0.85, mines / (GRID * GRID));
+    const isLoss = Math.random() < Math.min(0.85, mines / (GRID * GRID));
     t.classList.add('revealed');
-    t.classList.add(isBomb ? 'bomb' : 'diamond');
-    t.textContent = isBomb ? '💣' : '💎';
+    t.classList.add(isLoss ? 'loss' : 'win');
+    t.textContent = isLoss ? '✖️' : '✅';
   });
 
   // Return API used by main.js bindings
   return {
     reset,
     setMines,
-    setSelectedCardIsDiamond,
-    SetSelectedCardIsBomb,
+    setSelectedCardIsWin,
+    setSelectedCardIsLoss,
     showWinPopup,
   };
 }
