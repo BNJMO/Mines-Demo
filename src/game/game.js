@@ -118,7 +118,9 @@ export async function createGame(mount, opts = {}) {
     const base = Math.max(MATCHING_CARDS_REQUIRED, Math.floor(numeric));
     return Math.min(maxTextureCount, Math.max(1, base));
   };
-  let cardTypeCount = clampCardTypeCount(opts.cardTypes ?? opts.mines ?? 5);
+  let cardTypeCount = clampCardTypeCount(
+    opts.cardTypes ?? opts.cardTypeCount ?? 5
+  );
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400);
@@ -215,13 +217,13 @@ export async function createGame(mount, opts = {}) {
   );
 
   const SOUND_ALIASES = {
-    tileHover: "mines.tileHover",
-    tileTapDown: "mines.tileTapDown",
-    tileFlip: "mines.tileFlip",
-    winningCardRevealed: "mines.winningCardRevealed",
+    tileHover: "scratch.tileHover",
+    tileTapDown: "scratch.tileTapDown",
+    tileFlip: "scratch.tileFlip",
+    winningCardRevealed: "scratch.winningCardRevealed",
     loss: "scratch.loss",
-    win: "mines.win",
-    gameStart: "mines.gameStart",
+    win: "scratch.win",
+    gameStart: "scratch.gameStart",
   };
 
   /* Win pop-up */
@@ -335,7 +337,7 @@ export async function createGame(mount, opts = {}) {
     onChange(getState());
   }
 
-  function setMines(n) {
+  function setCardTypeCount(n) {
     cardTypeCount = clampCardTypeCount(n);
     reset();
   }
@@ -343,7 +345,7 @@ export async function createGame(mount, opts = {}) {
   function getState() {
     return {
       grid: GRID,
-      mines: cardTypeCount,
+      cardTypes: cardTypeCount,
       revealedSafe,
       totalSafe,
       gameOver,
@@ -2045,7 +2047,7 @@ export async function createGame(mount, opts = {}) {
         },
       });
       try {
-        window.__mines_tiles = tiles.length;
+        window.__card_tiles = tiles.length;
       } catch {}
     }, flipDelay);
 
@@ -2259,7 +2261,7 @@ export async function createGame(mount, opts = {}) {
   return {
     app,
     reset,
-    setMines,
+    setCardTypeCount,
     getState,
     destroy,
     setSelectedCardIsWin,

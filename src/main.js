@@ -297,11 +297,10 @@ function applyCardTypeOption(value, { syncGame = false } = {}) {
   const cardTypes = normalizeCardTypeValue(value, minCardTypes, maxCardTypes);
 
   opts.cardTypes = cardTypes;
-  opts.mines = cardTypes;
 
   if (syncGame) {
-    if (typeof game?.setMines === "function") {
-      game.setMines(cardTypes);
+    if (typeof game?.setCardTypeCount === "function") {
+      game.setCardTypeCount(cardTypes);
     } else {
       game?.reset?.();
     }
@@ -311,7 +310,9 @@ function applyCardTypeOption(value, { syncGame = false } = {}) {
 }
 
 function getConfiguredCardTypeCount() {
-  const configured = Number(opts.cardTypes ?? opts.mines ?? MIN_CARD_TYPES);
+  const configured = Number(
+    opts.cardTypes ?? opts.cardTypeCount ?? MIN_CARD_TYPES
+  );
   const numeric = Number.isFinite(configured) ? configured : MIN_CARD_TYPES;
   return Math.max(1, Math.floor(numeric));
 }
@@ -787,7 +788,6 @@ function handleBet() {
     sendRelayMessage("action:bet", {
       bet: controlPanel?.getBetValue?.(),
       cardTypes,
-      mines: cardTypes,
     });
     return;
   }
@@ -973,7 +973,7 @@ const opts = {
 
   // Game setup
   grid: 3,
-  mines: MIN_CARD_TYPES,
+  cardTypes: MIN_CARD_TYPES,
   autoResetDelayMs: AUTO_RESET_DELAY_MS,
 
   // Visuals
@@ -1059,12 +1059,18 @@ const opts = {
 (async () => {
   const totalTiles = opts.grid * opts.grid;
   const maxInitialCardTypes = Math.max(MIN_CARD_TYPES, totalTiles - 1);
+  const rawInitialTypes = Number(
+    opts.cardTypes ?? opts.cardTypeCount ?? MIN_CARD_TYPES
+  );
+  const requestedCardTypes = Number.isFinite(rawInitialTypes)
+    ? rawInitialTypes
+    : MIN_CARD_TYPES;
   const initialCardTypes = Math.max(
     MIN_CARD_TYPES,
-    Math.min(opts.mines ?? MIN_CARD_TYPES, maxInitialCardTypes)
+    Math.min(requestedCardTypes, maxInitialCardTypes)
   );
-  opts.mines = initialCardTypes;
   opts.cardTypes = initialCardTypes;
+  opts.cardTypeCount = initialCardTypes;
 
   // Initialize Control Panel
   try {
@@ -1127,9 +1133,6 @@ const opts = {
         normalizedValue: nextValue,
         min: event.detail?.minCardTypes,
         max: event.detail?.maxCardTypes,
-      });
-      sendRelayMessage("control:mines", {
-        value: nextValue,
       });
     });
     controlPanel.addEventListener("numberofbetschange", (event) => {
@@ -1194,7 +1197,7 @@ const opts = {
     );
     const state = game?.getState?.();
     if (state) {
-      controlPanel?.setCardTypeValue?.(state.mines, { emit: false });
+      controlPanel?.setCardTypeValue?.(state.cardTypes, { emit: false });
     }
     const animationsEnabled = controlPanel?.getAnimationsEnabled?.();
     if (animationsEnabled != null) {
