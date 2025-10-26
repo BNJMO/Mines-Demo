@@ -1760,15 +1760,14 @@ export async function createGame(mount, opts = {}) {
         continue;
       }
 
-      const inset = tile._inset;
-      if (!inset || inset.destroyed) {
+      const card = tile._card;
+      if (!card || card.destroyed) {
         continue;
       }
 
       const radius = tile._tileRadius;
-      const pad = tile._tilePad;
       const tileSize = tile._tileSize;
-      flipInset(inset, tileSize, tileSize, radius, pad, color);
+      flipFace(card, tileSize, tileSize, radius, color);
     }
   }
 
