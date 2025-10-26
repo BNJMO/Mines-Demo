@@ -1425,13 +1425,15 @@ export async function createGame(mount, opts = {}) {
       if (pendingReveals > 0) {
         return;
       }
+
       if (!lossTriggered && roundOutcome === "win") {
-        if (!gameOver && revealedSafe < Math.max(1, totalSafe)) {
-          revealAllTiles(undefined, { stagger: false });
-        }
-        if (!gameOver) {
-          gameOver = true;
-          onWin();
+        const target = Math.max(1, totalSafe || MATCHING_CARDS_REQUIRED);
+        if (revealedSafe >= target) {
+          const wasGameOver = gameOver;
+          completeWin();
+          if (gameOver !== wasGameOver) {
+            onChange(getState());
+          }
         }
       }
     };
@@ -1486,7 +1488,6 @@ export async function createGame(mount, opts = {}) {
     clearAutoSelections({ emit: false });
     notifyAutoSelectionChange();
 
-    gameOver = true;
     waitingForChoice = false;
     onChange(getState());
 
@@ -1509,6 +1510,35 @@ export async function createGame(mount, opts = {}) {
       .clear()
       .roundRect(pad, pad, w - pad * 2, h - pad * 2, Math.max(8, r - 6))
       .fill(color);
+  }
+
+  function highlightWinningTiles(color = AUTO_SELECTION_COLOR) {
+    for (const tile of tiles) {
+      if (!tile?.isWinningCard || !tile.revealed) {
+        continue;
+      }
+
+      const inset = tile._inset;
+      if (!inset || inset.destroyed) {
+        continue;
+      }
+
+      const radius = tile._tileRadius;
+      const pad = tile._tilePad;
+      const tileSize = tile._tileSize;
+      flipInset(inset, tileSize, tileSize, radius, pad, color);
+    }
+  }
+
+  function completeWin() {
+    highlightWinningTiles();
+    if (gameOver) {
+      return;
+    }
+
+    gameOver = true;
+    playSoundEffect("win");
+    onWin();
   }
 
   function easeFlip(t) {
@@ -1737,10 +1767,11 @@ export async function createGame(mount, opts = {}) {
               onGameOver();
             } else {
               revealedSafe += 1;
-              if (!gameOver) {
-                gameOver = true;
-                revealAllTiles(undefined, { stagger: staggerRevealAll });
-                onWin();
+              if (
+                !gameOver &&
+                revealedSafe >= Math.max(1, totalSafe || MATCHING_CARDS_REQUIRED)
+              ) {
+                completeWin();
               }
             }
 

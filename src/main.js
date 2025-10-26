@@ -784,11 +784,6 @@ function handleGameOver() {
 }
 
 function handleGameWin() {
-  game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
   markManualRoundForReset();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
