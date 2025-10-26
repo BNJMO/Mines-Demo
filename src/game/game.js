@@ -51,6 +51,10 @@ const PALETTE = {
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
   winPopupSeparationLine: 0x1b2931,
+  lossPopupBorder: 0xff3b30,
+  lossPopupBackground: 0x091b26,
+  lossPopupTitle: 0xff6b60,
+  lossPopupMessage: 0xffffff,
 };
 
 const AUTO_SELECTION_COLOR = 0x5800a5;
@@ -289,7 +293,8 @@ export async function createGame(mount, opts = {}) {
   app.stage.addChild(board, ui);
 
   const winPopup = createWinPopup();
-  ui.addChild(winPopup.container);
+  const lossPopup = createLossPopup();
+  ui.addChild(winPopup.container, lossPopup.container);
 
   let tiles = [];
   let roundOutcome = "pending";
@@ -314,6 +319,7 @@ export async function createGame(mount, opts = {}) {
   function reset({ preserveAutoSelections = false } = {}) {
     gameOver = false;
     hideWinPopup();
+    hideLossPopup();
     roundOutcome = "pending";
     roundWinningTexture = null;
     activeCardPool = [];
@@ -336,11 +342,18 @@ export async function createGame(mount, opts = {}) {
   }
 
   function getState() {
+    const totalTiles = tiles.length;
+    const revealedTiles = tiles.reduce(
+      (count, tile) => (tile?.revealed ? count + 1 : count),
+      0
+    );
     return {
       grid: GRID,
       mines: cardTypeCount,
       revealedSafe,
       totalSafe,
+      totalTiles,
+      revealedTiles,
       gameOver,
       waitingForChoice,
       selectedTile: selectedTile
@@ -517,16 +530,82 @@ export async function createGame(mount, opts = {}) {
     };
   }
 
+  function createLossPopup() {
+    const popupWidth = winPopupWidth;
+    const popupHeight = winPopupHeight;
+
+    const container = new Container();
+    container.visible = false;
+    container.scale.set(0);
+    container.eventMode = "none";
+    container.zIndex = 1000;
+
+    const border = new Graphics();
+    border
+      .roundRect(
+        -popupWidth / 2 - 10,
+        -popupHeight / 2 - 10,
+        popupWidth + 20,
+        popupHeight + 20,
+        32
+      )
+      .fill(PALETTE.lossPopupBorder);
+
+    const inner = new Graphics();
+    inner
+      .roundRect(-popupWidth / 2, -popupHeight / 2, popupWidth, popupHeight, 28)
+      .fill(PALETTE.lossPopupBackground);
+
+    const title = new Text({
+      text: "You Lost",
+      style: {
+        fill: PALETTE.lossPopupTitle,
+        fontFamily,
+        fontSize: 34,
+        fontWeight: "700",
+        align: "center",
+      },
+    });
+    title.anchor.set(0.5);
+    title.position.set(0, -popupHeight * 0.2);
+
+    const message = new Text({
+      text: "Better luck next time!",
+      style: {
+        fill: PALETTE.lossPopupMessage,
+        fontFamily,
+        fontSize: 22,
+        fontWeight: "500",
+        align: "center",
+      },
+    });
+    message.anchor.set(0.5);
+    message.position.set(0, popupHeight * 0.2);
+
+    container.addChild(border, inner, title, message);
+
+    return {
+      container,
+      title,
+      message,
+    };
+  }
+
   function positionWinPopup() {
-    winPopup.container.position.set(
-      app.renderer.width / 2,
-      app.renderer.height / 2
-    );
+    const centerX = app.renderer.width / 2;
+    const centerY = app.renderer.height / 2;
+    winPopup.container.position.set(centerX, centerY);
+    lossPopup.container.position.set(centerX, centerY);
   }
 
   function hideWinPopup() {
     winPopup.container.visible = false;
     winPopup.container.scale.set(0);
+  }
+
+  function hideLossPopup() {
+    lossPopup.container.visible = false;
+    lossPopup.container.scale.set(0);
   }
 
   function formatMultiplier(multiplierValue) {
@@ -554,6 +633,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   function spawnWinPopup(multiplierValue, amountValue) {
+    hideLossPopup();
     winPopup.multiplierText.text = formatMultiplier(multiplierValue);
     winPopup.amountText.text = formatAmount(amountValue);
     winPopup.layoutAmountRow();
@@ -576,6 +656,29 @@ export async function createGame(mount, opts = {}) {
       ease: (t) => Ease.easeOutQuad(t),
       update: (p) => {
         winPopup.container.scale.set(p);
+      },
+    });
+  }
+
+  function spawnLossPopup() {
+    hideWinPopup();
+    positionWinPopup();
+
+    lossPopup.container.visible = true;
+    lossPopup.container.alpha = 1;
+    lossPopup.container.scale.set(0);
+
+    if (disableAnimations) {
+      lossPopup.container.scale.set(1);
+      return;
+    }
+
+    tween(app, {
+      duration: winPopupShowDuration,
+      skipUpdate: disableAnimations,
+      ease: (t) => Ease.easeOutQuad(t),
+      update: (p) => {
+        lossPopup.container.scale.set(p);
       },
     });
   }
@@ -1036,6 +1139,15 @@ export async function createGame(mount, opts = {}) {
           container.scale = 1;
         }
       }
+      if (lossPopup?.container) {
+        const { container } = lossPopup;
+        container.alpha = 1;
+        if (container.scale?.set) {
+          container.scale.set(1);
+        } else if (container.scale != null) {
+          container.scale = 1;
+        }
+      }
     }
   }
 
@@ -1363,13 +1475,20 @@ export async function createGame(mount, opts = {}) {
         return;
       }
 
-      if (
-        gameOver ||
-        waitingForChoice ||
-        t.revealed ||
-        t._animating
-      )
+      if (gameOver) {
+        if (!t.revealed && !t._animating) {
+          playSoundEffect("tileFlip");
+          revealTileWithFlip(
+            t,
+            { isWinning: t.isWinningCard },
+            false,
+            { staggerRevealAll: false }
+          );
+        }
         return;
+      }
+
+      if (waitingForChoice || t.revealed || t._animating) return;
 
       t.taped = true;
       hoverTile(t, false);
@@ -1731,22 +1850,26 @@ export async function createGame(mount, opts = {}) {
 
           if (revealedByPlayer) {
             const isWinning = revealContext?.isWinning ?? tile.isWinningCard;
+            const autoModeActive = isAutoModeActive();
             if (!isWinning) {
               gameOver = true;
-              revealAllTiles(tile, { stagger: staggerRevealAll });
+              if (autoModeActive) {
+                revealAllTiles(tile, { stagger: staggerRevealAll });
+              }
               onGameOver();
             } else {
               revealedSafe += 1;
               if (!gameOver) {
                 gameOver = true;
-                revealAllTiles(undefined, { stagger: staggerRevealAll });
+                if (autoModeActive) {
+                  revealAllTiles(undefined, { stagger: staggerRevealAll });
+                }
                 onWin();
               }
             }
-
-            onChange(getState());
           }
 
+          onChange(getState());
           onComplete?.(tile, { revealedByPlayer });
         },
       });
@@ -1947,7 +2070,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   function revealRemainingTiles() {
-    revealAllTiles();
+    revealAllTiles(undefined, { stagger: false });
   }
 
   function getAutoResetDelay() {
@@ -1977,6 +2100,7 @@ export async function createGame(mount, opts = {}) {
     revealRemainingTiles,
     getAutoResetDelay,
     showWinPopup: spawnWinPopup,
+    showLossPopup: spawnLossPopup,
     setAnimationsEnabled,
   };
 }
