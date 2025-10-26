@@ -812,6 +812,49 @@ export async function createGame(mount, opts = {}) {
     tile.isWinningCard = Boolean(isWinning && textureEntry);
   }
 
+  function ensurePoolVarietyForAssignments(
+    pool,
+    {
+      excludedId = null,
+      tilesNeeded = 0,
+      limitPerType = Math.max(1, MATCHING_CARDS_REQUIRED - 1),
+    } = {}
+  ) {
+    if (!tilesNeeded) {
+      return pool;
+    }
+
+    const filtered = pool.filter(
+      (entry) => entry && (!excludedId || entry.id !== excludedId)
+    );
+    const requiredTypes = Math.max(
+      1,
+      Math.ceil(tilesNeeded / Math.max(1, limitPerType))
+    );
+
+    if (filtered.length >= requiredTypes) {
+      return pool;
+    }
+
+    const extras = loadedCardTextures.filter(
+      (entry) =>
+        entry &&
+        (!excludedId || entry.id !== excludedId) &&
+        !pool.includes(entry)
+    );
+    if (!extras.length) {
+      return pool;
+    }
+
+    const additional = shuffleInPlace(extras.slice());
+    const needed = Math.max(0, requiredTypes - filtered.length);
+    if (!needed) {
+      return pool;
+    }
+
+    return pool.concat(additional.slice(0, needed));
+  }
+
   function distributeNonWinningTextures(
     tilesToAssign,
     pool,
@@ -821,6 +864,13 @@ export async function createGame(mount, opts = {}) {
       return true;
     }
 
+    const limitPerType = Math.max(1, MATCHING_CARDS_REQUIRED - 1);
+    pool = ensurePoolVarietyForAssignments(pool, {
+      excludedId,
+      tilesNeeded: tilesToAssign.length,
+      limitPerType,
+    });
+
     const usablePool = pool.filter(
       (entry) => entry && (!excludedId || entry.id !== excludedId)
     );
@@ -828,7 +878,6 @@ export async function createGame(mount, opts = {}) {
       return false;
     }
 
-    const limitPerType = Math.max(1, MATCHING_CARDS_REQUIRED - 1);
     const counts = new Map(initialCounts);
 
     for (const tile of tilesToAssign) {
