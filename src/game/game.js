@@ -242,6 +242,8 @@ export async function createGame(mount, opts = {}) {
   let explosionFrameW = 0;
   let explosionFrameH = 0;
   const activeExplosionSprites = new Set();
+  let loadedCardTextures = [];
+  let activeCardPool = [];
   try {
     await loadExplosionFrames();
   } catch (e) {
@@ -290,8 +292,6 @@ export async function createGame(mount, opts = {}) {
   ui.addChild(winPopup.container);
 
   let tiles = [];
-  let loadedCardTextures = [];
-  let activeCardPool = [];
   let roundOutcome = "pending";
   let roundWinningTexture = null;
   let gameOver = false;
