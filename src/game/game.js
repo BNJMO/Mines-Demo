@@ -2017,6 +2017,10 @@ export async function createGame(mount, opts = {}) {
             return;
           }
 
+          if (!revealedByPlayer && icon && !icon.destroyed) {
+            icon.alpha = 1;
+          }
+
           forceFlatPose(tile);
           tile._animating = false;
           tile.revealed = true;
