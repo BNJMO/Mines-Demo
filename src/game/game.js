@@ -13,14 +13,18 @@ import {
 
 // Sound will be loaded inside createGame function
 import Ease from "../ease.js";
-import diamondTextureUrl from "../../assets/sprites/Diamond.png";
-import bombTextureUrl from "../../assets/sprites/Bomb.png";
 import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
+import cardType0Url from "../../assets/sprites/cardType_0.png";
+import cardType1Url from "../../assets/sprites/cardType_1.png";
+import cardType2Url from "../../assets/sprites/cardType_2.png";
+import cardType3Url from "../../assets/sprites/cardType_3.png";
+import cardType4Url from "../../assets/sprites/cardType_4.png";
+import cardType5Url from "../../assets/sprites/cardType_5.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
+import lostSoundUrl from "../../assets/sounds/Lost.wav";
 import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
@@ -92,8 +96,29 @@ export async function createGame(mount, opts = {}) {
   }
 
   // Options
-  const GRID = opts.grid ?? 5;
-  let mines = Math.max(1, Math.min(opts.mines ?? 5, GRID * GRID - 1));
+  const GRID = 3;
+  const MATCHING_CARDS_REQUIRED = 3;
+  const DEFAULT_CARD_TEXTURE_PATHS = [
+    cardType0Url,
+    cardType1Url,
+    cardType2Url,
+    cardType3Url,
+    cardType4Url,
+    cardType5Url,
+  ];
+  const incomingCardTexturePaths = Array.isArray(opts.cardTexturePaths)
+    ? opts.cardTexturePaths.filter(Boolean)
+    : DEFAULT_CARD_TEXTURE_PATHS;
+  const maxTextureCount = Math.max(1, incomingCardTexturePaths.length);
+  const clampCardTypeCount = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return Math.min(maxTextureCount, Math.max(MATCHING_CARDS_REQUIRED, 3));
+    }
+    const base = Math.max(MATCHING_CARDS_REQUIRED, Math.floor(numeric));
+    return Math.min(maxTextureCount, Math.max(1, base));
+  };
+  let cardTypeCount = clampCardTypeCount(opts.cardTypes ?? opts.mines ?? 5);
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400);
@@ -107,8 +132,6 @@ export async function createGame(mount, opts = {}) {
   const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
 
   // Visuals
-  const diamondTexturePath = opts.dimaondTexturePath ?? diamondTextureUrl;
-  const bombTexturePath = opts.bombTexturePath ?? bombTextureUrl;
   const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
   const iconRevealedSizeOpacity = opts.iconRevealedSizeOpacity ?? 0.4;
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
@@ -165,8 +188,8 @@ export async function createGame(mount, opts = {}) {
   const tileHoverSoundPath = opts.tileHoverSoundPath ?? tileHoverSoundUrl;
   const diamondRevealedSoundPath =
     opts.diamondRevealedSoundPath ?? diamondRevealedSoundUrl;
-  const bombRevealedSoundPath =
-    opts.bombRevealedSoundPath ?? bombRevealedSoundUrl;
+  const lossSoundPath =
+    opts.lossSoundPath ?? opts.bombRevealedSoundPath ?? lostSoundUrl;
   const winSoundPath = opts.winSoundPath ?? winSoundUrl;
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
   const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
@@ -177,7 +200,7 @@ export async function createGame(mount, opts = {}) {
     tileFlip: tileFlipSoundPath,
     tileHover: tileHoverSoundPath,
     diamondRevealed: diamondRevealedSoundPath,
-    bombRevealed: bombRevealedSoundPath,
+    loss: lossSoundPath,
     win: winSoundPath,
     gameStart: gameStartSoundPath,
   };
@@ -193,7 +216,7 @@ export async function createGame(mount, opts = {}) {
     tileTapDown: "mines.tileTapDown",
     tileFlip: "mines.tileFlip",
     diamondRevealed: "mines.diamondRevealed",
-    bombRevealed: "mines.bombRevealed",
+    loss: "scratch.loss",
     win: "mines.win",
     gameStart: "mines.gameStart",
   };
@@ -219,24 +242,18 @@ export async function createGame(mount, opts = {}) {
   let explosionFrameW = 0;
   let explosionFrameH = 0;
   const activeExplosionSprites = new Set();
+  let loadedCardTextures = [];
+  let activeCardPool = [];
   try {
     await loadExplosionFrames();
   } catch (e) {
     console.error("loadExplosionFrames failed", e);
   }
 
-  let diamondTexture = null;
   try {
-    await loadDiamondTexture();
+    await loadCardTextures();
   } catch (e) {
-    console.error("loadDiamondTexture failed", e);
-  }
-
-  let bombTexture = null;
-  try {
-    await loadBombTexture();
-  } catch (e) {
-    console.error("loadBombTexture failed", e);
+    console.error("loadCardTextures failed", e);
   }
 
   try {
@@ -275,11 +292,12 @@ export async function createGame(mount, opts = {}) {
   ui.addChild(winPopup.container);
 
   let tiles = [];
-  let bombPositions = new Set();
+  let roundOutcome = "pending";
+  let roundWinningTexture = null;
   let gameOver = false;
   let shouldPlayStartSound = true;
   let revealedSafe = 0;
-  let totalSafe = GRID * GRID - mines;
+  let totalSafe = 0;
   let waitingForChoice = false;
   let selectedTile = null;
   const autoSelectedTiles = new Set();
@@ -296,7 +314,9 @@ export async function createGame(mount, opts = {}) {
   function reset({ preserveAutoSelections = false } = {}) {
     gameOver = false;
     hideWinPopup();
-    bombPositions.clear();
+    roundOutcome = "pending";
+    roundWinningTexture = null;
+    activeCardPool = [];
     shouldPlayStartSound = true;
     const preservedAutoSelections = preserveAutoSelections
       ? getAutoSelectionCoordinates()
@@ -311,14 +331,14 @@ export async function createGame(mount, opts = {}) {
   }
 
   function setMines(n) {
-    mines = Math.max(1, Math.min(n | 0, GRID * GRID - 1));
+    cardTypeCount = clampCardTypeCount(n);
     reset();
   }
 
   function getState() {
     return {
       grid: GRID,
-      mines,
+      mines: cardTypeCount,
       revealedSafe,
       totalSafe,
       gameOver,
@@ -354,7 +374,11 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    revealTileWithFlip(tile, "diamond");
+    if (!ensureRoundLayout("win", tile)) {
+      console.warn("Unable to prepare winning layout");
+      return;
+    }
+    revealTileWithFlip(tile, { outcome: "win" });
   }
 
   function SetSelectedCardIsBomb() {
@@ -371,11 +395,14 @@ export async function createGame(mount, opts = {}) {
     )
       return;
 
-    gameOver = true;
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    revealTileWithFlip(tile, "bomb");
+    if (!ensureRoundLayout("loss", tile)) {
+      console.warn("Unable to prepare loss layout");
+      return;
+    }
+    revealTileWithFlip(tile, { outcome: "loss" });
   }
 
   // Game functions
@@ -553,16 +580,21 @@ export async function createGame(mount, opts = {}) {
     });
   }
 
-  async function loadDiamondTexture() {
-    if (diamondTexture) return;
+  async function loadCardTextures() {
+    if (loadedCardTextures.length) return;
 
-    diamondTexture = await Assets.load(diamondTexturePath);
-  }
+    const textures = [];
+    for (let index = 0; index < incomingCardTexturePaths.length; index++) {
+      const path = incomingCardTexturePaths[index];
+      try {
+        const texture = await Assets.load(path);
+        textures.push({ id: `card-${index}`, texture, path });
+      } catch (error) {
+        console.warn(`Failed to load card texture at ${path}`, error);
+      }
+    }
 
-  async function loadBombTexture() {
-    if (bombTexture) return;
-
-    bombTexture = await Assets.load(bombTexturePath);
+    loadedCardTextures = textures;
   }
 
   async function loadExplosionFrames() {
@@ -625,6 +657,114 @@ export async function createGame(mount, opts = {}) {
         error: resolve,
       });
     });
+  }
+
+  function shuffleInPlace(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function refreshActiveCardPool() {
+    if (!loadedCardTextures.length) {
+      activeCardPool = [];
+      return activeCardPool;
+    }
+
+    const pool = [...loadedCardTextures];
+    shuffleInPlace(pool);
+    const count = Math.min(cardTypeCount, pool.length);
+    activeCardPool = pool.slice(0, Math.max(1, count));
+    return activeCardPool;
+  }
+
+  function pickRandomTexture(pool, exclude) {
+    const filtered = exclude
+      ? pool.filter((entry) => entry !== exclude)
+      : pool.slice();
+    if (!filtered.length) {
+      return pool[0] ?? null;
+    }
+    const index = Math.floor(Math.random() * filtered.length);
+    return filtered[index];
+  }
+
+  function assignRoundLayout(outcome, selectedTile) {
+    if (!selectedTile) return false;
+    const pool = refreshActiveCardPool();
+    if (!pool.length) {
+      console.warn("No card textures available for round layout");
+      return false;
+    }
+
+    const tilesToAssign = tiles.filter((t) => t && !t.destroyed);
+    if (!tilesToAssign.length) {
+      return false;
+    }
+
+    const remaining = tilesToAssign.filter((t) => t !== selectedTile);
+    shuffleInPlace(remaining);
+
+    if (outcome === "win") {
+      const winningTexture = pickRandomTexture(pool);
+      if (!winningTexture) {
+        return false;
+      }
+
+      roundWinningTexture = winningTexture;
+
+      const neededMatches = Math.max(1, MATCHING_CARDS_REQUIRED - 1);
+      const additionalMatches = remaining.slice(0, neededMatches);
+      const nonWinningTiles = remaining.slice(neededMatches);
+
+      const winningTiles = [selectedTile, ...additionalMatches];
+      winningTiles.forEach((tile) => {
+        tile.cardTexture = winningTexture.texture;
+        tile.cardTextureId = winningTexture.id;
+        tile.isWinningCard = true;
+      });
+
+      const nonWinningPool = pool.filter((entry) => entry !== winningTexture);
+      if (!nonWinningPool.length) {
+        nonWinningPool.push(winningTexture);
+      }
+
+      nonWinningTiles.forEach((tile) => {
+        const textureEntry = pickRandomTexture(nonWinningPool);
+        tile.cardTexture = textureEntry?.texture ?? winningTexture.texture;
+        tile.cardTextureId = textureEntry?.id ?? winningTexture.id;
+        tile.isWinningCard = false;
+      });
+
+      totalSafe = MATCHING_CARDS_REQUIRED;
+    } else {
+      roundWinningTexture = null;
+      tilesToAssign.forEach((tile) => {
+        const textureEntry = pickRandomTexture(pool);
+        tile.cardTexture = textureEntry?.texture ?? pool[0]?.texture ?? null;
+        tile.cardTextureId = textureEntry?.id ?? pool[0]?.id ?? null;
+        tile.isWinningCard = false;
+      });
+
+      totalSafe = 0;
+    }
+
+    revealedSafe = 0;
+    roundOutcome = outcome;
+    return true;
+  }
+
+  function ensureRoundLayout(outcome, selectedTile) {
+    if (!selectedTile) return false;
+    if (roundOutcome === outcome) {
+      return true;
+    }
+    if (roundOutcome !== "pending" && roundOutcome !== outcome) {
+      return false;
+    }
+    return assignRoundLayout(outcome, selectedTile);
   }
 
   async function loadSoundEffects() {
@@ -1149,8 +1289,6 @@ export async function createGame(mount, opts = {}) {
 
     t.on("pointerover", () => {
       const autoMode = isAutoModeActive();
-      const untapedCount = tiles.filter((tile) => !tile.taped).length;
-      if (!autoMode && untapedCount <= mines) return;
 
       const waitingBlocked = !autoMode && waitingForChoice;
 
@@ -1175,16 +1313,13 @@ export async function createGame(mount, opts = {}) {
     });
     t.on("pointerdown", () => {
       const autoMode = isAutoModeActive();
-      const untapedCount = tiles.filter((tile) => !tile.taped).length;
-      const limitReached = untapedCount <= mines;
       const isSelectingNewAutoTile = autoMode && !t.isAutoSelected;
 
       if (
         gameOver ||
         t.revealed ||
         t._animating ||
-        (!autoMode && (waitingForChoice || limitReached)) ||
-        (autoMode && isSelectingNewAutoTile && limitReached)
+        (!autoMode && waitingForChoice)
       ) {
         return;
       }
@@ -1218,13 +1353,9 @@ export async function createGame(mount, opts = {}) {
     });
     t.on("pointertap", () => {
       const autoMode = isAutoModeActive();
-      const untapedCount = tiles.filter((tile) => !tile.taped).length;
 
       if (autoMode) {
         if (gameOver || t.revealed || t._animating) {
-          return;
-        }
-        if (!t.isAutoSelected && untapedCount <= mines) {
           return;
         }
 
@@ -1236,8 +1367,7 @@ export async function createGame(mount, opts = {}) {
         gameOver ||
         waitingForChoice ||
         t.revealed ||
-        t._animating ||
-        untapedCount <= mines
+        t._animating
       )
         return;
 
@@ -1255,7 +1385,7 @@ export async function createGame(mount, opts = {}) {
     }
 
     const untapedTiles = tiles.filter((t) => !t.taped);
-    if (untapedTiles.length <= mines) {
+    if (untapedTiles.length === 0) {
       return null;
     }
 
@@ -1288,18 +1418,21 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     selectedTile = null;
 
-    let bombHit = false;
+    let lossTriggered = false;
     let pendingReveals = 0;
-    let winFinalized = false;
 
-    const finalizeAutoWin = () => {
-      if (winFinalized || bombHit || pendingReveals > 0) {
+    const finalizeAutoRound = () => {
+      if (pendingReveals > 0) {
         return;
       }
-      if (revealedSafe < totalSafe) {
-        winFinalized = true;
-        revealAllTiles(undefined, { stagger: false });
-        onWin();
+      if (!lossTriggered && roundOutcome === "win") {
+        if (!gameOver && revealedSafe < Math.max(1, totalSafe)) {
+          revealAllTiles(undefined, { stagger: false });
+        }
+        if (!gameOver) {
+          gameOver = true;
+          onWin();
+        }
       }
     };
 
@@ -1320,21 +1453,27 @@ export async function createGame(mount, opts = {}) {
       }
 
       const normalizedResult = String(entry?.result ?? "").toLowerCase();
-      const isBomb = normalizedResult === "lost";
-      if (isBomb) {
-        bombHit = true;
+      const isLoss = normalizedResult === "lost";
+
+      const desiredOutcome = isLoss ? "loss" : "win";
+      if (!ensureRoundLayout(desiredOutcome, tile)) {
+        continue;
+      }
+
+      if (isLoss) {
+        lossTriggered = true;
       }
 
       const started = revealTileWithFlip(
         tile,
-        isBomb ? "bomb" : "diamond",
+        { isWinning: tile.isWinningCard },
         true,
         {
           useSelectionBase,
           staggerRevealAll: false,
           onComplete: () => {
             pendingReveals = Math.max(0, pendingReveals - 1);
-            finalizeAutoWin();
+            finalizeAutoRound();
           },
         }
       );
@@ -1351,7 +1490,7 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     onChange(getState());
 
-    finalizeAutoWin();
+    finalizeAutoRound();
   }
 
   function flipFace(graphic, w, h, r, color, stroke = true) {
@@ -1414,7 +1553,7 @@ export async function createGame(mount, opts = {}) {
 
   function revealTileWithFlip(
     tile,
-    face /* "diamond" | "bomb" */,
+    revealContext = {},
     revealedByPlayer = true,
     options = {}
   ) {
@@ -1456,7 +1595,7 @@ export async function createGame(mount, opts = {}) {
         icon.destroyed
       ) {
         tile._animating = false;
-        onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+        onComplete?.(tile, { revealedByPlayer, cancelled: true });
         return;
       }
 
@@ -1490,7 +1629,7 @@ export async function createGame(mount, opts = {}) {
             icon.destroyed
           ) {
             tile._animating = false;
-            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+            onComplete?.(tile, { revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1520,39 +1659,46 @@ export async function createGame(mount, opts = {}) {
             icon.width = maxW;
             icon.height = maxH;
 
-            if (face === "bomb") {
-              icon.texture = bombTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.bombA
-                : PALETTE.bombAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.bombB
-                : PALETTE.bombBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
-
-              if (revealedByPlayer) {
-                spawnExplosionSheetOnTile(tile);
-                bombShakeTile(tile);
-                playSoundEffect("bombRevealed");
+            const isWinning =
+              revealContext?.isWinning ?? tile.isWinningCard ?? false;
+            let texture = tile.cardTexture ?? null;
+            if (!texture) {
+              if (isWinning && roundWinningTexture?.texture) {
+                texture = roundWinningTexture.texture;
+              } else if (activeCardPool.length) {
+                const fallbackEntry = pickRandomTexture(activeCardPool);
+                texture = fallbackEntry?.texture ?? null;
+                if (texture) {
+                  tile.cardTexture = texture;
+                  tile.cardTextureId = fallbackEntry?.id ?? tile.cardTextureId;
+                }
               }
-            } else {
-              // Diamond
-              icon.texture = diamondTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.safeA
-                : PALETTE.safeAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.safeB
-                : PALETTE.safeBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
+            }
+            if (texture) {
+              icon.texture = texture;
+            }
 
-              if (revealedByPlayer) {
+            const facePalette = revealedByPlayer
+              ? useSelectionBase
+                ? AUTO_SELECTION_COLOR
+                : isWinning
+                ? PALETTE.safeA
+                : PALETTE.bombA
+              : isWinning
+              ? PALETTE.safeAUnrevealed
+              : PALETTE.bombAUnrevealed;
+            const insetPalette = revealedByPlayer
+              ? isWinning
+                ? PALETTE.safeB
+                : PALETTE.bombB
+              : isWinning
+              ? PALETTE.safeBUnrevealed
+              : PALETTE.bombBUnrevealed;
+            flipFace(card, tileSize, tileSize, radius, facePalette);
+            flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
+
+            if (revealedByPlayer) {
+              if (isWinning) {
                 const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
                 const maxPitch = Math.max(0.01, Number(diamondRevealPitchMax));
                 const safeProgress =
@@ -1566,6 +1712,8 @@ export async function createGame(mount, opts = {}) {
                   minPitch +
                   (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
                 playSoundEffect("diamondRevealed", { speed: pitch });
+              } else {
+                playSoundEffect("loss");
               }
             }
           }
@@ -1573,7 +1721,7 @@ export async function createGame(mount, opts = {}) {
         complete: () => {
           if (tile.destroyed || !wrap.scale || wrap.destroyed) {
             tile._animating = false;
-            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+            onComplete?.(tile, { revealedByPlayer, cancelled: true });
             return;
           }
 
@@ -1582,14 +1730,16 @@ export async function createGame(mount, opts = {}) {
           tile.revealed = true;
 
           if (revealedByPlayer) {
-            if (face === "bomb") {
+            const isWinning = revealContext?.isWinning ?? tile.isWinningCard;
+            if (!isWinning) {
+              gameOver = true;
               revealAllTiles(tile, { stagger: staggerRevealAll });
               onGameOver();
             } else {
               revealedSafe += 1;
-              if (revealedSafe >= totalSafe) {
+              if (!gameOver) {
                 gameOver = true;
-                revealAllTiles();
+                revealAllTiles(undefined, { stagger: staggerRevealAll });
                 onWin();
               }
             }
@@ -1597,7 +1747,7 @@ export async function createGame(mount, opts = {}) {
             onChange(getState());
           }
 
-          onComplete?.(tile, { face, revealedByPlayer });
+          onComplete?.(tile, { revealedByPlayer });
         },
       });
       try {
@@ -1608,35 +1758,41 @@ export async function createGame(mount, opts = {}) {
     return true;
   }
 
-  function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
-    const unrevealed = tiles.filter((t) => !t.revealed);
-    const bombsNeeded = mines - 1;
-    let available = unrevealed.filter((t) => t !== triggeredBombTile);
-
-    // Shuffle available tiles
-    for (let i = available.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [available[i], available[j]] = [available[j], available[i]];
-      stopHover(available[i]);
+  function revealAllTiles(triggeredTile, { stagger = true } = {}) {
+    const unrevealed = tiles.filter((t) => !t.revealed && !t._animating);
+    if (!unrevealed.length) {
+      return;
     }
 
-    // Pick bombs
-    const bombTiles = available.slice(0, bombsNeeded);
-    bombTiles.forEach((t) => bombPositions.add(`${t.row},${t.col}`));
-
-    // Reveal all unrevealed tiles
-    unrevealed.forEach((t, idx) => {
-      const key = `${t.row},${t.col}`;
-      const isBomb = bombPositions.has(key);
-
-      if (stagger && revealAllIntervalDelay > 0 && !disableAnimations) {
-        setTimeout(() => {
-          revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
-        }, revealAllIntervalDelay * idx);
+    const revealTile = (tile, idx) => {
+      const delay = stagger ? revealAllIntervalDelay * idx : 0;
+      const execute = () => {
+        if (!tile.revealed) {
+          revealTileWithFlip(
+            tile,
+            { isWinning: tile.isWinningCard },
+            false,
+            { staggerRevealAll: false }
+          );
+        }
+      };
+      if (delay > 0 && !disableAnimations) {
+        setTimeout(execute, delay);
       } else {
-        revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
+        execute();
       }
-    });
+    };
+
+    const orderedTiles = unrevealed.slice();
+    if (triggeredTile) {
+      const index = orderedTiles.indexOf(triggeredTile);
+      if (index >= 0) {
+        orderedTiles.splice(index, 1);
+        orderedTiles.unshift(triggeredTile);
+      }
+    }
+
+    orderedTiles.forEach((tile, idx) => revealTile(tile, idx));
   }
 
   function buildBoard({ emitAutoSelectionChange = true } = {}) {
@@ -1648,7 +1804,10 @@ export async function createGame(mount, opts = {}) {
     }
     tiles = [];
     revealedSafe = 0;
-    totalSafe = GRID * GRID - mines;
+    totalSafe = 0;
+    roundOutcome = "pending";
+    roundWinningTexture = null;
+    activeCardPool = [];
 
     const layout = layoutSizes();
 
