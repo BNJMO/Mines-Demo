@@ -3,14 +3,18 @@ import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
 import { createServerDummy } from "./serverDummy/serverDummy.js";
 
-import diamondTextureUrl from "../assets/sprites/Diamond.png";
-import bombTextureUrl from "../assets/sprites/Bomb.png";
+import cardType0Url from "../assets/sprites/cardType_0.png";
+import cardType1Url from "../assets/sprites/cardType_1.png";
+import cardType2Url from "../assets/sprites/cardType_2.png";
+import cardType3Url from "../assets/sprites/cardType_3.png";
+import cardType4Url from "../assets/sprites/cardType_4.png";
+import cardType5Url from "../assets/sprites/cardType_5.png";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
+import lostSoundUrl from "../assets/sounds/Lost.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
@@ -427,17 +431,17 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   }
 
   const results = [];
-  let bombAssigned = false;
+  let lossAssigned = false;
 
   for (const selection of selections) {
-    const revealBomb = !bombAssigned && Math.random() < 0.15;
-    if (revealBomb) {
-      bombAssigned = true;
+    const triggerLoss = !lossAssigned && Math.random() < 0.15;
+    if (triggerLoss) {
+      lossAssigned = true;
     }
     results.push({
       row: selection.row,
       col: selection.col,
-      result: revealBomb ? "bomb" : "diamond",
+      result: triggerLoss ? "lost" : "won",
     });
   }
 
@@ -848,9 +852,9 @@ function handleCardSelected(selection) {
       return;
     }
 
-    const revealBomb = Math.random() < 0.15;
+    const triggerLoss = Math.random() < 0.15;
 
-    if (revealBomb) {
+    if (triggerLoss) {
       game?.SetSelectedCardIsBomb?.();
     } else {
       game?.setSelectedCardIsDiamond?.();
@@ -947,13 +951,19 @@ const opts = {
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
 
   // Game setup
-  grid: 5,
-  mines: 5,
+  grid: 3,
+  mines: MIN_CARD_TYPES,
   autoResetDelayMs: AUTO_RESET_DELAY_MS,
 
   // Visuals
-  diamondTexturePath: diamondTextureUrl,
-  bombTexturePath: bombTextureUrl,
+  cardTexturePaths: [
+    cardType0Url,
+    cardType1Url,
+    cardType2Url,
+    cardType3Url,
+    cardType4Url,
+    cardType5Url,
+  ],
   iconSizePercentage: 0.7,
   iconRevealedSizeOpacity: 0.2,
   iconRevealedSizeFactor: 0.7,
@@ -1005,7 +1015,7 @@ const opts = {
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
   diamondRevealedSoundPath: diamondRevealedSoundUrl,
-  bombRevealedSoundPath: bombRevealedSoundUrl,
+  lossSoundPath: lostSoundUrl,
   winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
   diamondRevealPitchMin: 1.0,
@@ -1038,7 +1048,7 @@ const opts = {
   // Initialize Control Panel
   try {
     controlPanel = new ControlPanel("#control-panel", {
-      gameName: "Mines",
+      gameName: "Scratch Card",
       initialCardTypes,
       minCardTypes: MIN_CARD_TYPES,
     });
