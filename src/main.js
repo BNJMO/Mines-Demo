@@ -13,7 +13,7 @@ import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
+import winningCardRevealedSoundUrl from "../assets/sounds/WinningCardRevealed.wav";
 import lostSoundUrl from "../assets/sounds/Lost.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
@@ -136,10 +136,12 @@ function applyServerReveal(payload = {}) {
   const result = String(payload?.result ?? "").toLowerCase();
   clearSelectionDelay();
   selectionPending = false;
+  const isWin = result !== "lost";
+  game?.determineBetResult?.(isWin, payload?.winningCardType);
   if (result === "lost") {
-    game?.SetSelectedCardIsBomb?.();
+    game?.setSelectedCardIsLoss?.();
   } else {
-    game?.setSelectedCardIsDiamond?.();
+    game?.setSelectedCardIsWin?.();
   }
 }
 
@@ -149,7 +151,15 @@ function applyAutoResultsFromServer(results = []) {
   if (!Array.isArray(results) || results.length === 0) {
     return;
   }
-  game?.revealAutoSelections?.(results);
+  const normalized = results.map((entry) => entry || {});
+  const isWin = normalized.every(
+    (entry) => String(entry?.result ?? "").toLowerCase() !== "lost"
+  );
+  const winningCardType = normalized.find(
+    (entry) => entry?.winningCardType != null
+  )?.winningCardType;
+  game?.determineBetResult?.(isWin, winningCardType);
+  game?.revealAutoSelections?.(normalized);
 }
 
 const serverDummyMount =
@@ -287,17 +297,24 @@ function applyCardTypeOption(value, { syncGame = false } = {}) {
   const cardTypes = normalizeCardTypeValue(value, minCardTypes, maxCardTypes);
 
   opts.cardTypes = cardTypes;
-  opts.mines = cardTypes;
 
   if (syncGame) {
-    if (typeof game?.setMines === "function") {
-      game.setMines(cardTypes);
+    if (typeof game?.setCardTypeCount === "function") {
+      game.setCardTypeCount(cardTypes);
     } else {
       game?.reset?.();
     }
   }
 
   return cardTypes;
+}
+
+function getConfiguredCardTypeCount() {
+  const configured = Number(
+    opts.cardTypes ?? opts.cardTypeCount ?? MIN_CARD_TYPES
+  );
+  const numeric = Number.isFinite(configured) ? configured : MIN_CARD_TYPES;
+  return Math.max(1, Math.floor(numeric));
 }
 
 function setGameBoardInteractivity(enabled) {
@@ -431,19 +448,24 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   }
 
   const results = [];
-  let lossAssigned = false;
+  const totalTypes = getConfiguredCardTypeCount();
+  const winningCardType = Math.floor(Math.random() * totalTypes) + 1;
+  const isWinRound = Math.random() < 0.5;
+  game?.determineBetResult?.(isWinRound, winningCardType);
 
-  for (const selection of selections) {
-    const triggerLoss = !lossAssigned && Math.random() < 0.15;
-    if (triggerLoss) {
-      lossAssigned = true;
-    }
+  let lossIndex = -1;
+  if (!isWinRound && selections.length > 0) {
+    lossIndex = Math.floor(Math.random() * selections.length);
+  }
+
+  selections.forEach((selection, index) => {
+    const triggerLoss = index === lossIndex;
     results.push({
       row: selection.row,
       col: selection.col,
       result: triggerLoss ? "lost" : "won",
     });
-  }
+  });
 
   selectionDelayHandle = setTimeout(() => {
     selectionDelayHandle = null;
@@ -741,11 +763,22 @@ function handleCashout() {
 }
 
 function performBet() {
-  applyCardTypeOption(controlPanel?.getCardTypeValue?.(), {
+  const cardTypes = applyCardTypeOption(controlPanel?.getCardTypeValue?.(), {
     syncGame: true,
   });
   prepareForNewRoundState();
   manualRoundNeedsReset = false;
+
+  if (demoMode || suppressRelay) {
+    const totalTypes = Math.max(
+      1,
+      Math.floor(cardTypes ?? getConfiguredCardTypeCount())
+    );
+    const winningCardType =
+      Math.floor(Math.random() * totalTypes) + 1;
+    const isWin = Math.random() < 0.5;
+    game?.determineBetResult?.(isWin, winningCardType);
+  }
 }
 
 function handleBet() {
@@ -755,7 +788,6 @@ function handleBet() {
     sendRelayMessage("action:bet", {
       bet: controlPanel?.getBetValue?.(),
       cardTypes,
-      mines: cardTypes,
     });
     return;
   }
@@ -784,11 +816,6 @@ function handleGameOver() {
 }
 
 function handleGameWin() {
-  game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
   markManualRoundForReset();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
@@ -852,13 +879,7 @@ function handleCardSelected(selection) {
       return;
     }
 
-    const triggerLoss = Math.random() < 0.15;
-
-    if (triggerLoss) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
+    game?.revealSelectedTile?.();
 
     selectionPending = false;
   }, SERVER_RESPONSE_DELAY_MS);
@@ -952,7 +973,7 @@ const opts = {
 
   // Game setup
   grid: 3,
-  mines: MIN_CARD_TYPES,
+  cardTypes: MIN_CARD_TYPES,
   autoResetDelayMs: AUTO_RESET_DELAY_MS,
 
   // Visuals
@@ -993,7 +1014,7 @@ const opts = {
   flipDuration: 300,
   flipEaseFunction: "easeInOutSine",
 
-  // Bomb Explosion shake
+  // Loss explosion shake
   explosionShakeEnabled: true,
   explosionShakeDuration: 1000,
   explosionShakeAmplitude: 12,
@@ -1001,7 +1022,7 @@ const opts = {
   explosionShakeBaseFrequency: 8,
   explosionShakeSecondaryFrequency: 13,
 
-  // Bomb Explosion spritesheet
+  // Loss explosion spritesheet
   explosionSheetEnabled: true,
   explosionSheetPath: explosionSheetUrl,
   explosionSheetCols: 7,
@@ -1014,12 +1035,12 @@ const opts = {
   tileTapDownSoundPath: tileTapDownSoundUrl,
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
-  diamondRevealedSoundPath: diamondRevealedSoundUrl,
+  winningCardRevealedSoundPath: winningCardRevealedSoundUrl,
   lossSoundPath: lostSoundUrl,
   winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
-  diamondRevealPitchMin: 1.0,
-  diamondRevealPitchMax: 1.25,
+  winningCardRevealPitchMin: 1.0,
+  winningCardRevealPitchMax: 1.25,
 
   // Win pop-up
   winPopupShowDuration: 260,
@@ -1038,12 +1059,18 @@ const opts = {
 (async () => {
   const totalTiles = opts.grid * opts.grid;
   const maxInitialCardTypes = Math.max(MIN_CARD_TYPES, totalTiles - 1);
+  const rawInitialTypes = Number(
+    opts.cardTypes ?? opts.cardTypeCount ?? MIN_CARD_TYPES
+  );
+  const requestedCardTypes = Number.isFinite(rawInitialTypes)
+    ? rawInitialTypes
+    : MIN_CARD_TYPES;
   const initialCardTypes = Math.max(
     MIN_CARD_TYPES,
-    Math.min(opts.mines ?? MIN_CARD_TYPES, maxInitialCardTypes)
+    Math.min(requestedCardTypes, maxInitialCardTypes)
   );
-  opts.mines = initialCardTypes;
   opts.cardTypes = initialCardTypes;
+  opts.cardTypeCount = initialCardTypes;
 
   // Initialize Control Panel
   try {
@@ -1106,9 +1133,6 @@ const opts = {
         normalizedValue: nextValue,
         min: event.detail?.minCardTypes,
         max: event.detail?.maxCardTypes,
-      });
-      sendRelayMessage("control:mines", {
-        value: nextValue,
       });
     });
     controlPanel.addEventListener("numberofbetschange", (event) => {
@@ -1173,7 +1197,7 @@ const opts = {
     );
     const state = game?.getState?.();
     if (state) {
-      controlPanel?.setCardTypeValue?.(state.mines, { emit: false });
+      controlPanel?.setCardTypeValue?.(state.cardTypes, { emit: false });
     }
     const animationsEnabled = controlPanel?.getAnimationsEnabled?.();
     if (animationsEnabled != null) {
