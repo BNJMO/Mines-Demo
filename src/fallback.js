@@ -1,13 +1,15 @@
-// Simple DOM/CSS fallback for Mines board (no WebGL, no audio)
-// Always renders a 5x5 grid and exposes a minimal API compatible with main.js usage
+// Simple DOM/CSS fallback for Scratch Cards board (no WebGL, no audio)
+// Always renders a 3x3 grid and exposes a minimal API compatible with main.js usage
 
 export function createFallbackMinesGame(mountSelector, opts = {}) {
-  const root = typeof mountSelector === 'string' ? document.querySelector(mountSelector) : mountSelector;
+  const root =
+    typeof mountSelector === 'string'
+      ? document.querySelector(mountSelector)
+      : mountSelector;
   if (!root) throw new Error('fallback: mount not found');
   root.innerHTML = '';
 
-  const GRID = opts.grid ?? 5;
-  let mines = Math.max(1, Math.min(opts.mines ?? 5, GRID * GRID - 1));
+  const GRID = opts.grid ?? 3;
 
   const board = document.createElement('div');
   board.className = 'fallback-board';
@@ -15,12 +17,14 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
   root.appendChild(board);
 
   const tiles = [];
+  const currentAssignments = new Map();
+
   for (let r = 0; r < GRID; r++) {
     for (let c = 0; c < GRID; c++) {
       const t = document.createElement('div');
       t.className = 'fallback-tile';
-      t.dataset.row = r;
-      t.dataset.col = c;
+      t.dataset.row = String(r);
+      t.dataset.col = String(c);
       board.appendChild(t);
       tiles.push(t);
     }
@@ -28,41 +32,106 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
 
   function reset() {
     tiles.forEach((t) => {
-      t.classList.remove('revealed', 'bomb', 'diamond');
+      t.classList.remove('revealed');
       t.textContent = '';
+      delete t.dataset.cardType;
     });
   }
 
-  function setMines(n) {
-    mines = Math.max(1, Math.min(n | 0, GRID * GRID - 1));
+  function getKey(row, col) {
+    return `${row},${col}`;
+  }
+
+  function revealTile(row, col, contentKey) {
+    const tile = tiles.find(
+      (t) => Number(t.dataset.row) === row && Number(t.dataset.col) === col
+    );
+    if (!tile || tile.classList.contains('revealed')) return;
+    tile.classList.add('revealed');
+    const key = contentKey ?? '❓';
+    tile.dataset.cardType = key;
+    tile.textContent = key;
+  }
+
+  function setRoundAssignments(assignments = []) {
+    currentAssignments.clear();
+    assignments.forEach((entry) => {
+      if (
+        typeof entry?.row === 'number' &&
+        typeof entry?.col === 'number'
+      ) {
+        currentAssignments.set(
+          getKey(entry.row, entry.col),
+          entry.contentKey ?? entry.result ?? null
+        );
+      }
+    });
     reset();
   }
 
-  // Minimal API to satisfy main.js controls
-  function setSelectedCardIsDiamond() {}
-  function SetSelectedCardIsBomb() {}
+  function revealSelectedCard() {
+    // Fallback reveals immediately on click; selection is handled inline.
+  }
+
+  function revealAutoSelections(results = []) {
+    results.forEach((entry) => {
+      if (typeof entry?.row === 'number' && typeof entry?.col === 'number') {
+        revealTile(
+          entry.row,
+          entry.col,
+          entry.contentKey ?? entry.result ?? null
+        );
+      }
+    });
+  }
+
+  function selectRandomTile() {
+    const hidden = tiles.filter((t) => !t.classList.contains('revealed'));
+    if (!hidden.length) return null;
+    const tile = hidden[Math.floor(Math.random() * hidden.length)];
+    const row = Number(tile.dataset.row);
+    const col = Number(tile.dataset.col);
+    const assigned = currentAssignments.get(getKey(row, col));
+    revealTile(row, col, assigned);
+    return { row, col };
+  }
+
+  function revealRemainingTiles() {
+    tiles.forEach((tile) => {
+      const row = Number(tile.dataset.row);
+      const col = Number(tile.dataset.col);
+      const assigned = currentAssignments.get(getKey(row, col));
+      revealTile(row, col, assigned);
+    });
+  }
+
+  function setMines() {}
   function showWinPopup() {}
 
-  // Basic interactivity: tap reveals random content with a simple rule
   board.addEventListener('click', (ev) => {
     const t = ev.target;
     if (!(t instanceof HTMLElement) || !t.classList.contains('fallback-tile')) return;
     if (t.classList.contains('revealed')) return;
 
-    // Very simple randomization similar to main.js example
-    const isBomb = Math.random() < Math.min(0.85, mines / (GRID * GRID));
-    t.classList.add('revealed');
-    t.classList.add(isBomb ? 'bomb' : 'diamond');
-    t.textContent = isBomb ? '💣' : '💎';
+    const row = Number(t.dataset.row);
+    const col = Number(t.dataset.col);
+    const assigned = currentAssignments.get(getKey(row, col));
+    revealTile(row, col, assigned ?? `T${Math.floor(Math.random() * 9) + 1}`);
   });
 
-  // Return API used by main.js bindings
   return {
     reset,
     setMines,
-    setSelectedCardIsDiamond,
-    SetSelectedCardIsBomb,
     showWinPopup,
+    setRoundAssignments,
+    revealSelectedCard,
+    revealAutoSelections,
+    selectRandomTile,
+    getAutoSelections: () => [],
+    clearAutoSelections: () => {},
+    applyAutoSelections: () => 0,
+    revealRemainingTiles,
+    getAutoResetDelay: () => opts.autoResetDelayMs ?? 1500,
+    setAnimationsEnabled: () => {},
   };
 }
-

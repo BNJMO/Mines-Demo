@@ -45,7 +45,7 @@ export class Card {
     this._hoverToken = null;
     this._wiggleToken = null;
     this._layoutScale = 1;
-    this._bombShaking = false;
+    this._shakeActive = false;
     this._swapHandled = false;
 
     this._tiltDir = 1;
@@ -209,7 +209,7 @@ export class Card {
     this.container.x = this._baseX;
     this.container.y = this._baseY;
     this.container.rotation = 0;
-    this._bombShaking = false;
+    this._shakeActive = false;
   }
 
   reveal({

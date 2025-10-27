@@ -3,15 +3,9 @@ import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
 import { createServerDummy } from "./serverDummy/serverDummy.js";
 
-import diamondTextureUrl from "../assets/sprites/Diamond.png";
-import bombTextureUrl from "../assets/sprites/Bomb.png";
-import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
-import winSoundUrl from "../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
@@ -38,6 +32,11 @@ let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
+
+const GRID_SIZE = 3;
+let availableCardTypes = [];
+let currentBetResult = null;
+const currentRoundAssignments = new Map();
 
 let totalProfitMultiplierValue = 1;
 let totalProfitAmountDisplayValue = "0.00000000";
@@ -128,14 +127,16 @@ function setDemoMode(value) {
 }
 
 function applyServerReveal(payload = {}) {
-  const result = String(payload?.result ?? "").toLowerCase();
   clearSelectionDelay();
   selectionPending = false;
-  if (result === "lost") {
-    game?.SetSelectedCardIsBomb?.();
-  } else {
-    game?.setSelectedCardIsDiamond?.();
+  const contentKey = payload?.contentKey ?? payload?.result ?? null;
+  if (typeof payload?.row === "number" && typeof payload?.col === "number") {
+    currentRoundAssignments.set(
+      getCardKey(payload.row, payload.col),
+      contentKey
+    );
   }
+  game?.revealSelectedCard?.(contentKey);
 }
 
 function applyAutoResultsFromServer(results = []) {
@@ -144,6 +145,14 @@ function applyAutoResultsFromServer(results = []) {
   if (!Array.isArray(results) || results.length === 0) {
     return;
   }
+  results.forEach((entry) => {
+    if (typeof entry?.row === "number" && typeof entry?.col === "number") {
+      currentRoundAssignments.set(
+        getCardKey(entry.row, entry.col),
+        entry.contentKey ?? entry.result ?? null
+      );
+    }
+  });
   game?.revealAutoSelections?.(results);
 }
 
@@ -353,6 +362,12 @@ function startAutoRoundIfNeeded() {
   if (!roundActive) {
     game?.reset?.({ preserveAutoSelections: true });
     prepareForNewRoundState({ preserveAutoSelections: true });
+    if (demoMode || suppressRelay) {
+      const lostProbability = Math.random() < 0.4;
+      const betResult = lostProbability ? 'lost' : 'win';
+      console.log(`[Scratch Cards] Bet result: ${betResult}`);
+      prepareScratchRound(betResult);
+    }
   }
 
   if (typeof game?.applyAutoSelections === "function") {
@@ -406,20 +421,14 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
-  const results = [];
-  let bombAssigned = false;
-
-  for (const selection of selections) {
-    const revealBomb = !bombAssigned && Math.random() < 0.15;
-    if (revealBomb) {
-      bombAssigned = true;
-    }
-    results.push({
+  const results = selections.map((selection) => {
+    const key = getCardKey(selection.row, selection.col);
+    return {
       row: selection.row,
       col: selection.col,
-      result: revealBomb ? "bomb" : "diamond",
-    });
-  }
+      contentKey: currentRoundAssignments.get(key) ?? null,
+    };
+  });
 
   selectionDelayHandle = setTimeout(() => {
     selectionDelayHandle = null;
@@ -597,16 +606,18 @@ function applyRoundInteractiveState(state) {
 
   setControlPanelBetMode("cashout");
 
+  const revealedCount = state?.revealed ?? 0;
+
   if (selectionPending || state?.waitingForChoice) {
     setControlPanelBetState(false);
     setControlPanelRandomState(false);
-    cashoutAvailable = (state?.revealedSafe ?? 0) > 0;
+    cashoutAvailable = revealedCount > 0;
     return;
   }
 
-  const hasRevealedSafe = (state?.revealedSafe ?? 0) > 0;
-  cashoutAvailable = hasRevealedSafe;
-  setControlPanelBetState(hasRevealedSafe);
+  const hasRevealedCard = revealedCount > 0;
+  cashoutAvailable = hasRevealedCard;
+  setControlPanelBetState(hasRevealedCard);
   setControlPanelRandomState(true);
 }
 
@@ -680,13 +691,24 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
       setControlPanelAutoStartState(false);
     }
   }
+
+  if (!preserveAutoSelections) {
+    currentBetResult = null;
+    currentRoundAssignments.clear();
+  }
 }
 
 function handleBetButtonClick() {
   if (betButtonMode === "cashout") {
     handleCashout();
   } else {
-    handleBet();
+    let betResult = "lost";
+    if (demoMode || suppressRelay) {
+      const lostProbability = Math.random() < 0.4;
+      betResult = lostProbability ? "lost" : "win";
+      console.log(`[Scratch Cards] Bet result: ${betResult}`);
+    }
+    handleBet(betResult);
   }
 }
 
@@ -708,7 +730,6 @@ function handleCashout() {
 
   markManualRoundForReset();
   game?.revealRemainingTiles?.();
-  showCashoutPopup();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
@@ -720,17 +741,118 @@ function performBet() {
   manualRoundNeedsReset = false;
 }
 
-function handleBet() {
+function getCardKey(row, col) {
+  return `${row},${col}`;
+}
+
+function shuffleArray(values = []) {
+  const array = [...values];
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function createCardPositions() {
+  const positions = [];
+  for (let row = 0; row < GRID_SIZE; row += 1) {
+    for (let col = 0; col < GRID_SIZE; col += 1) {
+      positions.push({ row, col });
+    }
+  }
+  return positions;
+}
+
+function generateScratchCardAssignments(betResult) {
+  const cardTypes =
+    Array.isArray(availableCardTypes) && availableCardTypes.length > 0
+      ? [...availableCardTypes]
+      : [null];
+  const positions = shuffleArray(createCardPositions());
+  const assignments = [];
+  const counts = new Map(cardTypes.map((key) => [key, 0]));
+
+  if (betResult === "win") {
+    const primaryType = shuffleArray(cardTypes)[0];
+    const primarySlots = Math.min(3, positions.length);
+    for (let i = 0; i < primarySlots; i += 1) {
+      const position = positions.shift();
+      if (!position) break;
+      assignments.push({
+        row: position.row,
+        col: position.col,
+        contentKey: primaryType,
+      });
+      counts.set(primaryType, (counts.get(primaryType) ?? 0) + 1);
+    }
+
+    for (const position of positions) {
+      const available = cardTypes.filter((type) => {
+        if (type === primaryType) {
+          return (counts.get(type) ?? 0) < 3;
+        }
+        return (counts.get(type) ?? 0) < 2;
+      });
+      const pool = available.length > 0 ? available : cardTypes;
+      const choice = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      counts.set(choice, (counts.get(choice) ?? 0) + 1);
+      assignments.push({
+        row: position.row,
+        col: position.col,
+        contentKey: choice,
+      });
+    }
+  } else {
+    for (const position of positions) {
+      const available = cardTypes.filter(
+        (type) => (counts.get(type) ?? 0) < 2
+      );
+      const pool = available.length > 0 ? available : cardTypes;
+      const choice = pool[Math.floor(Math.random() * pool.length)] ?? null;
+      counts.set(choice, (counts.get(choice) ?? 0) + 1);
+      assignments.push({
+        row: position.row,
+        col: position.col,
+        contentKey: choice,
+      });
+    }
+  }
+
+  return assignments;
+}
+
+function prepareScratchRound(betResult) {
+  currentBetResult = betResult;
+  if (!game) {
+    return;
+  }
+
+  const assignments = generateScratchCardAssignments(betResult);
+  currentRoundAssignments.clear();
+  for (const entry of assignments) {
+    currentRoundAssignments.set(
+      getCardKey(entry.row, entry.col),
+      entry.contentKey ?? null
+    );
+  }
+  game?.setRoundAssignments?.(assignments);
+}
+
+function handleBet(betResult = "lost") {
   if (!demoMode && !suppressRelay) {
     disableServerRoundSetupControls();
     sendRelayMessage("action:bet", {
       bet: controlPanel?.getBetValue?.(),
       mines: controlPanel?.getMinesValue?.(),
+      result: betResult,
     });
     return;
   }
 
   performBet();
+  game?.reset?.({ preserveAutoSelections: controlPanelMode === "auto" });
+  prepareScratchRound(betResult);
 }
 
 function handleGameStateChange(state) {
@@ -745,23 +867,6 @@ function handleGameStateChange(state) {
   }
 
   applyRoundInteractiveState(state);
-}
-
-function handleGameOver() {
-  markManualRoundForReset();
-  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
-  handleAutoRoundFinished();
-}
-
-function handleGameWin() {
-  game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
-  markManualRoundForReset();
-  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
-  handleAutoRoundFinished();
 }
 
 function handleRandomPickClick() {
@@ -805,13 +910,9 @@ function handleCardSelected(selection) {
       return;
     }
 
-    const revealBomb = Math.random() < 0.15;
-
-    if (revealBomb) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
+    const key = getCardKey(selection?.row, selection?.col);
+    const contentKey = currentRoundAssignments.get(key) ?? null;
+    game?.revealSelectedCard?.(contentKey);
 
     selectionPending = false;
   }, SERVER_RESPONSE_DELAY_MS);
@@ -891,26 +992,13 @@ function handleStartAutobetClick() {
   beginAutoBetProcess();
 }
 
-function showCashoutPopup() {
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
-}
 const opts = {
-  // Window visuals
   size: 600,
   backgroundColor: "#091B26",
   fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Arial",
-
-  // Game setup
-  grid: 5,
-  mines: 5,
+  grid: GRID_SIZE,
+  mines: 1,
   autoResetDelayMs: AUTO_RESET_DELAY_MS,
-
-  // Visuals
-  diamondTexturePath: diamondTextureUrl,
-  bombTexturePath: bombTextureUrl,
   iconSizePercentage: 0.7,
   iconRevealedSizeOpacity: 0.2,
   iconRevealedSizeFactor: 0.7,
@@ -918,67 +1006,31 @@ const opts = {
   revealAllIntervalDelay: 40,
   strokeWidth: 1,
   gapBetweenTiles: 0.013,
-
-  // Animations feel
   hoverEnabled: true,
   hoverEnterDuration: 120,
   hoverExitDuration: 200,
   hoverTiltAxis: "x",
   hoverSkewAmount: 0.02,
   disableAnimations: false,
-
-  // Card Selected Wiggle
   wiggleSelectionEnabled: true,
   wiggleSelectionDuration: 900,
   wiggleSelectionTimes: 15,
   wiggleSelectionIntensity: 0.03,
   wiggleSelectionScale: 0.005,
-
-  // Card Reveal Flip
   flipDelayMin: 150,
   flipDelayMax: 500,
   flipDuration: 300,
   flipEaseFunction: "easeInOutSine",
-
-  // Bomb Explosion shake
-  explosionShakeEnabled: true,
-  explosionShakeDuration: 1000,
-  explosionShakeAmplitude: 12,
-  explosionShakerotationAmplitude: 0.012,
-  explosionShakeBaseFrequency: 8,
-  explosionShakeSecondaryFrequency: 13,
-
-  // Bomb Explosion spritesheet
-  explosionSheetEnabled: true,
-  explosionSheetPath: explosionSheetUrl,
-  explosionSheetCols: 7,
-  explosionSheetRows: 3,
-  explosionSheetFps: 24,
-  explosionSheetScaleFit: 1.0,
-  explosionSheetOpacity: 0.2,
-
-  // Sounds
   tileTapDownSoundPath: tileTapDownSoundUrl,
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
-  diamondRevealedSoundPath: diamondRevealedSoundUrl,
-  bombRevealedSoundPath: bombRevealedSoundUrl,
-  winSoundPath: winSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
-  diamondRevealPitchMin: 1.0,
-  diamondRevealPitchMax: 1.25,
-
-  // Win pop-up
   winPopupShowDuration: 260,
   winPopupWidth: 260,
   winPopupHeight: 200,
-
-  // Event callback for when a card is selected
   getMode: () => controlPanelMode,
   onAutoSelectionChange: (count) => handleAutoSelectionChange(count),
   onCardSelected: (selection) => handleCardSelected(selection),
-  onWin: handleGameWin,
-  onGameOver: handleGameOver,
   onChange: handleGameStateChange,
 };
 
@@ -991,7 +1043,7 @@ const opts = {
   // Initialize Control Panel
   try {
     controlPanel = new ControlPanel("#control-panel", {
-      gameName: "Mines",
+      gameName: "Scratch Cards",
       totalTiles,
       maxMines,
       initialMines,
@@ -1105,13 +1157,17 @@ const opts = {
   try {
     game = await createGame("#game", opts);
     window.game = game;
+    availableCardTypes = game?.getCardContentKeys?.() ?? [];
     autoResetDelayMs = Number(
       game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS
     );
     const state = game?.getState?.();
     if (state) {
-      controlPanel?.setTotalTiles?.(state.grid * state.grid, { emit: false });
-      controlPanel?.setMinesValue?.(state.mines, { emit: false });
+      const totalTiles = state.totalTiles ?? state.grid * state.grid;
+      if (totalTiles != null) {
+        controlPanel?.setTotalTiles?.(totalTiles, { emit: false });
+      }
+      controlPanel?.setMinesValue?.(opts.mines, { emit: false });
     }
     const animationsEnabled = controlPanel?.getAnimationsEnabled?.();
     if (animationsEnabled != null) {

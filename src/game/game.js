@@ -1,15 +1,27 @@
 import { Assets } from "pixi.js";
 import { GameScene } from "./gameScene.js";
 import { GameRules } from "./gameRules.js";
-import diamondTextureUrl from "../../assets/sprites/Diamond.png";
-import bombTextureUrl from "../../assets/sprites/Bomb.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
-import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
+
+const CARD_TYPE_TEXTURES = (() => {
+  const modules = import.meta.glob(
+    "../../assets/sprites/cardTypes/cardType_*.png",
+    { eager: true }
+  );
+  return Object.entries(modules).map(([path, mod]) => {
+    const match = path.match(/cardType_([^/]+)\.png$/i);
+    const id = match?.[1] ?? path;
+    const texturePath =
+      typeof mod === "string" ? mod : mod?.default ?? mod ?? null;
+    return {
+      key: id,
+      texturePath,
+    };
+  });
+})();
 
 const DEFAULT_PALETTE = {
   appBg: 0x091b26,
@@ -22,14 +34,10 @@ const DEFAULT_PALETTE = {
   hover: 0x528aa5,
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x0f181e,
-  safeAUnrevealed: 0x0f181e,
-  safeB: 0x0f181e,
-  safeBUnrevealed: 0x0f181e,
-  bombA: 0x0f181e,
-  bombAUnrevealed: 0x0f181e,
-  bombB: 0x0f181e,
-  bombBUnrevealed: 0x0f181e,
+  cardFace: 0x0f181e,
+  cardFaceUnrevealed: 0x0f181e,
+  cardInset: 0x0f181e,
+  cardInsetUnrevealed: 0x0f181e,
   winPopupBorder: 0xeaff00,
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
@@ -40,9 +48,6 @@ const SOUND_ALIASES = {
   tileHover: "mines.tileHover",
   tileTapDown: "mines.tileTapDown",
   tileFlip: "mines.tileFlip",
-  diamondRevealed: "mines.diamondRevealed",
-  bombRevealed: "mines.bombRevealed",
-  win: "mines.win",
   gameStart: "mines.gameStart",
 };
 
@@ -116,38 +121,12 @@ function isAutoModeActive(getMode) {
   }
 }
 
-function formatMultiplier(multiplierValue) {
-  if (
-    typeof multiplierValue === "number" &&
-    Number.isFinite(multiplierValue)
-  ) {
-    return `${multiplierValue.toFixed(2)}×`;
-  }
-
-  const raw = `${multiplierValue ?? ""}`;
-  if (!raw) return "";
-  return raw.endsWith("×") ? raw : `${raw}×`;
-}
-
-function formatAmount(amountValue) {
-  if (typeof amountValue === "number" && Number.isFinite(amountValue)) {
-    return amountValue.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 8,
-    });
-  }
-  return `${amountValue ?? "0.00"}`;
-}
-
 export async function createGame(mount, opts = {}) {
-  const GRID = Math.max(2, opts.grid ?? 5);
-  let mines = Math.max(1, Math.min(opts.mines ?? 5, GRID * GRID - 1));
+  const GRID = 3;
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
   const initialSize = Math.max(1, opts.size ?? 400);
   const onCardSelected = opts.onCardSelected ?? (() => {});
-  const onWin = opts.onWin ?? (() => {});
-  const onGameOver = opts.onGameOver ?? (() => {});
   const onChange = opts.onChange ?? (() => {});
   const getMode =
     typeof opts.getMode === "function" ? () => opts.getMode() : () => "manual";
@@ -205,42 +184,32 @@ export async function createGame(mount, opts = {}) {
     tileTapDown: opts.tileTapDownSoundPath ?? tileTapDownSoundUrl,
     tileFlip: opts.tileFlipSoundPath ?? tileFlipSoundUrl,
     tileHover: opts.tileHoverSoundPath ?? tileHoverSoundUrl,
-    diamondRevealed: opts.diamondRevealedSoundPath ?? diamondRevealedSoundUrl,
-    bombRevealed: opts.bombRevealedSoundPath ?? bombRevealedSoundUrl,
-    win: opts.winSoundPath ?? winSoundUrl,
     gameStart: opts.gameStartSoundPath ?? gameStartSoundUrl,
   };
 
-  const defaultContentDefinitions = {
-    diamond: {
-      texturePath: opts.diamondTexturePath ?? diamondTextureUrl,
-      palette: {
-        face: {
-          revealed: palette.safeA,
-          unrevealed: palette.safeAUnrevealed,
+  if (!CARD_TYPE_TEXTURES.length) {
+    throw new Error("No scratch card textures found under assets/sprites/cardTypes");
+  }
+
+  const defaultContentDefinitions = CARD_TYPE_TEXTURES.reduce(
+    (acc, { key, texturePath }) => {
+      acc[key] = {
+        texturePath,
+        palette: {
+          face: {
+            revealed: palette.cardFace,
+            unrevealed: palette.cardFaceUnrevealed,
+          },
+          inset: {
+            revealed: palette.cardInset,
+            unrevealed: palette.cardInsetUnrevealed,
+          },
         },
-        inset: {
-          revealed: palette.safeB,
-          unrevealed: palette.safeBUnrevealed,
-        },
-      },
-      revealSoundKey: "diamondRevealed",
+      };
+      return acc;
     },
-    bomb: {
-      texturePath: opts.bombTexturePath ?? bombTextureUrl,
-      palette: {
-        face: {
-          revealed: palette.bombA,
-          unrevealed: palette.bombAUnrevealed,
-        },
-        inset: {
-          revealed: palette.bombB,
-          unrevealed: palette.bombBUnrevealed,
-        },
-      },
-      revealSoundKey: "bombRevealed",
-    },
-  };
+    {}
+  );
 
   const userContentDefinitions = opts.contentDefinitions ?? {};
   const mergedContentDefinitions = {};
@@ -275,8 +244,6 @@ export async function createGame(mount, opts = {}) {
       const playSound =
         typeof entry.playSound === "function"
           ? (context = {}) => entry.playSound({ key, ...context })
-          : entry.revealSoundKey
-          ? () => soundManager.play(entry.revealSoundKey)
           : null;
 
       contentLibrary[key] = {
@@ -320,17 +287,20 @@ export async function createGame(mount, opts = {}) {
 
   await scene.init();
 
-  const rules = new GameRules({ gridSize: GRID, mines });
+  const rules = new GameRules({ gridSize: GRID });
 
   const cardsByKey = new Map();
   const autoSelectedTiles = new Set();
   const autoSelectionOrder = [];
+  const currentAssignments = new Map();
 
   function registerCards() {
     cardsByKey.clear();
     for (const card of scene.cards) {
-      cardsByKey.set(`${card.row},${card.col}`, card);
+      const key = `${card.row},${card.col}`;
+      cardsByKey.set(key, card);
       card.setDisableAnimations(disableAnimations);
+      card._assignedContent = currentAssignments.get(key) ?? null;
     }
   }
 
@@ -414,25 +384,22 @@ export async function createGame(mount, opts = {}) {
       flipDuration,
       flipEaseFunction,
     });
+    if (typeof content.playSound === "function") {
+      content.playSound({ revealedByPlayer, card });
+    }
   }
 
   function revealRemainingTiles() {
     const unrevealed = scene.cards.filter((card) => !card.revealed);
     if (!unrevealed.length) return;
-
-    const bombsRevealed = scene.cards.filter(
-      (c) => c._revealedFace === "bomb"
-    ).length;
-    const bombsNeeded = Math.max(0, mines - bombsRevealed);
     const shuffled = [...unrevealed];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    const bombTiles = new Set(shuffled.slice(0, bombsNeeded));
     shuffled.forEach((card, index) => {
-      const face = bombTiles.has(card) ? "bomb" : "diamond";
+      const face = currentAssignments.get(`${card.row},${card.col}`) ?? null;
       const delay = disableAnimations
         ? 0
         : revealAllIntervalDelay * index;
@@ -504,6 +471,8 @@ export async function createGame(mount, opts = {}) {
 
   function reset({ preserveAutoSelections = false } = {}) {
     rules.reset();
+    currentAssignments.clear();
+    rules.setAssignments(currentAssignments);
     clearAutoSelections({ emit: !preserveAutoSelections });
     scene.hideWinPopup();
     scene.clearGrid();
@@ -524,46 +493,36 @@ export async function createGame(mount, opts = {}) {
     notifyStateChange();
   }
 
-  function setMines(count) {
-    mines = Math.max(1, Math.min(count | 0, GRID * GRID - 1));
-    rules.setMines(mines);
-    reset();
+  function setMines() {
+    // Mines are not used in Scratch Cards; this function exists for API
+    // compatibility with the control panel.
   }
 
-  function setSelectedCardIsDiamond() {
-    const selection = rules.selectedTile;
-    if (!selection) return;
-    const card = cardsByKey.get(`${selection.row},${selection.col}`);
-    if (!card || card.revealed) return;
-    const outcome = rules.revealResult({ ...selection, result: "diamond" });
-    revealCard(card, outcome.face);
-    if (outcome.win) {
-      revealRemainingTiles();
-      onWin();
-      scene.showWinPopup({
-        multiplier: formatMultiplier(opts.winMultiplier ?? 1),
-        amount: formatAmount(opts.winAmount ?? 0),
-      });
-      soundManager.play("win");
+  function setRoundAssignments(assignments = []) {
+    currentAssignments.clear();
+    for (const entry of assignments) {
+      if (entry && typeof entry.row === "number" && typeof entry.col === "number") {
+        const key = `${entry.row},${entry.col}`;
+        currentAssignments.set(key, entry.contentKey ?? entry.result ?? null);
+      }
     }
-    if (outcome.gameOver && !outcome.win) {
-      onGameOver();
+    rules.setAssignments(currentAssignments);
+    for (const [key, card] of cardsByKey.entries()) {
+      card._assignedContent = currentAssignments.get(key) ?? null;
     }
-    rules.clearSelection();
     notifyStateChange();
   }
 
-  function SetSelectedCardIsBomb() {
+  function revealSelectedCard(contentKey) {
     const selection = rules.selectedTile;
     if (!selection) return;
     const card = cardsByKey.get(`${selection.row},${selection.col}`);
     if (!card || card.revealed) return;
-    const outcome = rules.revealResult({ ...selection, result: "bomb" });
+    const key = `${selection.row},${selection.col}`;
+    const resolvedContent =
+      contentKey ?? currentAssignments.get(key) ?? card._assignedContent;
+    const outcome = rules.revealResult({ ...selection, result: resolvedContent });
     revealCard(card, outcome.face);
-    if (outcome.gameOver) {
-      revealRemainingTiles();
-      onGameOver();
-    }
     rules.clearSelection();
     notifyStateChange();
   }
@@ -587,7 +546,8 @@ export async function createGame(mount, opts = {}) {
       const outcome = rules.revealResult({
         row: entry.row,
         col: entry.col,
-        result: entry.result,
+        result:
+          entry.contentKey ?? entry.result ?? currentAssignments.get(`${entry.row},${entry.col}`),
       });
       revealCard(card, outcome.face, { revealedByPlayer: true });
     }
@@ -611,9 +571,8 @@ export async function createGame(mount, opts = {}) {
     scene.setAnimationsEnabled(enabled);
   }
 
-  function showWinPopup({ multiplier, amount }) {
-    scene.showWinPopup({ multiplier: formatMultiplier(multiplier), amount });
-    soundManager.play("win");
+  function getAvailableContentKeys() {
+    return Object.keys(contentLibrary);
   }
 
   return {
@@ -622,8 +581,7 @@ export async function createGame(mount, opts = {}) {
     setMines,
     getState,
     destroy,
-    setSelectedCardIsDiamond,
-    SetSelectedCardIsBomb,
+    revealSelectedCard,
     selectRandomTile,
     getAutoSelections: getAutoSelectionCoordinates,
     revealAutoSelections,
@@ -631,7 +589,8 @@ export async function createGame(mount, opts = {}) {
     applyAutoSelections: applyAutoSelectionsFromCoordinates,
     revealRemainingTiles,
     getAutoResetDelay: () => autoResetDelayMs,
-    showWinPopup,
     setAnimationsEnabled,
+    setRoundAssignments,
+    getCardContentKeys: getAvailableContentKeys,
   };
 }
