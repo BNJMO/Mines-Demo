@@ -1,27 +1,10 @@
-import {
-  Application,
-  Container,
-  Graphics,
-  Text,
-  Texture,
-  Rectangle,
-  AnimatedSprite,
-  Assets,
-  Sprite,
-  BlurFilter,
-} from "pixi.js";
+import { Application, Container, Graphics, Text, BlurFilter } from "pixi.js";
 
 // Sound will be loaded inside createGame function
 import Ease from "../ease.js";
-import diamondTextureUrl from "../../assets/sprites/Diamond.png";
-import bombTextureUrl from "../../assets/sprites/Bomb.png";
-import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
-import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
-import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
-import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
@@ -35,14 +18,10 @@ const PALETTE = {
   hover: 0x528aa5, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
-  safeA: 0x0f181e, // outer
-  safeAUnrevealed: 0x0f181e,
-  safeB: 0x0f181e, // inner
-  safeBUnrevealed: 0x0f181e,
-  bombA: 0x0f181e,
-  bombAUnrevealed: 0x0f181e,
-  bombB: 0x0f181e,
-  bombBUnrevealed: 0x0f181e,
+  revealedFace: 0x0f181e,
+  revealedInset: 0x0f181e,
+  unrevealedFace: 0x2b4756,
+  unrevealedInset: 0x2b4756,
   winPopupBorder: 0xeaff00,
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
@@ -107,11 +86,20 @@ export async function createGame(mount, opts = {}) {
   const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
 
   // Visuals
-  const diamondTexturePath = opts.dimaondTexturePath ?? diamondTextureUrl;
-  const bombTexturePath = opts.bombTexturePath ?? bombTextureUrl;
-  const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
-  const iconRevealedSizeOpacity = opts.iconRevealedSizeOpacity ?? 0.4;
-  const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
+  const unrevealedFaceColor =
+    opts.unrevealedFaceColor ?? PALETTE.unrevealedFace;
+  const unrevealedInsetColor =
+    opts.unrevealedInsetColor ?? PALETTE.unrevealedInset;
+  const revealedFaceColor = opts.revealedFaceColor ?? PALETTE.revealedFace;
+  const revealedInsetColor = opts.revealedInsetColor ?? PALETTE.revealedInset;
+  const cardContentTextStyle = {
+    fill: 0xffffff,
+    fontFamily,
+    fontSize: 24,
+    fontWeight: "600",
+    align: "center",
+    ...(opts.cardContentTextStyle ?? {}),
+  };
   const cardsSpawnDuration = opts.cardsSpawnDuration ?? 350;
   const revealAllIntervalDelay = opts.revealAllIntervalDelay ?? 40;
   const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
@@ -140,45 +128,16 @@ export async function createGame(mount, opts = {}) {
   const flipDuration = opts.flipDuration ?? 300;
   const flipEaseFunction = opts.flipEaseFunction ?? "easeInOutSine";
 
-  /* Bomb Explosion shake */
-  const explosionShakeEnabled = opts.explosionShakeEnabled ?? true;
-  const explosionShakeDuration = opts.explosionShakeDuration ?? 1000;
-  const explosionShakeAmplitude = opts.explosionShakeAmplitude ?? 6;
-  const explosionShakerotationAmplitude =
-    opts.explosionShakerotationAmplitude ?? 0.012;
-  const explosionShakeBaseFrequency = opts.explosionShakeBaseFrequency ?? 8;
-  const explosionShakeSecondaryFrequency =
-    opts.explosionShakeSecondaryFrequency ?? 13;
-
-  /* Bomb Explosion spritesheet */
-  const explosionSheetEnabled = opts.explosionSheetEnabled ?? true;
-  const explosionSheetPath = opts.explosionSheetPath ?? explosionSheetUrl;
-  const explosionSheetCols = opts.explosionSheetCols ?? 7;
-  const explosionSheetRows = opts.explosionSheetRows ?? 3;
-  const explosionSheetFps = opts.explosionSheetFps ?? 24;
-  const explosionSheetScaleFit = opts.explosionSheetScaleFit ?? 0.8;
-  const explosionSheetOpacity = opts.explosionSheetOpacity ?? 0.75;
-
   /* Sound effects */
   const tileTapDownSoundPath = opts.tileTapDownSoundPath ?? tileTapDownSoundUrl;
   const tileFlipSoundPath = opts.tileFlipSoundPath ?? tileFlipSoundUrl;
   const tileHoverSoundPath = opts.tileHoverSoundPath ?? tileHoverSoundUrl;
-  const diamondRevealedSoundPath =
-    opts.diamondRevealedSoundPath ?? diamondRevealedSoundUrl;
-  const bombRevealedSoundPath =
-    opts.bombRevealedSoundPath ?? bombRevealedSoundUrl;
-  const winSoundPath = opts.winSoundPath ?? winSoundUrl;
   const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
-  const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
-  const diamondRevealPitchMax = Number(opts.diamondRevealPitchMax ?? 1.5);
 
   const soundEffectPaths = {
     tileTapDown: tileTapDownSoundPath,
     tileFlip: tileFlipSoundPath,
     tileHover: tileHoverSoundPath,
-    diamondRevealed: diamondRevealedSoundPath,
-    bombRevealed: bombRevealedSoundPath,
-    win: winSoundPath,
     gameStart: gameStartSoundPath,
   };
 
@@ -192,9 +151,6 @@ export async function createGame(mount, opts = {}) {
     tileHover: "mines.tileHover",
     tileTapDown: "mines.tileTapDown",
     tileFlip: "mines.tileFlip",
-    diamondRevealed: "mines.diamondRevealed",
-    bombRevealed: "mines.bombRevealed",
-    win: "mines.win",
     gameStart: "mines.gameStart",
   };
 
@@ -213,30 +169,6 @@ export async function createGame(mount, opts = {}) {
   if (!root.style.width && !root.style.height) {
     root.style.width = `${initialSize}px`;
     root.style.maxWidth = "100%";
-  }
-
-  let explosionFrames = null;
-  let explosionFrameW = 0;
-  let explosionFrameH = 0;
-  const activeExplosionSprites = new Set();
-  try {
-    await loadExplosionFrames();
-  } catch (e) {
-    console.error("loadExplosionFrames failed", e);
-  }
-
-  let diamondTexture = null;
-  try {
-    await loadDiamondTexture();
-  } catch (e) {
-    console.error("loadDiamondTexture failed", e);
-  }
-
-  let bombTexture = null;
-  try {
-    await loadBombTexture();
-  } catch (e) {
-    console.error("loadBombTexture failed", e);
   }
 
   try {
@@ -275,19 +207,16 @@ export async function createGame(mount, opts = {}) {
   ui.addChild(winPopup.container);
 
   let tiles = [];
-  let bombPositions = new Set();
   let gameOver = false;
   let shouldPlayStartSound = true;
-  let revealedSafe = 0;
-  let totalSafe = GRID * GRID - mines;
+  let revealedTiles = 0;
+  const totalTiles = GRID * GRID;
   let waitingForChoice = false;
   let selectedTile = null;
   const autoSelectedTiles = new Set();
   const autoSelectionOrder = [];
 
   // API callbacks
-  const onWin = opts.onWin ?? (() => {});
-  const onGameOver = opts.onGameOver ?? (() => {});
   const onChange = opts.onChange ?? (() => {});
 
   // Game setup and state. TODO: remove later
@@ -296,8 +225,8 @@ export async function createGame(mount, opts = {}) {
   function reset({ preserveAutoSelections = false } = {}) {
     gameOver = false;
     hideWinPopup();
-    bombPositions.clear();
     shouldPlayStartSound = true;
+    revealedTiles = 0;
     const preservedAutoSelections = preserveAutoSelections
       ? getAutoSelectionCoordinates()
       : null;
@@ -319,8 +248,8 @@ export async function createGame(mount, opts = {}) {
     return {
       grid: GRID,
       mines,
-      revealedSafe,
-      totalSafe,
+      revealedTiles,
+      totalTiles,
       gameOver,
       waitingForChoice,
       selectedTile: selectedTile
@@ -333,12 +262,11 @@ export async function createGame(mount, opts = {}) {
     try {
       ro.disconnect();
     } catch {}
-    cleanupExplosionSprites();
     app.destroy(true);
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
   }
 
-  function setSelectedCardIsDiamond() {
+  function revealSelectedTile(options = {}) {
     if (selectedTile?._animating) {
       stopHover(selectedTile);
       stopWiggle(selectedTile);
@@ -349,33 +277,19 @@ export async function createGame(mount, opts = {}) {
       !selectedTile ||
       selectedTile.revealed ||
       selectedTile._animating
-    )
+    ) {
       return;
-    waitingForChoice = false;
-    const tile = selectedTile;
-    selectedTile = null;
-    revealTileWithFlip(tile, "diamond");
-  }
-
-  function SetSelectedCardIsBomb() {
-    if (selectedTile?._animating) {
-      stopHover(selectedTile);
-      stopWiggle(selectedTile);
     }
 
-    if (
-      !waitingForChoice ||
-      !selectedTile ||
-      selectedTile.revealed ||
-      selectedTile._animating
-    )
-      return;
-
-    gameOver = true;
     waitingForChoice = false;
     const tile = selectedTile;
     selectedTile = null;
-    revealTileWithFlip(tile, "bomb");
+    const revealOptions = {
+      revealedByPlayer: true,
+      useSelectionBase: true,
+      ...options,
+    };
+    revealTileWithFlip(tile, revealOptions);
   }
 
   // Game functions
@@ -553,56 +467,6 @@ export async function createGame(mount, opts = {}) {
     });
   }
 
-  async function loadDiamondTexture() {
-    if (diamondTexture) return;
-
-    diamondTexture = await Assets.load(diamondTexturePath);
-  }
-
-  async function loadBombTexture() {
-    if (bombTexture) return;
-
-    bombTexture = await Assets.load(bombTexturePath);
-  }
-
-  async function loadExplosionFrames() {
-    if (explosionFrames) return;
-
-    const baseTex = await Assets.load(explosionSheetPath);
-
-    const sheetW = baseTex.width;
-    const sheetH = baseTex.height;
-
-    explosionFrameW = Math.floor(sheetW / explosionSheetCols);
-    explosionFrameH = Math.floor(sheetH / explosionSheetRows);
-
-    explosionFrames = [];
-    for (let r = 0; r < explosionSheetRows; r++) {
-      for (let c = 0; c < explosionSheetCols; c++) {
-        const rect = new Rectangle(
-          c * explosionFrameW,
-          r * explosionFrameH,
-          explosionFrameW,
-          explosionFrameH
-        );
-
-        explosionFrames.push(
-          new Texture({ source: baseTex.source, frame: rect })
-        );
-      }
-    }
-  }
-
-  function cleanupExplosionSprites() {
-    for (const sprite of activeExplosionSprites) {
-      if (!sprite.destroyed) {
-        sprite.stop();
-        sprite.destroy();
-      }
-    }
-    activeExplosionSprites.clear();
-  }
-
   function loadSoundEffect(key, path) {
     if (!enabledSoundKeys.has(key) || !path) {
       return Promise.resolve();
@@ -646,96 +510,6 @@ export async function createGame(mount, opts = {}) {
     } catch (err) {
       // Ignore playback errors so they don't interrupt gameplay
     }
-  }
-
-  function spawnExplosionSheetOnTile(tile) {
-    if (!explosionSheetEnabled || !explosionFrames || !explosionFrames.length)
-      return;
-
-    const anim = new AnimatedSprite(explosionFrames);
-    anim.loop = true;
-    anim.animationSpeed = explosionSheetFps / 60;
-    anim.anchor.set(0.5);
-    anim.alpha = explosionSheetOpacity;
-
-    const size = tile._tileSize;
-    anim.position.set(size / 2, size / 2);
-
-    const sx = (size * explosionSheetScaleFit) / explosionFrameW;
-    const sy = (size * explosionSheetScaleFit) / explosionFrameH;
-    anim.scale.set(Math.min(sx, sy));
-
-    const wrap = tile._wrap;
-    const iconIndex = wrap.getChildIndex(tile._icon);
-    wrap.addChildAt(anim, iconIndex);
-
-    activeExplosionSprites.add(anim);
-    const originalDestroy = anim.destroy.bind(anim);
-    anim.destroy = (...args) => {
-      activeExplosionSprites.delete(anim);
-      return originalDestroy(...args);
-    };
-
-    anim.play();
-  }
-
-  function bombShakeTile(tile) {
-    if (!explosionShakeEnabled || !tile || tile.destroyed || tile._bombShaking)
-      return;
-
-    tile._bombShaking = true;
-
-    const duration = explosionShakeDuration;
-    const amp = explosionShakeAmplitude;
-    const rotAmp = explosionShakerotationAmplitude;
-    const f1 = explosionShakeBaseFrequency;
-    const f2 = explosionShakeSecondaryFrequency;
-
-    const bx = tile._baseX ?? tile.x;
-    const by = tile._baseY ?? tile.y;
-    const r0 = tile.rotation;
-
-    const phiX1 = Math.random() * Math.PI * 2;
-    const phiX2 = Math.random() * Math.PI * 2;
-    const phiY1 = Math.random() * Math.PI * 2;
-    const phiY2 = Math.random() * Math.PI * 2;
-
-    tween(app, {
-      duration,
-      skipUpdate: disableAnimations,
-      ease: (t) => t,
-      update: (p) => {
-        const decay = Math.exp(-5 * p);
-        const w1 = p * Math.PI * 2 * f1;
-        const w2 = p * Math.PI * 2 * f2;
-
-        const dx =
-          (Math.sin(w1 + phiX1) + 0.5 * Math.sin(w2 + phiX2)) * amp * decay;
-        const dy =
-          (Math.cos(w1 + phiY1) + 0.5 * Math.sin(w2 + phiY2)) * amp * decay;
-
-        if (!tile || tile.destroyed) {
-          tile && (tile._bombShaking = false);
-          return;
-        }
-
-        tile.x = bx + dx;
-        tile.y = by + dy;
-
-        tile.rotation = r0 + Math.sin(w2 + phiX1) * rotAmp * decay;
-      },
-      complete: () => {
-        if (!tile || tile.destroyed) {
-          tile && (tile._bombShaking = false);
-          return;
-        }
-
-        tile.x = bx;
-        tile.y = by;
-        tile.rotation = r0;
-        tile._bombShaking = false;
-      },
-    });
   }
 
   function getSkew(wrap) {
@@ -972,10 +746,10 @@ export async function createGame(mount, opts = {}) {
 
     const baseColor = tile.isAutoSelected
       ? AUTO_SELECTION_COLOR
-      : PALETTE.tileBase;
+      : tile._unrevealedFaceColor ?? unrevealedFaceColor;
     const insetColor = tile.isAutoSelected
       ? AUTO_SELECTION_COLOR
-      : PALETTE.tileInset;
+      : tile._unrevealedInsetColor ?? unrevealedInsetColor;
 
     paintTileBase(card, size, radius, baseColor);
     paintTileInset(inset, size, radius, pad, insetColor);
@@ -1091,20 +865,23 @@ export async function createGame(mount, opts = {}) {
     elevationLip.alpha = 0.85;
 
     const card = new Graphics();
-    paintTileBase(card, size, raduis, PALETTE.tileBase);
+    paintTileBase(card, size, raduis, unrevealedFaceColor);
 
     const inset = new Graphics();
-    paintTileInset(inset, size, raduis, pad, PALETTE.tileInset);
+    paintTileInset(inset, size, raduis, pad, unrevealedInsetColor);
 
-    const icon = new Sprite();
-    icon.anchor.set(0.5);
-    icon.x = size / 2;
-    icon.y = size / 2;
-    icon.visible = false;
+    const contentLabel = new Text({
+      text: "",
+      style: cardContentTextStyle,
+    });
+    contentLabel.anchor.set(0.5);
+    contentLabel.x = size / 2;
+    contentLabel.y = size / 2;
+    contentLabel.visible = false;
 
     // Centered wrapper – flip happens here
     const flipWrap = new Container();
-    flipWrap.addChild(elevationShadow, elevationLip, card, inset, icon);
+    flipWrap.addChild(elevationShadow, elevationLip, card, inset, contentLabel);
     flipWrap.position.set(size / 2, size / 2);
     flipWrap.pivot.set(size / 2, size / 2);
 
@@ -1122,10 +899,14 @@ export async function createGame(mount, opts = {}) {
     t._wrap = flipWrap;
     t._card = card;
     t._inset = inset;
-    t._icon = icon;
+    t._contentLabel = contentLabel;
     t._tileSize = size;
     t._tileRadius = raduis;
     t._tilePad = pad;
+    t._unrevealedFaceColor = unrevealedFaceColor;
+    t._unrevealedInsetColor = unrevealedInsetColor;
+    t._revealedFaceColor = revealedFaceColor;
+    t._revealedInsetColor = revealedInsetColor;
 
     // Spwan animation
     const s0 = 0.0001;
@@ -1288,18 +1069,12 @@ export async function createGame(mount, opts = {}) {
     waitingForChoice = false;
     selectedTile = null;
 
-    let bombHit = false;
     let pendingReveals = 0;
-    let winFinalized = false;
 
-    const finalizeAutoWin = () => {
-      if (winFinalized || bombHit || pendingReveals > 0) {
-        return;
-      }
-      if (revealedSafe < totalSafe) {
-        winFinalized = true;
-        revealAllTiles(undefined, { stagger: false });
-        onWin();
+    const handleCompletion = () => {
+      pendingReveals = Math.max(0, pendingReveals - 1);
+      if (pendingReveals === 0) {
+        onChange(getState());
       }
     };
 
@@ -1319,25 +1094,22 @@ export async function createGame(mount, opts = {}) {
         });
       }
 
-      const normalizedResult = String(entry?.result ?? "").toLowerCase();
-      const isBomb = normalizedResult === "lost";
-      if (isBomb) {
-        bombHit = true;
-      }
+      const content =
+        entry?.content !== undefined
+          ? entry.content
+          : entry?.result !== undefined
+            ? entry.result
+            : "";
 
-      const started = revealTileWithFlip(
-        tile,
-        isBomb ? "bomb" : "diamond",
-        true,
-        {
-          useSelectionBase,
-          staggerRevealAll: false,
-          onComplete: () => {
-            pendingReveals = Math.max(0, pendingReveals - 1);
-            finalizeAutoWin();
-          },
-        }
-      );
+      const started = revealTileWithFlip(tile, {
+        revealedByPlayer: false,
+        content,
+        faceColor: entry?.faceColor,
+        insetColor: entry?.insetColor,
+        textStyle: entry?.textStyle,
+        useSelectionBase,
+        onComplete: handleCompletion,
+      });
 
       if (started) {
         pendingReveals += 1;
@@ -1347,11 +1119,10 @@ export async function createGame(mount, opts = {}) {
     clearAutoSelections({ emit: false });
     notifyAutoSelectionChange();
 
-    gameOver = true;
     waitingForChoice = false;
-    onChange(getState());
-
-    finalizeAutoWin();
+    if (pendingReveals === 0) {
+      onChange(getState());
+    }
   }
 
   function flipFace(graphic, w, h, r, color, stroke = true) {
@@ -1412,35 +1183,41 @@ export async function createGame(mount, opts = {}) {
     app.ticker.addOnce(clampOnce);
   }
 
-  function revealTileWithFlip(
-    tile,
-    face /* "diamond" | "bomb" */,
-    revealedByPlayer = true,
-    options = {}
-  ) {
+  function revealTileWithFlip(tile, options = {}) {
     const {
+      revealedByPlayer = true,
+      content = "",
+      faceColor,
+      insetColor,
+      textStyle,
       useSelectionBase = false,
-      staggerRevealAll = true,
       onComplete = null,
     } = options;
-    if (tile._animating || tile.revealed) return false;
+
+    if (!tile || tile._animating || tile.revealed) return false;
+
+    const wrap = tile._wrap;
+    const card = tile._card;
+    const inset = tile._inset;
+    const label = tile._contentLabel;
+    const radius = tile._tileRadius;
+    const pad = tile._tilePad;
+    const tileSize = tile._tileSize;
+
+    if (!wrap || !card || !inset) {
+      return false;
+    }
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
-    const progress = Math.min(1, revealedCount / tiles.length);
+    const progress = Math.min(1, revealedCount / Math.max(tiles.length, 1));
     const flipDelay = revealedByPlayer
       ? flipDelayMin + (flipDelayMax - flipDelayMin) * progress
       : flipDelayMin;
+
     setTimeout(() => {
       stopHover(tile);
       stopWiggle(tile);
-      const wrap = tile._wrap;
-      const card = tile._card;
-      const inset = tile._inset;
-      const icon = tile._icon;
-      const radius = tile._tileRadius;
-      const pad = tile._tilePad;
-      const tileSize = tile._tileSize;
 
       if (
         tile.destroyed ||
@@ -1451,12 +1228,10 @@ export async function createGame(mount, opts = {}) {
         !card ||
         card.destroyed ||
         !inset ||
-        inset.destroyed ||
-        !icon ||
-        icon.destroyed
+        inset.destroyed
       ) {
         tile._animating = false;
-        onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+        onComplete?.(tile, { revealedByPlayer, cancelled: true });
         return;
       }
 
@@ -1468,12 +1243,7 @@ export async function createGame(mount, opts = {}) {
 
       const startScaleY = wrap.scale.y;
       const startSkew = getSkew(wrap);
-
       let swapped = false;
-
-      if (!revealedByPlayer) {
-        icon.alpha = iconRevealedSizeOpacity;
-      }
 
       tween(app, {
         duration: flipDuration,
@@ -1486,16 +1256,14 @@ export async function createGame(mount, opts = {}) {
             !wrap.skew ||
             wrap.destroyed ||
             card.destroyed ||
-            inset.destroyed ||
-            icon.destroyed
+            inset.destroyed
           ) {
             tile._animating = false;
-            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+            onComplete?.(tile, { revealedByPlayer, cancelled: true });
             return;
           }
 
           const widthFactor = Math.max(0.0001, Math.abs(Math.cos(Math.PI * t)));
-
           const elev = Math.sin(Math.PI * t);
           const popS = 1 + 0.06 * elev;
 
@@ -1511,95 +1279,53 @@ export async function createGame(mount, opts = {}) {
 
           if (!swapped && t >= 0.5) {
             swapped = true;
-            icon.visible = true;
-            const iconSizeFactor = revealedByPlayer
-              ? 1.0
-              : iconRevealedSizeFactor;
-            const maxW = tile._tileSize * iconSizePercentage * iconSizeFactor;
-            const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
-            icon.width = maxW;
-            icon.height = maxH;
 
-            if (face === "bomb") {
-              icon.texture = bombTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.bombA
-                : PALETTE.bombAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.bombB
-                : PALETTE.bombBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
+            const baseFaceColor =
+              revealedByPlayer && useSelectionBase && tile.isAutoSelected
+                ? AUTO_SELECTION_COLOR
+                : faceColor ?? tile._revealedFaceColor ?? revealedFaceColor;
 
-              if (revealedByPlayer) {
-                spawnExplosionSheetOnTile(tile);
-                bombShakeTile(tile);
-                playSoundEffect("bombRevealed");
+            const baseInsetColor =
+              insetColor ?? tile._revealedInsetColor ?? revealedInsetColor;
+
+            flipFace(card, tileSize, tileSize, radius, baseFaceColor);
+            flipInset(inset, tileSize, tileSize, radius, pad, baseInsetColor);
+
+            if (label) {
+              if (textStyle) {
+                label.style = { ...label.style, ...textStyle };
               }
-            } else {
-              // Diamond
-              icon.texture = diamondTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.safeA
-                : PALETTE.safeAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.safeB
-                : PALETTE.safeBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
-
-              if (revealedByPlayer) {
-                const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
-                const maxPitch = Math.max(0.01, Number(diamondRevealPitchMax));
-                const safeProgress =
-                  totalSafe <= 1
-                    ? 1
-                    : Math.min(
-                        1,
-                        Math.max(0, revealedSafe / Math.max(totalSafe - 1, 1))
-                      );
-                const pitch =
-                  minPitch +
-                  (maxPitch - minPitch) * Ease.easeInQuad(safeProgress);
-                playSoundEffect("diamondRevealed", { speed: pitch });
-              }
+              const textContent =
+                content === null || content === undefined
+                  ? ""
+                  : String(content);
+              label.text = textContent;
+              label.visible = textContent !== "";
             }
           }
         },
         complete: () => {
           if (tile.destroyed || !wrap.scale || wrap.destroyed) {
             tile._animating = false;
-            onComplete?.(tile, { face, revealedByPlayer, cancelled: true });
+            onComplete?.(tile, { revealedByPlayer, cancelled: true });
             return;
           }
 
           forceFlatPose(tile);
           tile._animating = false;
           tile.revealed = true;
+          tile.taped = true;
+          tile.content = content;
+          revealedTiles = Math.min(totalTiles, revealedTiles + 1);
 
           if (revealedByPlayer) {
-            if (face === "bomb") {
-              revealAllTiles(tile, { stagger: staggerRevealAll });
-              onGameOver();
-            } else {
-              revealedSafe += 1;
-              if (revealedSafe >= totalSafe) {
-                gameOver = true;
-                revealAllTiles();
-                onWin();
-              }
-            }
-
             onChange(getState());
           }
 
-          onComplete?.(tile, { face, revealedByPlayer });
+          onComplete?.(tile, { revealedByPlayer, content });
         },
       });
+
       try {
         window.__mines_tiles = tiles.length;
       } catch {}
@@ -1608,47 +1334,30 @@ export async function createGame(mount, opts = {}) {
     return true;
   }
 
-  function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
+  function revealAllTiles({ stagger = true } = {}) {
     const unrevealed = tiles.filter((t) => !t.revealed);
-    const bombsNeeded = mines - 1;
-    let available = unrevealed.filter((t) => t !== triggeredBombTile);
 
-    // Shuffle available tiles
-    for (let i = available.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [available[i], available[j]] = [available[j], available[i]];
-      stopHover(available[i]);
-    }
-
-    // Pick bombs
-    const bombTiles = available.slice(0, bombsNeeded);
-    bombTiles.forEach((t) => bombPositions.add(`${t.row},${t.col}`));
-
-    // Reveal all unrevealed tiles
-    unrevealed.forEach((t, idx) => {
-      const key = `${t.row},${t.col}`;
-      const isBomb = bombPositions.has(key);
+    unrevealed.forEach((tile, idx) => {
+      const executeReveal = () => {
+        revealTileWithFlip(tile, { revealedByPlayer: false });
+      };
 
       if (stagger && revealAllIntervalDelay > 0 && !disableAnimations) {
-        setTimeout(() => {
-          revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
-        }, revealAllIntervalDelay * idx);
+        setTimeout(executeReveal, revealAllIntervalDelay * idx);
       } else {
-        revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
+        executeReveal();
       }
     });
   }
 
   function buildBoard({ emitAutoSelectionChange = true } = {}) {
     clearSelection({ emitAutoSelectionChange });
-    cleanupExplosionSprites();
     const removed = board.removeChildren();
     for (const child of removed) {
       child.destroy({ children: true });
     }
     tiles = [];
-    revealedSafe = 0;
-    totalSafe = GRID * GRID - mines;
+    revealedTiles = 0;
 
     const layout = layoutSizes();
 
@@ -1808,8 +1517,7 @@ export async function createGame(mount, opts = {}) {
     setMines,
     getState,
     destroy,
-    setSelectedCardIsDiamond,
-    SetSelectedCardIsBomb,
+    revealSelectedTile,
     selectRandomTile,
     getAutoSelections: getAutoSelectionCoordinates,
     revealAutoSelections,
