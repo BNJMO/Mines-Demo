@@ -13,7 +13,6 @@ export class Card {
   constructor({
     app,
     palette,
-    textures,
     animationOptions,
     iconOptions,
     row,
@@ -25,7 +24,6 @@ export class Card {
   }) {
     this.app = app;
     this.palette = palette;
-    this.textures = textures;
     this.animationOptions = animationOptions;
     this.iconOptions = {
       sizePercentage: iconOptions?.sizePercentage ?? 0.7,
@@ -215,20 +213,14 @@ export class Card {
   }
 
   reveal({
-    face,
+    content,
     useSelectionTint = false,
     revealedByPlayer = false,
     iconSizePercentage,
     iconRevealedSizeFactor,
     onComplete,
-    textures,
-    palette,
     flipDuration,
     flipEaseFunction,
-    staggerRevealAll,
-    playDiamondSound,
-    playBombSound,
-    spawnExplosion,
   }) {
     if (!this._wrap || this._animating || this.revealed) {
       return false;
@@ -250,13 +242,10 @@ export class Card {
     const startSkew = this.getSkew();
     const startTilt = this._tiltDir >= 0 ? +1 : -1;
 
-    if (!textures) {
-      textures = this.textures;
-    }
-
-    if (!palette) {
-      palette = this.palette;
-    }
+    const palette = this.palette;
+    const contentConfig = content ?? {};
+    const contentKey =
+      contentConfig.key ?? contentConfig.face ?? contentConfig.type ?? null;
 
     this.tween({
       duration: flipDuration,
@@ -277,45 +266,64 @@ export class Card {
           icon.visible = true;
           const iconSizeFactor = revealedByPlayer
             ? 1.0
-            : iconRevealedSizeFactor ?? this.iconOptions.revealedSizeFactor;
-          const baseSize = iconSizePercentage ?? this.iconOptions.sizePercentage;
+            : iconRevealedSizeFactor ??
+              contentConfig.iconRevealedSizeFactor ??
+              this.iconOptions.revealedSizeFactor;
+          const baseSize =
+            iconSizePercentage ??
+            contentConfig.iconSizePercentage ??
+            this.iconOptions.sizePercentage;
           const maxW = tileSize * baseSize * iconSizeFactor;
           const maxH = tileSize * baseSize * iconSizeFactor;
           icon.width = maxW;
           icon.height = maxH;
 
-          if (face === "bomb") {
-            icon.texture = textures.bomb;
-            const facePalette = revealedByPlayer
-              ? useSelectionTint
-                ? AUTO_SELECTION_COLOR
-                : palette.bombA
-              : palette.bombAUnrevealed;
-            this.flipFace(facePalette);
-            const insetPalette = revealedByPlayer
-              ? palette.bombB
-              : palette.bombBUnrevealed;
-            this.flipInset(insetPalette);
-            if (revealedByPlayer) {
-              spawnExplosion?.(this);
-              playBombSound?.();
-            }
-          } else {
-            icon.texture = textures.diamond;
-            const facePalette = revealedByPlayer
-              ? useSelectionTint
-                ? AUTO_SELECTION_COLOR
-                : palette.safeA
-              : palette.safeAUnrevealed;
-            this.flipFace(facePalette);
-            const insetPalette = revealedByPlayer
-              ? palette.safeB
-              : palette.safeBUnrevealed;
-            this.flipInset(insetPalette);
-            if (revealedByPlayer) {
-              playDiamondSound?.();
-            }
+          if (contentConfig.texture) {
+            icon.texture = contentConfig.texture;
           }
+
+          contentConfig.configureIcon?.(icon, {
+            card: this,
+            revealedByPlayer,
+          });
+
+          const facePalette = this.#resolveRevealColor({
+            paletteSet: contentConfig.palette?.face,
+            revealedByPlayer,
+            useSelectionTint,
+            fallbackRevealed:
+              contentConfig.fallbackPalette?.face?.revealed ??
+              palette.tileBase ??
+              this.palette.defaultTint,
+            fallbackUnrevealed:
+              contentConfig.fallbackPalette?.face?.unrevealed ??
+              palette.tileBase ??
+              this.palette.defaultTint,
+          });
+          this.flipFace(facePalette);
+
+          const insetPalette = this.#resolveRevealColor({
+            paletteSet: contentConfig.palette?.inset,
+            revealedByPlayer,
+            useSelectionTint: false,
+            fallbackRevealed:
+              contentConfig.fallbackPalette?.inset?.revealed ??
+              palette.tileInset ??
+              this.palette.tileInset ??
+              this.palette.defaultTint,
+            fallbackUnrevealed:
+              contentConfig.fallbackPalette?.inset?.unrevealed ??
+              palette.tileInset ??
+              this.palette.tileInset ??
+              this.palette.defaultTint,
+          });
+          this.flipInset(insetPalette);
+
+          if (revealedByPlayer) {
+            contentConfig.playSound?.({ card: this, revealedByPlayer });
+          }
+
+          contentConfig.onReveal?.({ card: this, revealedByPlayer });
         }
       },
       complete: () => {
@@ -323,7 +331,15 @@ export class Card {
         this._animating = false;
         this.revealed = true;
         this._swapHandled = false;
-        onComplete?.(this, { face, revealedByPlayer });
+        const completionPayload = {
+          content: contentConfig,
+          key: contentKey,
+          revealedByPlayer,
+        };
+        if (contentKey != null && completionPayload.face == null) {
+          completionPayload.face = contentKey;
+        }
+        onComplete?.(this, completionPayload);
       },
     });
 
@@ -397,6 +413,28 @@ export class Card {
     return this.animationOptions.hoverTiltAxis === "y"
       ? this._wrap.skew.y
       : this._wrap.skew.x;
+  }
+
+  #resolveRevealColor({
+    paletteSet,
+    revealedByPlayer,
+    useSelectionTint,
+    fallbackRevealed,
+    fallbackUnrevealed,
+  }) {
+    if (revealedByPlayer && useSelectionTint) {
+      return AUTO_SELECTION_COLOR;
+    }
+
+    if (revealedByPlayer) {
+      return paletteSet?.revealed ?? fallbackRevealed ?? this.palette.defaultTint;
+    }
+
+    return (
+      paletteSet?.unrevealed ??
+      fallbackUnrevealed ??
+      this.palette.defaultTint ?? 0xffffff
+    );
   }
 
   #createCard(tileSize) {

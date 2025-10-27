@@ -11,7 +11,7 @@ import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../../assets/sounds/Win.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
-const PALETTE = {
+const DEFAULT_PALETTE = {
   appBg: 0x091b26,
   tileBase: 0x2b4756,
   tileInset: 0x2b4756,
@@ -79,13 +79,17 @@ async function loadTexture(path) {
   }
 }
 
+function getSoundAlias(key) {
+  return SOUND_ALIASES[key] ?? `mines.${key}`;
+}
+
 function createSoundManager(sound, soundEffectPaths) {
   const enabledSoundKeys = Object.entries(soundEffectPaths)
     .filter(([, value]) => Boolean(value))
     .map(([key]) => key);
 
   for (const key of enabledSoundKeys) {
-    const alias = SOUND_ALIASES[key];
+    const alias = getSoundAlias(key);
     if (!alias || sound.exists(alias)) continue;
     sound.add(alias, {
       url: soundEffectPaths[key],
@@ -96,7 +100,7 @@ function createSoundManager(sound, soundEffectPaths) {
 
   return {
     play(name, options) {
-      const alias = SOUND_ALIASES[name];
+      const alias = getSoundAlias(name);
       if (!alias || !sound.exists(alias)) return;
       sound.play(alias, options);
     },
@@ -151,7 +155,12 @@ export async function createGame(mount, opts = {}) {
     typeof opts.onAutoSelectionChange === "function"
       ? (count) => opts.onAutoSelectionChange(count)
       : () => {};
-  const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
+  const palette = {
+    ...DEFAULT_PALETTE,
+    ...(opts.palette ?? {}),
+  };
+
+  const backgroundColor = opts.backgroundColor ?? palette.appBg;
 
   let disableAnimations = Boolean(opts.disableAnimations ?? false);
 
@@ -202,24 +211,93 @@ export async function createGame(mount, opts = {}) {
     gameStart: opts.gameStartSoundPath ?? gameStartSoundUrl,
   };
 
+  const defaultContentDefinitions = {
+    diamond: {
+      texturePath: opts.diamondTexturePath ?? diamondTextureUrl,
+      palette: {
+        face: {
+          revealed: palette.safeA,
+          unrevealed: palette.safeAUnrevealed,
+        },
+        inset: {
+          revealed: palette.safeB,
+          unrevealed: palette.safeBUnrevealed,
+        },
+      },
+      revealSoundKey: "diamondRevealed",
+    },
+    bomb: {
+      texturePath: opts.bombTexturePath ?? bombTextureUrl,
+      palette: {
+        face: {
+          revealed: palette.bombA,
+          unrevealed: palette.bombAUnrevealed,
+        },
+        inset: {
+          revealed: palette.bombB,
+          unrevealed: palette.bombBUnrevealed,
+        },
+      },
+      revealSoundKey: "bombRevealed",
+    },
+  };
+
+  const userContentDefinitions = opts.contentDefinitions ?? {};
+  const mergedContentDefinitions = {};
+  const contentKeys = new Set([
+    ...Object.keys(defaultContentDefinitions),
+    ...Object.keys(userContentDefinitions),
+  ]);
+
+  for (const key of contentKeys) {
+    const merged = {
+      ...(defaultContentDefinitions[key] ?? {}),
+      ...(userContentDefinitions[key] ?? {}),
+    };
+    mergedContentDefinitions[key] = merged;
+    if (merged.revealSoundPath && merged.revealSoundKey) {
+      soundEffectPaths[merged.revealSoundKey] = merged.revealSoundPath;
+    }
+  }
+
   const sound = await loadSoundLibrary();
   const soundManager = createSoundManager(sound, soundEffectPaths);
 
-  const [diamondTexture, bombTexture] = await Promise.all([
-    loadTexture(opts.diamondTexturePath ?? diamondTextureUrl),
-    loadTexture(opts.bombTexturePath ?? bombTextureUrl),
-  ]);
+  const contentLibrary = {};
+  await Promise.all(
+    Object.entries(mergedContentDefinitions).map(async ([key, definition]) => {
+      const entry = { ...definition };
+      let texture = entry.texture;
+      if (!texture && entry.texturePath) {
+        texture = await loadTexture(entry.texturePath);
+      }
 
-  const textures = {
-    diamond: diamondTexture,
-    bomb: bombTexture,
-  };
+      const playSound =
+        typeof entry.playSound === "function"
+          ? (context = {}) => entry.playSound({ key, ...context })
+          : entry.revealSoundKey
+          ? () => soundManager.play(entry.revealSoundKey)
+          : null;
+
+      contentLibrary[key] = {
+        key,
+        texture,
+        palette: entry.palette ?? {},
+        fallbackPalette: entry.fallbackPalette ?? {},
+        iconSizePercentage: entry.iconSizePercentage,
+        iconRevealedSizeFactor: entry.iconRevealedSizeFactor,
+        configureIcon: entry.configureIcon,
+        onReveal: entry.onReveal,
+        playSound,
+      };
+    })
+  );
 
   const scene = new GameScene({
     root,
     backgroundColor,
     initialSize,
-    palette: PALETTE,
+    palette,
     fontFamily,
     gridSize: GRID,
     strokeWidth,
@@ -232,7 +310,6 @@ export async function createGame(mount, opts = {}) {
       winPopupHeight: winPopupOptions.winPopupHeight,
     },
     layoutOptions: { gapBetweenTiles },
-    textures,
     animationOptions: {
       ...hoverOptions,
       ...wiggleOptions,
@@ -325,23 +402,17 @@ export async function createGame(mount, opts = {}) {
     if (card.isAutoSelected) {
       setAutoTileSelected(card, false);
     }
-    const playDiamondSound = () => soundManager.play("diamondRevealed");
-    const playBombSound = () => soundManager.play("bombRevealed");
-
+    const content = contentLibrary[face] ?? {};
     soundManager.play("tileFlip");
     card._revealedFace = face;
     card.reveal({
-      face,
+      content,
       useSelectionTint,
       revealedByPlayer,
       iconSizePercentage,
       iconRevealedSizeFactor,
-      textures,
-      palette: PALETTE,
       flipDuration,
       flipEaseFunction,
-      playDiamondSound: face === "diamond" ? playDiamondSound : null,
-      playBombSound: face === "bomb" ? playBombSound : null,
     });
   }
 

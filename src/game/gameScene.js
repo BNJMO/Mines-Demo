@@ -14,7 +14,6 @@ export class GameScene {
     strokeWidth,
     cardOptions,
     layoutOptions,
-    textures,
     animationOptions,
     onResize,
   }) {
@@ -33,7 +32,6 @@ export class GameScene {
     this.layoutOptions = {
       gapBetweenTiles: layoutOptions?.gapBetweenTiles ?? 0.012,
     };
-    this.textures = textures;
     this.animationOptions = {
       hoverEnabled: animationOptions?.hoverEnabled ?? true,
       hoverEnterDuration: animationOptions?.hoverEnterDuration ?? 120,
@@ -105,7 +103,6 @@ export class GameScene {
         const card = new Card({
           app: this.app,
           palette: this.palette,
-          textures: this.textures,
           animationOptions: this.animationOptions,
           iconOptions: this.cardOptions.icon,
           row: r,
