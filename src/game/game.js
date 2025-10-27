@@ -714,8 +714,8 @@ export async function createGame(mount, opts = {}) {
       return false;
     }
 
-    const remaining = tilesToAssign.filter((t) => t !== selectedTile);
-    shuffleInPlace(remaining);
+    const availableTiles = tilesToAssign.filter((t) => t !== selectedTile);
+    shuffleInPlace(availableTiles);
 
     if (outcome === "win") {
       const winningTexture = pickRandomTexture(pool);
@@ -725,38 +725,42 @@ export async function createGame(mount, opts = {}) {
 
       roundWinningTexture = winningTexture;
 
-      const neededMatches = Math.max(1, MATCHING_CARDS_REQUIRED - 1);
-      const additionalMatches = remaining.slice(0, neededMatches);
-      const nonWinningTiles = remaining.slice(neededMatches);
+      const winningTiles = [selectedTile];
+      const needed = Math.max(0, MATCHING_CARDS_REQUIRED - winningTiles.length);
+      winningTiles.push(...availableTiles.slice(0, needed));
 
-      const winningTiles = [selectedTile, ...additionalMatches];
-      winningTiles.forEach((tile) => {
-        tile.cardTexture = winningTexture.texture;
-        tile.cardTextureId = winningTexture.id;
-        tile.isWinningCard = true;
-      });
-
-      const nonWinningPool = pool.filter((entry) => entry !== winningTexture);
-      if (!nonWinningPool.length) {
-        nonWinningPool.push(winningTexture);
+      if (winningTiles.length < MATCHING_CARDS_REQUIRED) {
+        console.warn("Unable to allocate enough winning tiles for round");
+        return false;
       }
 
-      nonWinningTiles.forEach((tile) => {
-        const textureEntry = pickRandomTexture(nonWinningPool);
-        tile.cardTexture = textureEntry?.texture ?? winningTexture.texture;
-        tile.cardTextureId = textureEntry?.id ?? winningTexture.id;
-        tile.isWinningCard = false;
-      });
+      const assignedSet = new Set(winningTiles);
+      const remainingTiles = tilesToAssign.filter((tile) => !assignedSet.has(tile));
+
+      winningTiles.forEach((tile) =>
+        assignTextureToTile(tile, winningTexture, { isWinning: true })
+      );
+
+      const counts = new Map();
+      if (winningTexture.id) {
+        counts.set(winningTexture.id, winningTiles.length);
+      }
+
+      if (
+        !distributeNonWinningTextures(remainingTiles, pool, {
+          excludedId: winningTexture.id,
+          initialCounts: counts,
+        })
+      ) {
+        return false;
+      }
 
       totalSafe = MATCHING_CARDS_REQUIRED;
     } else {
       roundWinningTexture = null;
-      tilesToAssign.forEach((tile) => {
-        const textureEntry = pickRandomTexture(pool);
-        tile.cardTexture = textureEntry?.texture ?? pool[0]?.texture ?? null;
-        tile.cardTextureId = textureEntry?.id ?? pool[0]?.id ?? null;
-        tile.isWinningCard = false;
-      });
+      if (!distributeNonWinningTextures(tilesToAssign, pool)) {
+        return false;
+      }
 
       totalSafe = 0;
     }
