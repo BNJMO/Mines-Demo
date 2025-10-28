@@ -2,6 +2,7 @@
   flex: 0 1 27%;
   display: flex;
   max-width: 27%;
+  min-width: 300px;
   order: 1;
   min-height: 0;
 }
@@ -587,7 +588,7 @@
   color: #9a9da6;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 10px 14px;
+  padding: 12px 14px;
   margin: 2px;
   border-radius: 4px;
   cursor: pointer;
