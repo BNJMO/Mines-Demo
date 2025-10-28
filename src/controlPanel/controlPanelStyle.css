@@ -75,7 +75,7 @@
 }
 
 .control-toggle-btn.is-non-clickable {
-  background: #091B26;
+  background: #091b26;
   color: #3f5561;
   cursor: not-allowed;
   pointer-events: none;
@@ -83,7 +83,7 @@
 }
 
 .control-toggle-btn.is-non-clickable.is-active {
-  background: #1F343F;
+  background: #1f343f;
   color: #556d79;
 }
 
@@ -154,7 +154,7 @@
 .control-select-field:focus-within,
 .control-select:hover,
 .control-select:focus {
-  border-color: #325B73;
+  border-color: #325b73;
 }
 
 .control-select-field.is-non-clickable {
@@ -218,7 +218,7 @@
 
 .control-bet-input-field:hover,
 .control-bet-input-field:focus-within {
-  border-color: #325B73;
+  border-color: #325b73;
 }
 
 .control-bet-input {
@@ -254,7 +254,7 @@
 }
 
 .control-bet-action:hover {
-  background: #325B73;
+  background: #325b73;
   transform: translateY(-1px);
 }
 
@@ -302,7 +302,7 @@
 
 .control-bet-btn.is-non-clickable,
 .control-bet-btn:disabled {
-  background: linear-gradient(135deg, #656B00 0%, #656B00 100%);
+  background: linear-gradient(135deg, #656b00 0%, #656b00 100%);
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
@@ -329,7 +329,7 @@
 
 .control-random-btn.is-non-clickable,
 .control-random-btn:disabled {
-  background: #1A2B35;
+  background: #1a2b35;
   color: #4c5d68;
   box-shadow: none;
   cursor: not-allowed;
@@ -572,11 +572,12 @@
 .auto-mode-toggle {
   display: flex;
   align-items: stretch;
-  flex: 1 1 60%;
+  flex: 1 1 70%;
   min-width: 0;
   background: #091b26;
   border-radius: 8px;
   overflow: hidden;
+  border: 3px solid #091b26;
 }
 
 .auto-mode-toggle-btn {
@@ -584,11 +585,11 @@
   border: none;
   background: #091b26;
   color: #9a9da6;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 600;
   padding: 10px 14px;
-  margin: 4px;
-  border-radius: 8px;
+  margin: 2px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 }
@@ -603,14 +604,14 @@
 }
 
 .auto-mode-toggle-btn:disabled {
-  background: #091B26;
+  background: #091b26;
   color: #3f5561;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .auto-mode-toggle-btn:disabled.is-active {
-  background: #1E313D;
+  background: #1e313d;
   color: #4c5d68;
 }
 
@@ -719,7 +720,7 @@
 }
 
 @media (max-width: 768px), (orientation: portrait) {
-    .control-panel-mount {
+  .control-panel-mount {
     order: 2;
     flex: 1 1 auto;
     max-width: none;
