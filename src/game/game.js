@@ -214,8 +214,17 @@ export async function createGame(mount, opts = {}) {
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
   if (!root.style.width && !root.style.height) {
-    root.style.width = `${initialSize}px`;
+    root.style.width = "100%";
+  }
+  if (!root.style.maxWidth) {
     root.style.maxWidth = "100%";
+  }
+
+  function measureRootSize() {
+    const rect = root.getBoundingClientRect();
+    const width = Math.max(1, rect.width || root.clientWidth || initialSize);
+    const height = Math.max(1, rect.height || root.clientHeight || width);
+    return { width, height };
   }
 
   let explosionFrames = null;
@@ -251,10 +260,11 @@ export async function createGame(mount, opts = {}) {
   // PIXI app
   const app = new Application();
   try {
+    const { width: startWidth, height: startHeight } = measureRootSize();
     await app.init({
       background: backgroundColor,
-      width: initialSize,
-      height: initialSize,
+      width: startWidth,
+      height: startHeight,
       antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2),
     });

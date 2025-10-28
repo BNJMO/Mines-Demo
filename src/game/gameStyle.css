@@ -5,29 +5,35 @@
   border: 1px solid #223845;
   position: relative;
   overflow: hidden;
-  min-height: clamp(160px,
-      calc(100vh - (var(--app-body-vertical-padding, 0px) * 2) - (var(--app-container-vertical-padding, 0px) * 2)),
-      480px);
+  min-height: clamp(
+    160px,
+    calc(
+      100vh - (var(--app-body-vertical-padding, 0px) * 2) -
+        (var(--app-container-vertical-padding, 0px) * 2)
+    ),
+    480px
+  );
   order: 2;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: min(20px, 5vw);
-  box-sizing: border-box;
 }
 
 #game {
   width: 100%;
   height: 100%;
-  min-height: clamp(160px,
-      calc(100vh - (var(--app-body-vertical-padding, 0px) * 2) - (var(--app-container-vertical-padding, 0px) * 2)),
-      480px);
+  min-height: clamp(
+    160px,
+    calc(
+      100vh - (var(--app-body-vertical-padding, 0px) * 2) -
+        (var(--app-container-vertical-padding, 0px) * 2)
+    ),
+    480px
+  );
   position: relative;
   background: #091b26;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
+  align-items: inherit;
+  justify-content: center;
+  padding: 8px;
 }
 
 #game.is-round-complete {
@@ -50,7 +56,7 @@
   align-items: center;
   height: 100%;
   font-size: 1.5rem;
-  color: #EAFF00;
+  color: #eaff00;
 }
 
 .loading::after {
@@ -59,7 +65,6 @@
 }
 
 @keyframes dots {
-
   0%,
   20% {
     content: ".";
@@ -75,31 +80,39 @@
   }
 }
 
-@media (max-width: 768px),
-(orientation: portrait) {
+@media (max-width: 768px), (orientation: portrait) {
   .game-container {
     order: 1;
     padding-top: 0px;
-    min-height: clamp(140px,
-        calc(100vh - (var(--app-body-vertical-padding, 0px) * 2) - (var(--app-container-vertical-padding, 0px) * 2)),
-        380px);
+    min-height: clamp(
+      140px,
+      calc(
+        100vh - (var(--app-body-vertical-padding, 0px) * 2) -
+          (var(--app-container-vertical-padding, 0px) * 2)
+      ),
+      380px
+    );
   }
 
   #game {
-    min-height: clamp(140px,
-        calc(100vh - (var(--app-body-vertical-padding, 0px) * 2) - (var(--app-container-vertical-padding, 0px) * 2)),
-        380px);
+    min-height: clamp(
+      140px,
+      calc(
+        100vh - (var(--app-body-vertical-padding, 0px) * 2) -
+          (var(--app-container-vertical-padding, 0px) * 2)
+      ),
+      380px
+    );
+    padding: 0px;
   }
 }
 
-@media (orientation: portrait) {
+@media (max-width: 430px), (orientation: portrait) {
   .game-container {
-    padding-top: 2px;
-    align-items: center;
-    justify-content: center;
+    max-height: 10vh;
   }
 
   #game {
-    justify-content: center;
+    align-items: center;
   }
 }
