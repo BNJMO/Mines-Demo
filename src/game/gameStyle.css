@@ -5,35 +5,20 @@
   border: 1px solid #223845;
   position: relative;
   overflow: hidden;
-  min-height: clamp(
-    160px,
-    calc(
-      100vh - (var(--app-body-vertical-padding, 0px) * 2) -
-        (var(--app-container-vertical-padding, 0px) * 2)
-    ),
-    480px
-  );
+  
   order: 2;
 }
 
 #game {
   width: 100%;
   height: 100%;
-  min-height: clamp(
-    160px,
-    calc(
-      100vh - (var(--app-body-vertical-padding, 0px) * 2) -
-        (var(--app-container-vertical-padding, 0px) * 2)
-    ),
-    480px
-  );
+  
   position: relative;
   background: #091b26;
   display: flex;
   flex-direction: column;
-  align-items: inherit;
+  align-items: center;
   justify-content: center;
-  padding: 8px;
 }
 
 #game.is-round-complete {
@@ -104,15 +89,5 @@
       380px
     );
     padding: 0px;
-  }
-}
-
-@media (max-width: 430px), (orientation: portrait) {
-  .game-container {
-    max-height: 10vh;
-  }
-
-  #game {
-    align-items: center;
   }
 }
