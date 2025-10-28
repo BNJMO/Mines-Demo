@@ -5,7 +5,7 @@
   border: 1px solid #223845;
   position: relative;
   overflow: hidden;
-  
+  padding: 8px;
   order: 2;
 }
 
@@ -68,7 +68,7 @@
 @media (max-width: 768px), (orientation: portrait) {
   .game-container {
     order: 1;
-    padding-top: 0px;
+    padding: 0px;
     min-height: clamp(
       140px,
       calc(
