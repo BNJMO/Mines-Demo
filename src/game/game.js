@@ -76,6 +76,9 @@ export async function createGame(mount, opts = {}) {
   try {
     const soundModule = await import("@pixi/sound");
     sound = soundModule.sound;
+    if (sound && "disableAutoPause" in sound) {
+      sound.disableAutoPause = true;
+    }
   } catch (e) {
     console.warn("Sounds disabled:", e.message);
     // Dummy sound object - must call callbacks to prevent hanging!
