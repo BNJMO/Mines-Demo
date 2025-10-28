@@ -233,7 +233,7 @@
   color: #f5f6ff;
   font-weight: 700;
   font-size: 0.95rem;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 12px 18px;
   flex: 0 0 auto;
   cursor: pointer;
@@ -241,7 +241,7 @@
 }
 
 .control-bet-action:hover {
-  background: #34363d;
+  background: #325B73;
   transform: translateY(-1px);
 }
 
