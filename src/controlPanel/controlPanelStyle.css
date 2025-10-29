@@ -626,8 +626,8 @@
   flex: 0 1 40%;
   max-width: 40%;
   min-width: 0;
-  --control-bet-padding-right: 96px;
-  --control-bet-stepper-offset: 56px;
+  --control-bet-padding-right: clamp(68px, 26%, 96px);
+  --control-bet-stepper-offset: clamp(42px, 16%, 56px);
   padding: 12px var(--control-bet-padding-right) 12px 14px;
 }
 
@@ -676,6 +676,30 @@
 
 .auto-advanced-input.is-non-clickable .control-bet-input-icon {
   opacity: 0.3;
+}
+
+@media (max-width: 640px) {
+  .auto-advanced-strategy-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .auto-mode-toggle {
+    flex: 1 1 100%;
+  }
+
+  .auto-advanced-input {
+    flex: 1 1 100%;
+    max-width: none;
+    width: 100%;
+    --control-bet-padding-right: clamp(64px, 28vw, 92px);
+    --control-bet-stepper-offset: clamp(40px, 18vw, 56px);
+  }
+
+  .auto-mode-toggle-btn {
+    padding: 10px 12px;
+    font-size: 0.75rem;
+  }
 }
 
 .control-start-autobet-btn {
