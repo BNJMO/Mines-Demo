@@ -222,7 +222,15 @@ export class Card {
     flipDuration,
     flipEaseFunction,
   }) {
-    if (!this._wrap || this._animating || this.revealed) {
+    if (!this._wrap || this.revealed) {
+      return false;
+    }
+
+    if (this._animating) {
+      this.stopWiggle();
+    }
+
+    if (this._animating) {
       return false;
     }
 
