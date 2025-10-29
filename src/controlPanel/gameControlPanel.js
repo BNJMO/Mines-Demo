@@ -1,29 +1,31 @@
 import { Stepper } from "../stepper/stepper.js";
+import { ControlPanelLayout } from "./base/panelLayout.js";
+import { clampToZero } from "./base/utils.js";
+import {
+  createButton,
+  createCurrencyField,
+  createIcon,
+  createInputField,
+  createSectionLabel,
+  createSelectField,
+  createStepperField,
+  createSummaryRow,
+  createSwitchButton,
+  createToggleButtonGroup,
+} from "./components/panelComponents.js";
 import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.png";
 import infinityIconUrl from "../../assets/sprites/controlPanel/Infinity.png";
 import percentageIconUrl from "../../assets/sprites/controlPanel/Percentage.png";
 
-function resolveMount(mount) {
-  if (!mount) {
-    throw new Error("Control panel mount target is required");
-  }
-  if (typeof mount === "string") {
-    const element = document.querySelector(mount);
-    if (!element) {
-      throw new Error(`Control panel mount '${mount}' not found`);
-    }
-    return element;
-  }
-  return mount;
-}
-
-function clampToZero(value) {
-  return Math.max(0, value);
-}
-
-export class ControlPanel extends EventTarget {
+export class GameControlPanel extends ControlPanelLayout {
   constructor(mount, options = {}) {
-    super();
+    super(mount, {
+      containerClass: "control-panel",
+      scrollClass: "control-panel-scroll",
+    });
+    this.container = this.element;
+    this.scrollContainer = this.scrollElement;
+
     this.options = {
       betAmountLabel: options.betAmountLabel ?? "Bet Amount",
       profitOnWinLabel: options.profitOnWinLabel ?? "Profit on Win",
@@ -46,9 +48,6 @@ export class ControlPanel extends EventTarget {
       maxMines: options.maxMines,
       totalTiles: options.totalTiles,
     };
-
-    this.host = resolveMount(mount);
-    this.host.innerHTML = "";
 
     this.mode = this.options.initialMode === "auto" ? "auto" : "manual";
 
@@ -85,14 +84,6 @@ export class ControlPanel extends EventTarget {
       Math.min(Math.floor(Number(this.options.initialMines) || 1), this.maxMines)
     );
 
-    this.container = document.createElement("div");
-    this.container.className = "control-panel";
-    this.host.appendChild(this.container);
-
-    this.scrollContainer = document.createElement("div");
-    this.scrollContainer.className = "control-panel-scroll";
-    this.container.appendChild(this.scrollContainer);
-
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
@@ -121,22 +112,19 @@ export class ControlPanel extends EventTarget {
   }
 
   buildToggle() {
-    this.toggleWrapper = document.createElement("div");
-    this.toggleWrapper.className = "control-toggle";
+    const toggle = createToggleButtonGroup({
+      items: [
+        { id: "manual", label: "Manual" },
+        { id: "auto", label: "Auto" },
+      ],
+      activeId: this.mode,
+      onChange: (id) => this.setMode(id),
+    });
 
-    this.manualButton = document.createElement("button");
-    this.manualButton.type = "button";
-    this.manualButton.className = "control-toggle-btn";
-    this.manualButton.textContent = "Manual";
-    this.manualButton.addEventListener("click", () => this.setMode("manual"));
-
-    this.autoButton = document.createElement("button");
-    this.autoButton.type = "button";
-    this.autoButton.className = "control-toggle-btn";
-    this.autoButton.textContent = "Auto";
-    this.autoButton.addEventListener("click", () => this.setMode("auto"));
-
-    this.toggleWrapper.append(this.manualButton, this.autoButton);
+    this.modeToggle = toggle;
+    this.toggleWrapper = toggle.element;
+    this.manualButton = toggle.buttons.get("manual");
+    this.autoButton = toggle.buttons.get("auto");
     this.scrollContainer.appendChild(this.toggleWrapper);
   }
 
@@ -160,50 +148,48 @@ export class ControlPanel extends EventTarget {
     this.betBox = document.createElement("div");
     this.betBox.className = "control-bet-box";
 
-    this.betInputWrapper = document.createElement("div");
-    this.betInputWrapper.className = "control-bet-input-field has-stepper";
-    this.betBox.appendChild(this.betInputWrapper);
-
-    this.betInput = document.createElement("input");
-    this.betInput.type = "text";
-    this.betInput.inputMode = "decimal";
-    this.betInput.spellcheck = false;
-    this.betInput.autocomplete = "off";
-    this.betInput.setAttribute("aria-label", this.options.betAmountLabel);
-    this.betInput.className = "control-bet-input";
-    this.betInput.addEventListener("input", () => this.dispatchBetValueChange());
-    this.betInput.addEventListener("blur", () => {
-      this.setBetInputValue(this.betInput.value);
+    const betField = createStepperField({
+      wrapperClassName: "control-bet-input-field",
+      hasStepperClass: "has-stepper",
+      inputOptions: {
+        type: "text",
+        inputMode: "decimal",
+        className: "control-bet-input",
+        ariaLabel: this.options.betAmountLabel,
+        onInput: () => this.dispatchBetValueChange(),
+        onBlur: () => this.setBetInputValue(this.betInput.value),
+      },
+      iconOptions: {
+        src: bitcoinIconUrl,
+        alt: "",
+        className: "control-bet-input-icon",
+      },
+      stepperFactory: () =>
+        new Stepper({
+          onStepUp: () => this.adjustBetValue(1e-8),
+          onStepDown: () => this.adjustBetValue(-1e-8),
+          upAriaLabel: "Increase bet amount",
+          downAriaLabel: "Decrease bet amount",
+        }),
     });
-    this.betInputWrapper.appendChild(this.betInput);
 
-    const icon = document.createElement("img");
-    icon.src = bitcoinIconUrl;
-    icon.alt = "";
-    icon.className = "control-bet-input-icon";
-    this.betInputWrapper.appendChild(icon);
+    this.betInputWrapper = betField.wrapper;
+    this.betInput = betField.input;
+    this.betStepper = betField.stepper;
 
-    this.betStepper = new Stepper({
-      onStepUp: () => this.adjustBetValue(1e-8),
-      onStepDown: () => this.adjustBetValue(-1e-8),
-      upAriaLabel: "Increase bet amount",
-      downAriaLabel: "Decrease bet amount",
+    this.halfButton = createButton({
+      text: "½",
+      className: "control-bet-action",
+      ariaLabel: "Halve bet value",
+      onClick: () => this.scaleBetValue(0.5),
     });
-    this.betInputWrapper.appendChild(this.betStepper.element);
 
-    this.halfButton = document.createElement("button");
-    this.halfButton.type = "button";
-    this.halfButton.className = "control-bet-action";
-    this.halfButton.textContent = "½";
-    this.halfButton.setAttribute("aria-label", "Halve bet value");
-    this.halfButton.addEventListener("click", () => this.scaleBetValue(0.5));
-
-    this.doubleButton = document.createElement("button");
-    this.doubleButton.type = "button";
-    this.doubleButton.className = "control-bet-action";
-    this.doubleButton.textContent = "2×";
-    this.doubleButton.setAttribute("aria-label", "Double bet value");
-    this.doubleButton.addEventListener("click", () => this.scaleBetValue(2));
+    this.doubleButton = createButton({
+      text: "2×",
+      className: "control-bet-action",
+      ariaLabel: "Double bet value",
+      onClick: () => this.scaleBetValue(2),
+    });
 
     const separator = document.createElement("div");
     separator.className = "control-bet-separator";
@@ -230,26 +216,19 @@ export class ControlPanel extends EventTarget {
   }
 
   buildMinesSelect() {
-    this.minesSelectWrapper = document.createElement("div");
-    this.minesSelectWrapper.className = "control-select-field";
-
-    this.minesSelect = document.createElement("select");
-    this.minesSelect.className = "control-select";
-    this.minesSelect.setAttribute("aria-label", this.options.minesLabel);
-    this.minesSelect.addEventListener("change", () => {
-      const value = Math.floor(Number(this.minesSelect.value) || 1);
-      this.currentMines = Math.max(1, Math.min(value, this.maxMines));
-      this.updateGemsValue();
-      this.dispatchMinesChange();
+    const selectField = createSelectField({
+      wrapperClassName: "control-select-field",
+      ariaLabel: this.options.minesLabel,
+      onChange: () => {
+        const value = Math.floor(Number(this.minesSelect.value) || 1);
+        this.currentMines = Math.max(1, Math.min(value, this.maxMines));
+        this.updateGemsValue();
+        this.dispatchMinesChange();
+      },
     });
 
-    this.minesSelectWrapper.appendChild(this.minesSelect);
-
-    const arrow = document.createElement("span");
-    arrow.className = "control-select-arrow";
-    arrow.setAttribute("aria-hidden", "true");
-    this.minesSelectWrapper.appendChild(arrow);
-
+    this.minesSelectWrapper = selectField.wrapper;
+    this.minesSelect = selectField.select;
     this.scrollContainer.appendChild(this.minesSelectWrapper);
 
     this.setMinesSelectState(this.minesSelectState);
@@ -298,32 +277,41 @@ export class ControlPanel extends EventTarget {
   }
 
   buildAutoControls() {
-    this.autoNumberOfBetsLabel = this.createSectionLabel("Number of Bets");
+    this.autoNumberOfBetsLabel = createSectionLabel("Number of Bets");
     this.autoSection.appendChild(this.autoNumberOfBetsLabel);
 
-    this.autoNumberOfBetsField = document.createElement("div");
-    this.autoNumberOfBetsField.className =
-      "control-bet-input-field auto-number-field has-stepper";
-    this.autoSection.appendChild(this.autoNumberOfBetsField);
+    const numberField = createStepperField({
+      wrapperClassName: "control-bet-input-field auto-number-field",
+      hasStepperClass: "has-stepper",
+      inputOptions: {
+        type: "text",
+        inputMode: "numeric",
+        className: "control-bet-input auto-number-input",
+        value: "0",
+        onInput: () => {
+          this.sanitizeNumberOfBets();
+          this.updateNumberOfBetsIcon();
+          this.dispatchNumberOfBetsChange();
+        },
+        onBlur: () => {
+          this.sanitizeNumberOfBets();
+          this.updateNumberOfBetsIcon();
+          this.dispatchNumberOfBetsChange();
+        },
+      },
+      stepperFactory: () =>
+        new Stepper({
+          onStepUp: () => this.incrementNumberOfBets(1),
+          onStepDown: () => this.incrementNumberOfBets(-1),
+          upAriaLabel: "Increase number of bets",
+          downAriaLabel: "Decrease number of bets",
+        }),
+    });
 
-    this.autoNumberOfBetsInput = document.createElement("input");
-    this.autoNumberOfBetsInput.type = "text";
-    this.autoNumberOfBetsInput.inputMode = "numeric";
-    this.autoNumberOfBetsInput.autocomplete = "off";
-    this.autoNumberOfBetsInput.spellcheck = false;
-    this.autoNumberOfBetsInput.className = "control-bet-input auto-number-input";
-    this.autoNumberOfBetsInput.value = "0";
-    this.autoNumberOfBetsInput.addEventListener("input", () => {
-      this.sanitizeNumberOfBets();
-      this.updateNumberOfBetsIcon();
-      this.dispatchNumberOfBetsChange();
-    });
-    this.autoNumberOfBetsInput.addEventListener("blur", () => {
-      this.sanitizeNumberOfBets();
-      this.updateNumberOfBetsIcon();
-      this.dispatchNumberOfBetsChange();
-    });
-    this.autoNumberOfBetsField.appendChild(this.autoNumberOfBetsInput);
+    this.autoNumberOfBetsField = numberField.wrapper;
+    this.autoNumberOfBetsInput = numberField.input;
+    this.autoNumberOfBetsStepper = numberField.stepper;
+    this.autoSection.appendChild(this.autoNumberOfBetsField);
 
     this.autoNumberOfBetsInfinityIcon = document.createElement("img");
     this.autoNumberOfBetsInfinityIcon.src = infinityIconUrl;
@@ -333,54 +321,52 @@ export class ControlPanel extends EventTarget {
       this.autoNumberOfBetsInfinityIcon
     );
 
-    this.autoNumberOfBetsStepper = new Stepper({
-      onStepUp: () => this.incrementNumberOfBets(1),
-      onStepDown: () => this.incrementNumberOfBets(-1),
-      upAriaLabel: "Increase number of bets",
-      downAriaLabel: "Decrease number of bets",
-    });
-    this.autoNumberOfBetsField.appendChild(this.autoNumberOfBetsStepper.element);
-
     this.autoAdvancedHeader = document.createElement("div");
     this.autoAdvancedHeader.className = "auto-advanced-header";
     this.autoSection.appendChild(this.autoAdvancedHeader);
 
-    this.autoAdvancedLabel = this.createSectionLabel("Advanced");
+    this.autoAdvancedLabel = createSectionLabel("Advanced");
     this.autoAdvancedLabel.classList.add("auto-advanced-label");
     this.autoAdvancedHeader.appendChild(this.autoAdvancedLabel);
 
-    this.autoAdvancedToggle = this.createSwitchButton({
+    this.autoAdvancedToggleControl = createSwitchButton({
+      initialActive: false,
       onToggle: (isActive) => {
         this.isAdvancedEnabled = Boolean(isActive);
         this.updateAdvancedVisibility();
       },
     });
+    this.autoAdvancedToggle = this.autoAdvancedToggleControl.element;
     this.autoAdvancedHeader.appendChild(this.autoAdvancedToggle);
 
     this.autoAdvancedContent = document.createElement("div");
     this.autoAdvancedContent.className = "auto-advanced-content";
     this.autoSection.appendChild(this.autoAdvancedContent);
 
-    this.autoAdvancedContent.appendChild(this.createSectionLabel("On Win"));
+    this.autoAdvancedContent.appendChild(createSectionLabel("On Win"));
     const onWinRow = this.createAdvancedStrategyRow("win");
     this.autoAdvancedContent.appendChild(onWinRow);
 
-    this.autoAdvancedContent.appendChild(this.createSectionLabel("On Loss"));
+    this.autoAdvancedContent.appendChild(createSectionLabel("On Loss"));
     const onLossRow = this.createAdvancedStrategyRow("loss");
     this.autoAdvancedContent.appendChild(onLossRow);
 
-    const profitRow = document.createElement("div");
-    profitRow.className = "auto-advanced-summary-row";
-    const profitLabel = document.createElement("span");
-    profitLabel.className = "auto-advanced-summary-label";
-    profitLabel.textContent = "Stop on Profit";
-    const profitValue = document.createElement("span");
-    profitValue.className = "auto-advanced-summary-value";
-    profitValue.textContent = "$0.00";
-    profitRow.append(profitLabel, profitValue);
-    this.autoAdvancedContent.appendChild(profitRow);
+    const profitRow = createSummaryRow({
+      label: "Stop on Profit",
+      value: "$0.00",
+    });
+    this.autoAdvancedContent.appendChild(profitRow.row);
 
-    this.autoStopOnProfitField = this.createCurrencyField();
+    this.autoStopOnProfitField = createCurrencyField({
+      wrapperClassName: "control-bet-input-field auto-currency-field",
+      inputClassName: "control-bet-input",
+      icon: {
+        src: bitcoinIconUrl,
+        alt: "",
+        className: "control-bet-input-icon",
+      },
+      value: "0.00000000",
+    });
     this.autoAdvancedContent.appendChild(this.autoStopOnProfitField.wrapper);
     this.autoStopOnProfitField.input.addEventListener("input", () => {
       this.dispatchStopOnProfitChange(this.autoStopOnProfitField.input.value);
@@ -389,18 +375,22 @@ export class ControlPanel extends EventTarget {
       this.dispatchStopOnProfitChange(this.autoStopOnProfitField.input.value);
     });
 
-    const lossRow = document.createElement("div");
-    lossRow.className = "auto-advanced-summary-row";
-    const lossLabel = document.createElement("span");
-    lossLabel.className = "auto-advanced-summary-label";
-    lossLabel.textContent = "Stop on Loss";
-    const lossValue = document.createElement("span");
-    lossValue.className = "auto-advanced-summary-value";
-    lossValue.textContent = "$0.00";
-    lossRow.append(lossLabel, lossValue);
-    this.autoAdvancedContent.appendChild(lossRow);
+    const lossRow = createSummaryRow({
+      label: "Stop on Loss",
+      value: "$0.00",
+    });
+    this.autoAdvancedContent.appendChild(lossRow.row);
 
-    this.autoStopOnLossField = this.createCurrencyField();
+    this.autoStopOnLossField = createCurrencyField({
+      wrapperClassName: "control-bet-input-field auto-currency-field",
+      inputClassName: "control-bet-input",
+      icon: {
+        src: bitcoinIconUrl,
+        alt: "",
+        className: "control-bet-input-icon",
+      },
+      value: "0.00000000",
+    });
     this.autoAdvancedContent.appendChild(this.autoStopOnLossField.wrapper);
     this.autoStopOnLossField.input.addEventListener("input", () => {
       this.dispatchStopOnLossChange(this.autoStopOnLossField.input.value);
@@ -428,32 +418,6 @@ export class ControlPanel extends EventTarget {
     this.strategyControlsNonClickable = false;
   }
 
-  createSectionLabel(text) {
-    const label = document.createElement("div");
-    label.className = "control-section-label";
-    label.textContent = text;
-    return label;
-  }
-
-  createSwitchButton({ onToggle }) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "control-switch";
-    button.setAttribute("aria-pressed", "false");
-
-    const handle = document.createElement("span");
-    handle.className = "control-switch-handle";
-    button.appendChild(handle);
-
-    button.addEventListener("click", () => {
-      const isActive = button.classList.toggle("is-on");
-      button.setAttribute("aria-pressed", String(isActive));
-      onToggle?.(isActive);
-    });
-
-    return button;
-  }
-
   createAdvancedStrategyRow(key) {
     const row = document.createElement("div");
     row.className = "auto-advanced-strategy-row";
@@ -461,97 +425,74 @@ export class ControlPanel extends EventTarget {
     const toggle = document.createElement("div");
     toggle.className = "auto-mode-toggle";
 
-    const resetButton = document.createElement("button");
-    resetButton.type = "button";
-    resetButton.className = "auto-mode-toggle-btn is-reset";
-    resetButton.textContent = "Reset";
+    const resetButton = createButton({
+      text: "Reset",
+      className: "auto-mode-toggle-btn is-reset",
+      onClick: () => {
+        this.setStrategyMode(key, "reset");
+      },
+    });
 
-    const increaseButton = document.createElement("button");
-    increaseButton.type = "button";
-    increaseButton.className = "auto-mode-toggle-btn";
-    increaseButton.textContent = "Increase by:";
+    const increaseButton = createButton({
+      text: "Increase by:",
+      className: "auto-mode-toggle-btn",
+      onClick: () => {
+        this.setStrategyMode(key, "increase");
+      },
+    });
 
     toggle.append(resetButton, increaseButton);
     row.appendChild(toggle);
 
-    const field = document.createElement("div");
-    field.className = "control-bet-input-field auto-advanced-input";
-    row.appendChild(field);
+    const field = createInputField({
+      type: "text",
+      inputMode: "decimal",
+      autocomplete: "off",
+      spellcheck: false,
+      className: "control-bet-input",
+      wrapperClassName: "control-bet-input-field auto-advanced-input",
+      value: "0",
+      onInput: (event) => {
+        this.dispatchStrategyValueChange(key, event.target.value);
+      },
+      onBlur: (event) => {
+        this.dispatchStrategyValueChange(key, event.target.value);
+      },
+    });
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "decimal";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.className = "control-bet-input";
-    input.value = "0";
-    field.appendChild(input);
+    const icon = createIcon({
+      src: percentageIconUrl,
+      alt: "",
+      className: "control-bet-input-icon auto-percentage-icon",
+    });
+    field.wrapper.appendChild(icon);
+    row.appendChild(field.wrapper);
 
-    const icon = document.createElement("img");
-    icon.src = percentageIconUrl;
-    icon.alt = "";
-    icon.className = "control-bet-input-icon auto-percentage-icon";
-    field.appendChild(icon);
+    const input = field.input;
 
     if (key === "win") {
       this.onWinResetButton = resetButton;
       this.onWinIncreaseButton = increaseButton;
       this.onWinInput = input;
-      this.onWinField = field;
+      this.onWinField = field.wrapper;
     } else {
       this.onLossResetButton = resetButton;
       this.onLossIncreaseButton = increaseButton;
       this.onLossInput = input;
-      this.onLossField = field;
+      this.onLossField = field.wrapper;
     }
-
-    resetButton.addEventListener("click", () => {
-      this.setStrategyMode(key, "reset");
-    });
-    increaseButton.addEventListener("click", () => {
-      this.setStrategyMode(key, "increase");
-    });
-
-    input.addEventListener("input", () => {
-      this.dispatchStrategyValueChange(key, input.value);
-    });
-    input.addEventListener("blur", () => {
-      this.dispatchStrategyValueChange(key, input.value);
-    });
 
     return row;
   }
 
-  createCurrencyField() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "control-bet-input-field auto-currency-field";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "decimal";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.className = "control-bet-input";
-    input.value = "0.00000000";
-    wrapper.appendChild(input);
-
-    const icon = document.createElement("img");
-    icon.src = bitcoinIconUrl;
-    icon.alt = "";
-    icon.className = "control-bet-input-icon";
-    wrapper.appendChild(icon);
-
-    return { wrapper, input, icon };
-  }
-
   buildBetButton() {
-    this.betButton = document.createElement("button");
-    this.betButton.type = "button";
-    this.betButton.id = "betBtn";
-    this.betButton.className = "control-bet-btn";
-    this.betButton.addEventListener("click", () => {
-      this.dispatchEvent(new CustomEvent("bet"));
+    this.betButton = createButton({
+      className: "control-bet-btn",
+      onClick: () => {
+        this.dispatchEvent(new CustomEvent("bet"));
+      },
     });
+    this.betButton.id = "betBtn";
     const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(this.betButton);
 
@@ -560,12 +501,12 @@ export class ControlPanel extends EventTarget {
   }
 
   buildRandomPickButton() {
-    this.randomPickButton = document.createElement("button");
-    this.randomPickButton.type = "button";
-    this.randomPickButton.className = "control-bet-btn control-random-btn";
-    this.randomPickButton.textContent = "Random Pick";
-    this.randomPickButton.addEventListener("click", () => {
-      this.dispatchEvent(new CustomEvent("randompick"));
+    this.randomPickButton = createButton({
+      text: "Random Pick",
+      className: "control-bet-btn control-random-btn",
+      onClick: () => {
+        this.dispatchEvent(new CustomEvent("randompick"));
+      },
     });
     const parent = this.manualSection ?? this.scrollContainer;
     parent.appendChild(this.randomPickButton);
@@ -727,11 +668,13 @@ export class ControlPanel extends EventTarget {
     label.textContent = this.options.animationsLabel;
     this.animationToggleWrapper.appendChild(label);
 
-    this.animationToggleButton = this.createSwitchButton({
+    this.animationToggleControl = createSwitchButton({
+      initialActive: Boolean(this.animationsEnabled),
       onToggle: (isActive) => {
         this.setAnimationsEnabled(isActive);
       },
     });
+    this.animationToggleButton = this.animationToggleControl.element;
     this.animationToggleButton.classList.add("control-animations-switch");
     this.animationToggleButton.setAttribute(
       "aria-label",
@@ -739,15 +682,15 @@ export class ControlPanel extends EventTarget {
     );
     this.animationToggleWrapper.appendChild(this.animationToggleButton);
 
-    this.showDummyServerButton = document.createElement("button");
-    this.showDummyServerButton.type = "button";
-    this.showDummyServerButton.className = "control-show-dummy-server";
-    this.showDummyServerButton.textContent = this.options.showDummyServerLabel;
-    this.showDummyServerButton.addEventListener("click", () => {
-      if (this.showDummyServerButton.disabled) {
-        return;
-      }
-      this.dispatchEvent(new CustomEvent("showdummyserver"));
+    this.showDummyServerButton = createButton({
+      text: this.options.showDummyServerLabel,
+      className: "control-show-dummy-server",
+      onClick: () => {
+        if (this.showDummyServerButton.disabled) {
+          return;
+        }
+        this.dispatchEvent(new CustomEvent("showdummyserver"));
+      },
     });
     this.footerActions.appendChild(this.showDummyServerButton);
   }
@@ -764,9 +707,7 @@ export class ControlPanel extends EventTarget {
   }
 
   updateModeButtons() {
-    if (!this.manualButton || !this.autoButton) return;
-    this.manualButton.classList.toggle("is-active", this.mode === "manual");
-    this.autoButton.classList.toggle("is-active", this.mode === "auto");
+    this.modeToggle?.setActive(this.mode);
   }
 
   updateModeSections() {
@@ -852,11 +793,10 @@ export class ControlPanel extends EventTarget {
   }
 
   updateAdvancedVisibility() {
-    if (!this.autoAdvancedContent || !this.autoAdvancedToggle) return;
+    if (!this.autoAdvancedContent || !this.autoAdvancedToggleControl) return;
     const isActive = Boolean(this.isAdvancedEnabled);
     this.autoAdvancedContent.hidden = !isActive;
-    this.autoAdvancedToggle.classList.toggle("is-on", isActive);
-    this.autoAdvancedToggle.setAttribute("aria-pressed", String(isActive));
+    this.autoAdvancedToggleControl.setActive(isActive);
   }
 
   setStrategyMode(key, mode) {
@@ -1054,15 +994,8 @@ export class ControlPanel extends EventTarget {
   }
 
   updateAnimationToggle() {
-    if (!this.animationToggleButton) return;
-    this.animationToggleButton.classList.toggle(
-      "is-on",
-      Boolean(this.animationsEnabled)
-    );
-    this.animationToggleButton.setAttribute(
-      "aria-pressed",
-      String(Boolean(this.animationsEnabled))
-    );
+    if (!this.animationToggleControl) return;
+    this.animationToggleControl.setActive(Boolean(this.animationsEnabled));
   }
 
   dispatchAnimationsChange() {
@@ -1218,9 +1151,8 @@ export class ControlPanel extends EventTarget {
 
   setAdvancedToggleClickable(isClickable) {
     const clickable = Boolean(isClickable);
-    if (this.autoAdvancedToggle) {
-      this.autoAdvancedToggle.disabled = !clickable;
-      this.autoAdvancedToggle.classList.toggle("is-non-clickable", !clickable);
+    if (this.autoAdvancedToggleControl) {
+      this.autoAdvancedToggleControl.setDisabled(!clickable);
     }
   }
 
