@@ -1,5 +1,5 @@
 import { createGame } from "./game/game.js";
-import { ControlPanel } from "./controlPanel/controlPanel.js";
+import { GameControlPanel } from "./controlPanel/gameControlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
 import { createServerDummy } from "./serverDummy/serverDummy.js";
 
@@ -990,7 +990,7 @@ const opts = {
 
   // Initialize Control Panel
   try {
-    controlPanel = new ControlPanel("#control-panel", {
+    controlPanel = new GameControlPanel("#control-panel", {
       gameName: "Mines",
       totalTiles,
       maxMines,

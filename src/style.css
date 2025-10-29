@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700&display=swap");
 @import "./game/gameStyle.css";
-@import "./controlPanel/controlPanelStyle.css";
+@import "./controlPanel/styles/basePanel.css";
+@import "./controlPanel/styles/gameControlPanel.css";
 @import "./stepper/stepperStyle.css";
 
 * {
