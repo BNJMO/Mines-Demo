@@ -421,7 +421,11 @@ export async function createGame(mount, opts = {}) {
     notifyStateChange();
   }
 
-  function revealCard(card, face, { revealedByPlayer = true } = {}) {
+  function revealCard(
+    card,
+    face,
+    { revealedByPlayer = true, forceFullIconSize = false } = {}
+  ) {
     if (!card) return;
     const useSelectionTint = card.isAutoSelected;
     if (card.isAutoSelected) {
@@ -430,12 +434,13 @@ export async function createGame(mount, opts = {}) {
     const content = contentLibrary[face] ?? {};
     soundManager.play("tileFlip");
     card._revealedFace = face;
+    const iconRevealFactor = forceFullIconSize ? 1 : iconRevealedSizeFactor;
     card.reveal({
       content,
       useSelectionTint,
       revealedByPlayer,
       iconSizePercentage,
-      iconRevealedSizeFactor,
+      iconRevealedSizeFactor: iconRevealFactor,
       flipDuration,
       flipEaseFunction,
       onComplete: handleCardRevealComplete,
@@ -515,22 +520,21 @@ export async function createGame(mount, opts = {}) {
     }
 
     shuffled.forEach((card, index) => {
-      const face = currentAssignments.get(`${card.row},${card.col}`) ?? null;
-      rules.revealResult({
-        row: card.row,
-        col: card.col,
-        result: face,
-      });
-      const delay = disableAnimations
-        ? 0
-        : revealAllIntervalDelay * index;
-      setTimeout(
-        () => revealCard(card, face, { revealedByPlayer: false }),
-        delay
-      );
+      const assignedFace = currentAssignments.get(`${card.row},${card.col}`) ?? null;
+      const delay = disableAnimations ? 0 : revealAllIntervalDelay * index;
+      setTimeout(() => {
+        const outcome = rules.revealResult({
+          row: card.row,
+          col: card.col,
+          result: assignedFace,
+        });
+        revealCard(card, outcome.face, {
+          revealedByPlayer: false,
+          forceFullIconSize: true,
+        });
+        notifyStateChange();
+      }, delay);
     });
-
-    notifyStateChange();
   }
 
   function handleCardTap(card) {
