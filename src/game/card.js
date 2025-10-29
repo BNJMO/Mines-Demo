@@ -299,6 +299,10 @@ export class Card {
     }
 
     this._animating = true;
+    if (this.container) {
+      this.container.eventMode = "none";
+      this.container.cursor = "default";
+    }
     this.#stopWinHighlightLoop();
     this._winHighlighted = false;
     this.stopHover();

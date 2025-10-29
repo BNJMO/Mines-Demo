@@ -46,8 +46,6 @@ let totalProfitAmountDisplayValue = "0.00000000";
 const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
-const SERVER_RESPONSE_DELAY_MS = 250;
-
 function withRelaySuppressed(callback) {
   suppressRelay = true;
   try {
@@ -442,17 +440,15 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     };
   });
 
-  selectionDelayHandle = setTimeout(() => {
-    selectionDelayHandle = null;
-    selectionPending = false;
+  selectionDelayHandle = null;
+  selectionPending = false;
 
-    if (!autoRunActive || !roundActive) {
-      autoRoundInProgress = false;
-      return;
-    }
+  if (!autoRunActive || !roundActive) {
+    autoRoundInProgress = false;
+    return;
+  }
 
-    game?.revealAutoSelections?.(results);
-  }, SERVER_RESPONSE_DELAY_MS);
+  game?.revealAutoSelections?.(results);
 }
 
 function scheduleNextAutoBetRound() {
@@ -941,20 +937,18 @@ function handleCardSelected(selection) {
     return;
   }
 
-  selectionDelayHandle = setTimeout(() => {
-    selectionDelayHandle = null;
+  selectionDelayHandle = null;
 
-    if (!roundActive) {
-      selectionPending = false;
-      return;
-    }
-
-    const key = getCardKey(selection?.row, selection?.col);
-    const contentKey = currentRoundAssignments.get(key) ?? null;
-
+  if (!roundActive) {
     selectionPending = false;
-    game?.revealSelectedCard?.(contentKey);
-  }, SERVER_RESPONSE_DELAY_MS);
+    return;
+  }
+
+  const key = getCardKey(selection?.row, selection?.col);
+  const contentKey = currentRoundAssignments.get(key) ?? null;
+
+  selectionPending = false;
+  game?.revealSelectedCard?.(contentKey);
 }
 
 function handleAutoSelectionChange(count) {
