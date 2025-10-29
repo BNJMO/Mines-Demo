@@ -537,7 +537,7 @@ export class ControlPanel extends EventTarget {
       this.dispatchStrategyValueChange(key, value);
     });
 
-    this.sanitizeStrategyInput(input, { enforceMinimum: true });
+    this.sanitizeStrategyInput(input);
 
     return row;
   }
@@ -855,20 +855,22 @@ export class ControlPanel extends EventTarget {
 
   sanitizeStrategyInput(input, { enforceMinimum = false } = {}) {
     if (!input) return "";
+
     const digits = input.value.replace(/\D+/g, "");
-    let sanitized = digits.replace(/^0+/, "");
-    if (enforceMinimum && !sanitized) {
-      sanitized = "1";
+    const trimmed = digits.replace(/^0+/, "");
+
+    let sanitized = trimmed;
+
+    if (!sanitized) {
+      sanitized = enforceMinimum ? "1" : digits ? "0" : "";
     }
-    if (sanitized) {
-      if (enforceMinimum) {
-        sanitized = String(Math.max(1, Number.parseInt(sanitized, 10) || 0));
-      }
-      input.value = sanitized;
-      return sanitized;
+
+    if (enforceMinimum && sanitized) {
+      sanitized = String(Math.max(1, Number.parseInt(sanitized, 10) || 0));
     }
-    input.value = "";
-    return "";
+
+    input.value = sanitized;
+    return sanitized;
   }
 
   adjustStrategyValue(key, delta) {

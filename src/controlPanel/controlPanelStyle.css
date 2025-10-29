@@ -211,7 +211,7 @@
   height: 100%;
   align-self: stretch;
   --control-bet-padding-right: clamp(56px, 20%, 118px);
-  --control-bet-stepper-offset: clamp(40px, 14%, 72px);
+  --control-bet-stepper-offset: clamp(30px, 16%, 56px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
   padding: 14px var(--control-bet-padding-right) 14px 16px;
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
