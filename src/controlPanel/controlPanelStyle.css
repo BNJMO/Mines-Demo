@@ -327,6 +327,30 @@
   background: #101d26;
 }
 
+.control-reveal-all-btn {
+  background: #223845;
+  color: #f5f6ff;
+  box-shadow: var(--control-elevation-shadow-strong);
+}
+
+.control-reveal-all-btn:hover {
+  background: #2b4a5a;
+  box-shadow: var(--control-elevation-shadow-hover);
+}
+
+.control-reveal-all-btn.is-non-clickable,
+.control-reveal-all-btn:disabled {
+  background: #1A2B35;
+  color: #4c5d68;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.control-reveal-all-btn.is-non-clickable:hover,
+.control-reveal-all-btn:disabled:hover {
+  background: #101d26;
+}
+
 .control-profit-box {
   display: flex;
   align-items: center;

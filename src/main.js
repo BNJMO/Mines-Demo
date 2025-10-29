@@ -938,9 +938,9 @@ function handleCardSelected(selection) {
 
     const key = getCardKey(selection?.row, selection?.col);
     const contentKey = currentRoundAssignments.get(key) ?? null;
-    game?.revealSelectedCard?.(contentKey);
 
     selectionPending = false;
+    game?.revealSelectedCard?.(contentKey);
   }, SERVER_RESPONSE_DELAY_MS);
 }
 
