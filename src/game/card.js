@@ -265,7 +265,7 @@ export class Card {
   }
 
   forceFlatPose() {
-    if (!this._wrap) return;
+    if (!this._wrap?.scale || !this.container) return;
     this._wrap.scale.x = this._wrap.scale.y = 1;
     this.setSkew(0);
     this.container.x = this._baseX;
@@ -329,6 +329,18 @@ export class Card {
       duration: flipDuration,
       ease: (t) => easeFlip(t),
       update: (t) => {
+        if (
+          this.destroyed ||
+          !wrap?.scale ||
+          !card ||
+          card.destroyed ||
+          !inset ||
+          inset.destroyed ||
+          !icon ||
+          icon.destroyed
+        ) {
+          return;
+        }
         const widthFactor = Math.max(0.0001, Math.abs(Math.cos(Math.PI * t)));
         const elev = Math.sin(Math.PI * t);
         const popS = 1 + 0.06 * elev;
@@ -405,7 +417,9 @@ export class Card {
         }
       },
       complete: () => {
-        this.forceFlatPose();
+        if (!this.destroyed) {
+          this.forceFlatPose();
+        }
         this._animating = false;
         this.revealed = true;
         this._swapHandled = false;
@@ -478,7 +492,7 @@ export class Card {
   }
 
   setSkew(v) {
-    if (!this._wrap) return;
+    if (!this._wrap?.skew) return;
     if (this.animationOptions.hoverTiltAxis === "y") {
       this._wrap.skew.y = v;
     } else {
@@ -500,6 +514,10 @@ export class Card {
     this.stopWiggle();
     this.#stopWinHighlightLoop();
     this.container?.destroy?.({ children: true });
+    this._wrap = null;
+    this._card = null;
+    this._inset = null;
+    this._icon = null;
   }
 
   #stopWinHighlightLoop() {
