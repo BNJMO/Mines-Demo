@@ -209,8 +209,11 @@ export class Card {
     const wrap = this._wrap;
     if (!wrap) return;
 
-    const baseScaleX = wrap.scale.x;
-    const baseScaleY = wrap.scale.y;
+    const baseScale = wrap.scale;
+    if (!baseScale) return;
+
+    const baseScaleX = baseScale.x;
+    const baseScaleY = baseScale.y;
     const targetScaleX = baseScaleX * scaleMultiplier;
     const targetScaleY = baseScaleY * scaleMultiplier;
 
@@ -218,8 +221,8 @@ export class Card {
     this._bumpToken = token;
 
     if (this.disableAnimations || duration <= 0) {
-      wrap.scale.x = baseScaleX;
-      wrap.scale.y = baseScaleY;
+      baseScale.x = baseScaleX;
+      baseScale.y = baseScaleY;
       this._bumpToken = null;
       return;
     }
@@ -230,17 +233,28 @@ export class Card {
       duration,
       ease: (t) => t,
       update: (t) => {
-        if (this._bumpToken !== token) return;
+        const scale = wrap.scale;
+        if (
+          this._bumpToken !== token ||
+          this.destroyed ||
+          !scale
+        ) {
+          return;
+        }
         const phase = t < 0.5 ? easeOut(t / 0.5) : easeOut((1 - t) / 0.5);
         const nextScaleX = baseScaleX + (targetScaleX - baseScaleX) * phase;
         const nextScaleY = baseScaleY + (targetScaleY - baseScaleY) * phase;
-        wrap.scale.x = nextScaleX;
-        wrap.scale.y = nextScaleY;
+        scale.x = nextScaleX;
+        scale.y = nextScaleY;
       },
       complete: () => {
-        if (this._bumpToken !== token) return;
-        wrap.scale.x = baseScaleX;
-        wrap.scale.y = baseScaleY;
+        const scale = wrap.scale;
+        if (this._bumpToken !== token || !scale) {
+          this._bumpToken = null;
+          return;
+        }
+        scale.x = baseScaleX;
+        scale.y = baseScaleY;
         this._bumpToken = null;
       },
     });
@@ -512,6 +526,7 @@ export class Card {
     this.destroyed = true;
     this.stopHover();
     this.stopWiggle();
+    this._bumpToken = null;
     this.#stopWinHighlightLoop();
     this.container?.destroy?.({ children: true });
     this._wrap = null;
