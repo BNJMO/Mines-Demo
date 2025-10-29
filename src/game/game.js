@@ -306,6 +306,7 @@ export async function createGame(mount, opts = {}) {
     winningKey: null,
     winningCountRequired: 0,
     revealedWinning: 0,
+    pendingWinningReveals: 0,
     autoRevealTriggered: false,
     feedbackPlayed: false,
     soundKey: null,
@@ -318,6 +319,7 @@ export async function createGame(mount, opts = {}) {
     currentRoundOutcome.winningKey = null;
     currentRoundOutcome.winningCountRequired = 0;
     currentRoundOutcome.revealedWinning = 0;
+    currentRoundOutcome.pendingWinningReveals = 0;
     currentRoundOutcome.autoRevealTriggered = false;
     currentRoundOutcome.feedbackPlayed = false;
     currentRoundOutcome.soundKey = null;
@@ -358,6 +360,7 @@ export async function createGame(mount, opts = {}) {
       cardsByKey.set(key, card);
       card.setDisableAnimations(disableAnimations);
       card._assignedContent = currentAssignments.get(key) ?? null;
+      card._pendingWinningReveal = false;
     }
   }
 
@@ -437,6 +440,14 @@ export async function createGame(mount, opts = {}) {
     soundManager.play("tileFlip");
     card._revealedFace = face;
     const iconRevealFactor = forceFullIconSize ? 1 : iconRevealedSizeFactor;
+    const isWinningFace =
+      currentRoundOutcome.betResult === "win" &&
+      currentRoundOutcome.winningKey != null &&
+      face != null &&
+      face === currentRoundOutcome.winningKey;
+    const engagedWinningBefore =
+      currentRoundOutcome.revealedWinning +
+      currentRoundOutcome.pendingWinningReveals;
     const started = card.reveal({
       content,
       useSelectionTint,
@@ -455,6 +466,22 @@ export async function createGame(mount, opts = {}) {
     });
     if (started) {
       currentRoundOutcome.pendingReveals += 1;
+      card._pendingWinningReveal = Boolean(isWinningFace);
+      if (isWinningFace) {
+        currentRoundOutcome.pendingWinningReveals += 1;
+        const engagedWinningAfter = engagedWinningBefore + 1;
+        if (
+          !currentRoundOutcome.autoRevealTriggered &&
+          currentRoundOutcome.winningCountRequired > 0 &&
+          engagedWinningAfter >= currentRoundOutcome.winningCountRequired
+        ) {
+          currentRoundOutcome.autoRevealTriggered = true;
+          revealRemainingTiles({ exclude: [card] });
+        }
+      }
+    }
+    if (!started) {
+      card._pendingWinningReveal = false;
     }
     if (typeof content.playSound === "function") {
       content.playSound({ revealedByPlayer, card });
@@ -481,6 +508,14 @@ export async function createGame(mount, opts = {}) {
     ) {
       currentRoundOutcome.revealedWinning += 1;
       currentRoundOutcome.winningCards.add(card);
+    }
+
+    if (card._pendingWinningReveal) {
+      currentRoundOutcome.pendingWinningReveals = Math.max(
+        0,
+        currentRoundOutcome.pendingWinningReveals - 1
+      );
+      card._pendingWinningReveal = false;
     }
 
     const state = rules.getState();
@@ -525,10 +560,18 @@ export async function createGame(mount, opts = {}) {
     }
   }
 
-  function revealRemainingTiles() {
-    const unrevealed = scene.cards.filter((card) => !card.revealed);
-    if (!unrevealed.length) return;
+  function revealRemainingTiles({ exclude = [] } = {}) {
     currentRoundOutcome.autoRevealTriggered = true;
+    const excludedCards = new Set(
+      Array.isArray(exclude) ? exclude.filter(Boolean) : []
+    );
+    const unrevealed = scene.cards.filter(
+      (card) =>
+        !card.revealed &&
+        !card._animating &&
+        !excludedCards.has(card)
+    );
+    if (!unrevealed.length) return;
     const shuffled = [...unrevealed];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
