@@ -27,6 +27,7 @@ let controlPanelMode = "manual";
 let autoRunActive = false;
 let autoRoundInProgress = false;
 let autoResetTimer = null;
+let autoStopPending = false;
 let manualRoundNeedsReset = false;
 
 const GRID_SIZE = 3;
@@ -351,6 +352,23 @@ function setAutoRunUIState(active) {
   }
 }
 
+function setAutoRunFinishingState() {
+  if (!controlPanel) {
+    return;
+  }
+
+  controlPanel.setAutoStartButtonMode?.("finish");
+  setControlPanelAutoStartState(false);
+  controlPanel.setModeToggleClickable?.(false);
+  controlPanel.setBetControlsClickable?.(false);
+  setControlPanelMinesState(false);
+  controlPanel.setNumberOfBetsClickable?.(false);
+  controlPanel.setAdvancedToggleClickable?.(false);
+  controlPanel.setAdvancedStrategyControlsClickable?.(false);
+  controlPanel.setStopOnProfitClickable?.(false);
+  controlPanel.setStopOnLossClickable?.(false);
+}
+
 function clearAutoRoundTimer() {
   if (autoResetTimer) {
     clearTimeout(autoResetTimer);
@@ -410,6 +428,7 @@ function startAutoBetProcess() {
 
   autoRunActive = true;
   autoRoundInProgress = false;
+  autoStopPending = false;
 
   if (!demoMode && !suppressRelay) {
     const payload = { numberOfBets: 0 };
@@ -436,11 +455,21 @@ function stopAutoBetProcess({ reason = "user", completed = false } = {}) {
     });
   }
 
+  const shouldWaitForRound = roundActive && !completed;
+
+  if (shouldWaitForRound) {
+    autoStopPending = true;
+    setAutoRunFinishingState();
+    game?.revealRemainingTiles?.();
+    return;
+  }
+
+  autoStopPending = false;
+
   if (roundActive) {
     finalizeRound();
   }
 
-  game?.reset?.();
   setAutoRunUIState(false);
 }
 
@@ -534,6 +563,11 @@ function finalizeRound() {
 
   currentBetResult = null;
   currentRoundAssignments.clear();
+
+  if (autoStopPending) {
+    autoStopPending = false;
+    setAutoRunUIState(false);
+  }
 }
 
 function handleBetButtonClick() {

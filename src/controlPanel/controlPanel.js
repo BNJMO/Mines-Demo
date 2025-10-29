@@ -1176,7 +1176,7 @@ export class ControlPanel extends EventTarget {
       normalized === "stop"
         ? "Stop Autobet"
         : normalized === "finish"
-        ? "Finishin Bet"
+        ? "Finishing Autobet"
         : "Start Autobet";
     this.autoStartButton.dataset.mode = normalized;
   }
