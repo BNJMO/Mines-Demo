@@ -57,8 +57,9 @@ export class ControlPanel extends EventTarget {
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
     this.randomPickButtonState = "clickable";
+    this.revealAllButtonState = "non-clickable";
     this.minesSelectState = "clickable";
-    this.autoStartButtonState = "non-clickable";
+    this.autoStartButtonState = "clickable";
     this.autoStartButtonMode = "start";
 
     this.totalProfitMultiplier = 1;
@@ -286,6 +287,7 @@ export class ControlPanel extends EventTarget {
 
     this.buildBetButton();
     this.buildRandomPickButton();
+    this.buildRevealAllButton();
     this.buildProfitOnWinDisplay();
     this.buildProfitDisplay();
 
@@ -571,6 +573,20 @@ export class ControlPanel extends EventTarget {
     parent.appendChild(this.randomPickButton);
 
     this.setRandomPickState(this.randomPickButtonState);
+  }
+
+  buildRevealAllButton() {
+    this.revealAllButton = document.createElement("button");
+    this.revealAllButton.type = "button";
+    this.revealAllButton.className = "control-bet-btn control-reveal-all-btn";
+    this.revealAllButton.textContent = "Reveal All";
+    this.revealAllButton.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("revealall"));
+    });
+    const parent = this.manualSection ?? this.scrollContainer;
+    parent.appendChild(this.revealAllButton);
+
+    this.setRevealAllState(this.revealAllButtonState);
   }
 
   refreshMinesOptions({ emit = true } = {}) {
@@ -1114,6 +1130,18 @@ export class ControlPanel extends EventTarget {
     this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
   }
 
+  setRevealAllState(state) {
+    if (!this.revealAllButton) return;
+    const normalized =
+      state === "clickable" || state === true || state === "enabled"
+        ? "clickable"
+        : "non-clickable";
+    this.revealAllButtonState = normalized;
+    const isClickable = normalized === "clickable";
+    this.revealAllButton.disabled = !isClickable;
+    this.revealAllButton.classList.toggle("is-non-clickable", !isClickable);
+  }
+
   setAutoStartButtonState(state) {
     if (!this.autoStartButton) return;
     const normalized =
@@ -1148,7 +1176,7 @@ export class ControlPanel extends EventTarget {
       normalized === "stop"
         ? "Stop Autobet"
         : normalized === "finish"
-        ? "Finishin Bet"
+        ? "Finishing Autobet"
         : "Start Autobet";
     this.autoStartButton.dataset.mode = normalized;
   }

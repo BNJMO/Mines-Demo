@@ -85,7 +85,7 @@ export class GameScene {
   destroy() {
     this.resizeObserver?.disconnect();
     this.cards.forEach((card) => {
-      card?.displayObject?.destroy?.({ children: true });
+      card?.destroy?.();
     });
     this.cards = [];
     this.app?.destroy(true);
@@ -157,8 +157,10 @@ export class GameScene {
   }
 
   clearGrid() {
-    const removed = this.board?.removeChildren() ?? [];
-    removed.forEach((child) => child.destroy?.({ children: true }));
+    for (const card of this.cards) {
+      card?.destroy?.();
+    }
+    this.board?.removeChildren();
     this.cards = [];
   }
 

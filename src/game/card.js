@@ -44,9 +44,12 @@ export class Card {
     this._pressed = false;
     this._hoverToken = null;
     this._wiggleToken = null;
+    this._bumpToken = null;
     this._layoutScale = 1;
-    this._bombShaking = false;
+    this._shakeActive = false;
     this._swapHandled = false;
+    this._winHighlighted = false;
+    this._winHighlightInterval = null;
 
     this._tiltDir = 1;
     this._baseX = 0;
@@ -202,14 +205,89 @@ export class Card {
     this._animating = false;
   }
 
+  bump({ scaleMultiplier = 1.08, duration = 260 } = {}) {
+    const wrap = this._wrap;
+    if (!wrap) return;
+
+    const baseScale = wrap.scale;
+    if (!baseScale) return;
+
+    const baseScaleX = baseScale.x;
+    const baseScaleY = baseScale.y;
+    const targetScaleX = baseScaleX * scaleMultiplier;
+    const targetScaleY = baseScaleY * scaleMultiplier;
+
+    const token = Symbol("card-bump");
+    this._bumpToken = token;
+
+    if (this.disableAnimations || duration <= 0) {
+      baseScale.x = baseScaleX;
+      baseScale.y = baseScaleY;
+      this._bumpToken = null;
+      return;
+    }
+
+    const easeOut = (value) => 1 - Math.pow(1 - value, 3);
+
+    this.tween({
+      duration,
+      ease: (t) => t,
+      update: (t) => {
+        const scale = wrap.scale;
+        if (
+          this._bumpToken !== token ||
+          this.destroyed ||
+          !scale
+        ) {
+          return;
+        }
+        const phase = t < 0.5 ? easeOut(t / 0.5) : easeOut((1 - t) / 0.5);
+        const nextScaleX = baseScaleX + (targetScaleX - baseScaleX) * phase;
+        const nextScaleY = baseScaleY + (targetScaleY - baseScaleY) * phase;
+        scale.x = nextScaleX;
+        scale.y = nextScaleY;
+      },
+      complete: () => {
+        const scale = wrap.scale;
+        if (this._bumpToken !== token || !scale) {
+          this._bumpToken = null;
+          return;
+        }
+        scale.x = baseScaleX;
+        scale.y = baseScaleY;
+        this._bumpToken = null;
+      },
+    });
+  }
+
+  highlightWin({ faceColor = 0x5800a5, scaleMultiplier = 1.08, duration = 260 } = {}) {
+    if (!this.revealed || this._winHighlighted) {
+      return;
+    }
+
+    this._winHighlighted = true;
+    this.#stopWinHighlightLoop();
+    this.flipFace(faceColor);
+    this.bump({ scaleMultiplier, duration });
+    this._winHighlightInterval = setInterval(() => {
+      if (!this.revealed || this.destroyed) {
+        this.#stopWinHighlightLoop();
+        return;
+      }
+      this.bump({ scaleMultiplier, duration });
+    }, 2000);
+  }
+
   forceFlatPose() {
-    if (!this._wrap) return;
+    if (!this._wrap?.scale || !this.container) return;
     this._wrap.scale.x = this._wrap.scale.y = 1;
     this.setSkew(0);
     this.container.x = this._baseX;
     this.container.y = this._baseY;
     this.container.rotation = 0;
-    this._bombShaking = false;
+    this._shakeActive = false;
+    this._bumpToken = null;
+    this.#stopWinHighlightLoop();
   }
 
   reveal({
@@ -222,11 +300,25 @@ export class Card {
     flipDuration,
     flipEaseFunction,
   }) {
-    if (!this._wrap || this._animating || this.revealed) {
+    if (!this._wrap || this.revealed) {
+      return false;
+    }
+
+    if (this._animating) {
+      this.stopWiggle();
+    }
+
+    if (this._animating) {
       return false;
     }
 
     this._animating = true;
+    if (this.container) {
+      this.container.eventMode = "none";
+      this.container.cursor = "default";
+    }
+    this.#stopWinHighlightLoop();
+    this._winHighlighted = false;
     this.stopHover();
     this.stopWiggle();
 
@@ -251,6 +343,18 @@ export class Card {
       duration: flipDuration,
       ease: (t) => easeFlip(t),
       update: (t) => {
+        if (
+          this.destroyed ||
+          !wrap?.scale ||
+          !card ||
+          card.destroyed ||
+          !inset ||
+          inset.destroyed ||
+          !icon ||
+          icon.destroyed
+        ) {
+          return;
+        }
         const widthFactor = Math.max(0.0001, Math.abs(Math.cos(Math.PI * t)));
         const elev = Math.sin(Math.PI * t);
         const popS = 1 + 0.06 * elev;
@@ -327,7 +431,9 @@ export class Card {
         }
       },
       complete: () => {
-        this.forceFlatPose();
+        if (!this.destroyed) {
+          this.forceFlatPose();
+        }
         this._animating = false;
         this.revealed = true;
         this._swapHandled = false;
@@ -400,7 +506,7 @@ export class Card {
   }
 
   setSkew(v) {
-    if (!this._wrap) return;
+    if (!this._wrap?.skew) return;
     if (this.animationOptions.hoverTiltAxis === "y") {
       this._wrap.skew.y = v;
     } else {
@@ -413,6 +519,27 @@ export class Card {
     return this.animationOptions.hoverTiltAxis === "y"
       ? this._wrap.skew.y
       : this._wrap.skew.x;
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.stopHover();
+    this.stopWiggle();
+    this._bumpToken = null;
+    this.#stopWinHighlightLoop();
+    this.container?.destroy?.({ children: true });
+    this._wrap = null;
+    this._card = null;
+    this._inset = null;
+    this._icon = null;
+  }
+
+  #stopWinHighlightLoop() {
+    if (this._winHighlightInterval != null) {
+      clearInterval(this._winHighlightInterval);
+      this._winHighlightInterval = null;
+    }
   }
 
   #resolveRevealColor({
