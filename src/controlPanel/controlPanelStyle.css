@@ -626,7 +626,8 @@
   flex: 0 1 40%;
   max-width: 40%;
   min-width: 0;
-  --control-bet-padding-right: 52px;
+  --control-bet-padding-right: calc(var(--control-bet-stepper-offset) + 64px);
+  --control-bet-icon-offset: calc(var(--control-bet-stepper-offset) + 32px);
   padding: 12px var(--control-bet-padding-right) 12px 14px;
 }
 

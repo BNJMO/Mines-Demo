@@ -475,16 +475,16 @@ export class ControlPanel extends EventTarget {
     row.appendChild(toggle);
 
     const field = document.createElement("div");
-    field.className = "control-bet-input-field auto-advanced-input";
+    field.className = "control-bet-input-field auto-advanced-input has-stepper";
     row.appendChild(field);
 
     const input = document.createElement("input");
     input.type = "text";
-    input.inputMode = "decimal";
+    input.inputMode = "numeric";
     input.autocomplete = "off";
     input.spellcheck = false;
     input.className = "control-bet-input";
-    input.value = "0";
+    input.value = "1";
     field.appendChild(input);
 
     const icon = document.createElement("img");
@@ -493,16 +493,38 @@ export class ControlPanel extends EventTarget {
     icon.className = "control-bet-input-icon auto-percentage-icon";
     field.appendChild(icon);
 
+    const stepper = new Stepper({
+      onStepUp: () => {
+        const value = this.adjustStrategyInputValue(input, 1);
+        this.dispatchStrategyValueChange(key, value);
+      },
+      onStepDown: () => {
+        const value = this.adjustStrategyInputValue(input, -1);
+        this.dispatchStrategyValueChange(key, value);
+      },
+      upAriaLabel:
+        key === "win"
+          ? "Increase on-win percentage"
+          : "Increase on-loss percentage",
+      downAriaLabel:
+        key === "win"
+          ? "Decrease on-win percentage"
+          : "Decrease on-loss percentage",
+    });
+    field.appendChild(stepper.element);
+
     if (key === "win") {
       this.onWinResetButton = resetButton;
       this.onWinIncreaseButton = increaseButton;
       this.onWinInput = input;
       this.onWinField = field;
+      this.onWinStepper = stepper;
     } else {
       this.onLossResetButton = resetButton;
       this.onLossIncreaseButton = increaseButton;
       this.onLossInput = input;
       this.onLossField = field;
+      this.onLossStepper = stepper;
     }
 
     resetButton.addEventListener("click", () => {
@@ -513,10 +535,14 @@ export class ControlPanel extends EventTarget {
     });
 
     input.addEventListener("input", () => {
-      this.dispatchStrategyValueChange(key, input.value);
+      const value = this.sanitizeStrategyInputValue(input);
+      this.dispatchStrategyValueChange(key, value);
     });
     input.addEventListener("blur", () => {
-      this.dispatchStrategyValueChange(key, input.value);
+      const value = this.sanitizeStrategyInputValue(input, {
+        enforceMinimum: true,
+      });
+      this.dispatchStrategyValueChange(key, value);
     });
 
     return row;
@@ -833,6 +859,33 @@ export class ControlPanel extends EventTarget {
     this.autoNumberOfBetsInput.value = String(numeric);
   }
 
+  sanitizeStrategyInputValue(input, { enforceMinimum = false } = {}) {
+    if (!input) return "";
+    const digits = input.value.replace(/[^0-9]/g, "");
+    if (!digits) {
+      if (enforceMinimum) {
+        input.value = "1";
+        return "1";
+      }
+      input.value = "";
+      return "";
+    }
+    const numeric = Math.max(1, Math.floor(Number(digits) || 0));
+    const normalized = String(numeric);
+    input.value = normalized;
+    return normalized;
+  }
+
+  adjustStrategyInputValue(input, delta) {
+    if (!input) return "";
+    const digits = input.value.replace(/[^0-9]/g, "");
+    const current = Math.max(1, Math.floor(Number(digits) || 0));
+    const next = Math.max(1, current + Number(delta || 0));
+    const normalized = String(next);
+    input.value = normalized;
+    return normalized;
+  }
+
   incrementNumberOfBets(delta) {
     if (!this.autoNumberOfBetsInput) return;
     const current = Number(this.autoNumberOfBetsInput.value) || 0;
@@ -884,7 +937,8 @@ export class ControlPanel extends EventTarget {
       this.onWinResetButton,
       this.onWinIncreaseButton,
       this.onWinInput,
-      this.onWinField
+      this.onWinField,
+      this.onWinStepper
     );
   }
 
@@ -894,11 +948,19 @@ export class ControlPanel extends EventTarget {
       this.onLossResetButton,
       this.onLossIncreaseButton,
       this.onLossInput,
-      this.onLossField
+      this.onLossField,
+      this.onLossStepper
     );
   }
 
-  updateStrategyButtons(mode, resetButton, increaseButton, input, field) {
+  updateStrategyButtons(
+    mode,
+    resetButton,
+    increaseButton,
+    input,
+    field,
+    stepper
+  ) {
     if (!resetButton || !increaseButton || !input || !field) return;
     const isIncrease = mode === "increase";
     const controlsNonClickable = Boolean(this.strategyControlsNonClickable);
@@ -909,6 +971,9 @@ export class ControlPanel extends EventTarget {
     const allowInput = !controlsNonClickable && isIncrease;
     input.disabled = !allowInput;
     field.classList.toggle("is-non-clickable", !allowInput);
+    if (stepper?.setClickable) {
+      stepper.setClickable(allowInput);
+    }
   }
 
   adjustBetValue(delta) {
