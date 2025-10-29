@@ -179,6 +179,7 @@ serverRelay.addEventListener("incoming", (event) => {
       case "start-bet":
         performBet();
         setControlPanelRandomState(true);
+        setControlPanelRevealAllState(true);
         break;
       case "bet-result":
         applyServerReveal(payload);
@@ -244,6 +245,12 @@ function setControlPanelRandomState(isClickable) {
   );
 }
 
+function setControlPanelRevealAllState(isClickable) {
+  controlPanel?.setRevealAllState?.(
+    isClickable ? "clickable" : "non-clickable"
+  );
+}
+
 function setControlPanelAutoStartState(isClickable) {
   const shouldEnable = isClickable && !autoStopFinishing;
   controlPanel?.setAutoStartButtonState?.(
@@ -260,6 +267,7 @@ function setControlPanelMinesState(isClickable) {
 function disableServerRoundSetupControls() {
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
   setControlPanelMinesState(false);
   controlPanel?.setModeToggleClickable?.(false);
   controlPanel?.setBetControlsClickable?.(false);
@@ -313,6 +321,7 @@ function beginSelectionDelay() {
   selectionPending = true;
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
 }
 
 function setAutoRunUIState(active) {
@@ -405,6 +414,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
   selectionPending = true;
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
   setControlPanelMinesState(false);
   setGameBoardInteractivity(false);
   setControlPanelAutoStartState(true);
@@ -607,10 +617,12 @@ function applyRoundInteractiveState(state) {
   setControlPanelBetMode("cashout");
 
   const revealedCount = state?.revealed ?? 0;
+  const totalTiles = state?.totalTiles ?? GRID_SIZE * GRID_SIZE;
 
   if (selectionPending || state?.waitingForChoice) {
     setControlPanelBetState(false);
     setControlPanelRandomState(false);
+    setControlPanelRevealAllState(false);
     cashoutAvailable = revealedCount > 0;
     return;
   }
@@ -619,6 +631,8 @@ function applyRoundInteractiveState(state) {
   cashoutAvailable = hasRevealedCard;
   setControlPanelBetState(hasRevealedCard);
   setControlPanelRandomState(true);
+  const hasHiddenTiles = revealedCount < totalTiles;
+  setControlPanelRevealAllState(hasHiddenTiles);
 }
 
 function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
@@ -628,6 +642,7 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   setControlPanelBetMode("cashout");
   setControlPanelBetState(false);
   setControlPanelRandomState(true);
+  setControlPanelRevealAllState(true);
   setGameBoardInteractivity(true);
   minesSelectionLocked = false;
 
@@ -663,6 +678,7 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
   clearSelectionDelay();
   setControlPanelBetMode("bet");
   setControlPanelRandomState(false);
+  setControlPanelRevealAllState(false);
   setGameBoardInteractivity(false);
   minesSelectionLocked = false;
   setControlPanelMinesState(true);
@@ -725,6 +741,16 @@ function handleCashout() {
 
   if (!demoMode && !suppressRelay) {
     sendRelayMessage("action:cashout", {});
+    return;
+  }
+
+  markManualRoundForReset();
+  game?.revealRemainingTiles?.();
+  finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
+}
+
+function handleRevealAllClick() {
+  if (!roundActive || selectionPending) {
     return;
   }
 
@@ -1138,6 +1164,7 @@ const opts = {
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
+    controlPanel.addEventListener("revealall", handleRevealAllClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     finalizeRound();
     controlPanel.setBetAmountDisplay("$0.00");
