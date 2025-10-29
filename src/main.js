@@ -229,7 +229,7 @@ serverRelay.addEventListener("demomodechange", (event) => {
 });
 
 function setControlPanelBetMode(mode) {
-  betButtonMode = mode === "bet" ? "bet" : "cashout";
+  betButtonMode = "bet";
   controlPanel?.setBetButtonMode?.(betButtonMode);
 }
 
@@ -612,8 +612,6 @@ function applyRoundInteractiveState(state) {
     return;
   }
 
-  setControlPanelBetMode("cashout");
-
   const revealedCount = state?.revealed ?? 0;
   const totalTiles = state?.totalTiles ?? GRID_SIZE * GRID_SIZE;
 
@@ -621,13 +619,12 @@ function applyRoundInteractiveState(state) {
     setControlPanelBetState(false);
     setControlPanelRandomState(false);
     setControlPanelRevealAllState(false);
-    cashoutAvailable = revealedCount > 0;
+    cashoutAvailable = false;
     return;
   }
 
-  const hasRevealedCard = revealedCount > 0;
-  cashoutAvailable = hasRevealedCard;
-  setControlPanelBetState(hasRevealedCard);
+  cashoutAvailable = false;
+  setControlPanelBetState(false);
   setControlPanelRandomState(true);
   const hasHiddenTiles = revealedCount < totalTiles;
   setControlPanelRevealAllState(hasHiddenTiles);
@@ -637,7 +634,7 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   roundActive = true;
   cashoutAvailable = false;
   clearSelectionDelay();
-  setControlPanelBetMode("cashout");
+  setControlPanelBetMode("bet");
   setControlPanelBetState(false);
   setControlPanelRandomState(true);
   setControlPanelRevealAllState(true);
