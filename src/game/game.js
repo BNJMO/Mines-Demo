@@ -309,6 +309,7 @@ export async function createGame(mount, opts = {}) {
     autoRevealTriggered: false,
     feedbackPlayed: false,
     soundKey: null,
+    winningCards: new Set(),
   };
 
   function resetRoundOutcome() {
@@ -319,6 +320,7 @@ export async function createGame(mount, opts = {}) {
     currentRoundOutcome.autoRevealTriggered = false;
     currentRoundOutcome.feedbackPlayed = false;
     currentRoundOutcome.soundKey = null;
+    currentRoundOutcome.winningCards.clear();
   }
 
   function applyRoundOutcomeMeta(meta = {}, assignments = []) {
@@ -462,7 +464,7 @@ export async function createGame(mount, opts = {}) {
       payloadKey === currentRoundOutcome.winningKey
     ) {
       currentRoundOutcome.revealedWinning += 1;
-      card.highlightWin?.({ faceColor: WIN_FACE_COLOR });
+      currentRoundOutcome.winningCards.add(card);
     }
 
     const state = rules.getState();
@@ -480,13 +482,25 @@ export async function createGame(mount, opts = {}) {
       revealRemainingTiles();
     }
 
-    if (
-      !currentRoundOutcome.feedbackPlayed &&
-      currentRoundOutcome.soundKey &&
-      state.revealed >= state.totalTiles
-    ) {
+    const allCardsRevealed = state.revealed >= state.totalTiles;
+
+    if (!currentRoundOutcome.feedbackPlayed && allCardsRevealed) {
       currentRoundOutcome.feedbackPlayed = true;
-      soundManager.play(currentRoundOutcome.soundKey);
+
+      if (
+        currentRoundOutcome.betResult === "win" &&
+        currentRoundOutcome.winningCards.size > 0
+      ) {
+        for (const winningCard of currentRoundOutcome.winningCards) {
+          winningCard.highlightWin?.({ faceColor: WIN_FACE_COLOR });
+        }
+      }
+
+      currentRoundOutcome.winningCards.clear();
+
+      if (currentRoundOutcome.soundKey) {
+        soundManager.play(currentRoundOutcome.soundKey);
+      }
     }
   }
 

@@ -24,6 +24,8 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
     winningTotal: 0,
     winningRevealed: 0,
     autoRevealTriggered: false,
+    feedbackPlayed: false,
+    winningTiles: new Set(),
   };
 
   function resetOutcome() {
@@ -32,6 +34,8 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
     currentOutcome.winningTotal = 0;
     currentOutcome.winningRevealed = 0;
     currentOutcome.autoRevealTriggered = false;
+    currentOutcome.feedbackPlayed = false;
+    currentOutcome.winningTiles.clear();
   }
 
   function applyOutcome(meta = {}) {
@@ -89,8 +93,7 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
       resolvedKey === currentOutcome.winningKey
     ) {
       currentOutcome.winningRevealed += 1;
-      tile.classList.add('fallback-tile--win');
-      tile.style.backgroundColor = '#5800a5';
+      currentOutcome.winningTiles.add(tile);
     }
 
     if (
@@ -102,6 +105,18 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
     ) {
       currentOutcome.autoRevealTriggered = true;
       setTimeout(() => revealRemainingTiles(), 0);
+    }
+
+    const allRevealed = tiles.every((t) => t.classList.contains('revealed'));
+    if (!currentOutcome.feedbackPlayed && allRevealed) {
+      currentOutcome.feedbackPlayed = true;
+      if (currentOutcome.betResult === 'win') {
+        currentOutcome.winningTiles.forEach((winningTile) => {
+          winningTile.classList.add('fallback-tile--win');
+          winningTile.style.backgroundColor = '#5800a5';
+        });
+      }
+      currentOutcome.winningTiles.clear();
     }
   }
 

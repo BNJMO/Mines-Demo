@@ -49,6 +49,7 @@ export class Card {
     this._shakeActive = false;
     this._swapHandled = false;
     this._winHighlighted = false;
+    this._winHighlightInterval = null;
 
     this._tiltDir = 1;
     this._baseX = 0;
@@ -251,8 +252,16 @@ export class Card {
     }
 
     this._winHighlighted = true;
+    this.#stopWinHighlightLoop();
     this.flipFace(faceColor);
     this.bump({ scaleMultiplier, duration });
+    this._winHighlightInterval = setInterval(() => {
+      if (!this.revealed || this.destroyed) {
+        this.#stopWinHighlightLoop();
+        return;
+      }
+      this.bump({ scaleMultiplier, duration });
+    }, 2000);
   }
 
   forceFlatPose() {
@@ -264,6 +273,7 @@ export class Card {
     this.container.rotation = 0;
     this._shakeActive = false;
     this._bumpToken = null;
+    this.#stopWinHighlightLoop();
   }
 
   reveal({
@@ -289,6 +299,7 @@ export class Card {
     }
 
     this._animating = true;
+    this.#stopWinHighlightLoop();
     this._winHighlighted = false;
     this.stopHover();
     this.stopWiggle();
@@ -476,6 +487,22 @@ export class Card {
     return this.animationOptions.hoverTiltAxis === "y"
       ? this._wrap.skew.y
       : this._wrap.skew.x;
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.stopHover();
+    this.stopWiggle();
+    this.#stopWinHighlightLoop();
+    this.container?.destroy?.({ children: true });
+  }
+
+  #stopWinHighlightLoop() {
+    if (this._winHighlightInterval != null) {
+      clearInterval(this._winHighlightInterval);
+      this._winHighlightInterval = null;
+    }
   }
 
   #resolveRevealColor({
