@@ -317,8 +317,9 @@ export class GameControlPanel extends ControlPanelLayout {
     this.autoNumberOfBetsInfinityIcon.src = infinityIconUrl;
     this.autoNumberOfBetsInfinityIcon.alt = "";
     this.autoNumberOfBetsInfinityIcon.className = "auto-number-infinity";
-    this.autoNumberOfBetsField.appendChild(
-      this.autoNumberOfBetsInfinityIcon
+    this.autoNumberOfBetsField.insertBefore(
+      this.autoNumberOfBetsInfinityIcon,
+      this.autoNumberOfBetsStepper?.element ?? null
     );
 
     this.autoAdvancedHeader = document.createElement("div");
