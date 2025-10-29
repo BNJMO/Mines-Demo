@@ -310,6 +310,7 @@ export async function createGame(mount, opts = {}) {
     feedbackPlayed: false,
     soundKey: null,
     winningCards: new Set(),
+    pendingReveals: 0,
   };
 
   function resetRoundOutcome() {
@@ -321,6 +322,7 @@ export async function createGame(mount, opts = {}) {
     currentRoundOutcome.feedbackPlayed = false;
     currentRoundOutcome.soundKey = null;
     currentRoundOutcome.winningCards.clear();
+    currentRoundOutcome.pendingReveals = 0;
   }
 
   function applyRoundOutcomeMeta(meta = {}, assignments = []) {
@@ -435,7 +437,7 @@ export async function createGame(mount, opts = {}) {
     soundManager.play("tileFlip");
     card._revealedFace = face;
     const iconRevealFactor = forceFullIconSize ? 1 : iconRevealedSizeFactor;
-    card.reveal({
+    const started = card.reveal({
       content,
       useSelectionTint,
       revealedByPlayer,
@@ -443,8 +445,17 @@ export async function createGame(mount, opts = {}) {
       iconRevealedSizeFactor: iconRevealFactor,
       flipDuration,
       flipEaseFunction,
-      onComplete: handleCardRevealComplete,
+      onComplete: (instance, payload) => {
+        currentRoundOutcome.pendingReveals = Math.max(
+          0,
+          currentRoundOutcome.pendingReveals - 1
+        );
+        handleCardRevealComplete(instance, payload);
+      },
     });
+    if (started) {
+      currentRoundOutcome.pendingReveals += 1;
+    }
     if (typeof content.playSound === "function") {
       content.playSound({ revealedByPlayer, card });
     }
@@ -488,8 +499,13 @@ export async function createGame(mount, opts = {}) {
     }
 
     const allCardsRevealed = state.revealed >= state.totalTiles;
+    const animationsCompleted = currentRoundOutcome.pendingReveals <= 0;
 
-    if (!currentRoundOutcome.feedbackPlayed && allCardsRevealed) {
+    if (
+      !currentRoundOutcome.feedbackPlayed &&
+      allCardsRevealed &&
+      animationsCompleted
+    ) {
       currentRoundOutcome.feedbackPlayed = true;
 
       if (
