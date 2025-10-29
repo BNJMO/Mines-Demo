@@ -136,10 +136,6 @@ export async function createGame(mount, opts = {}) {
   const onChange = opts.onChange ?? (() => {});
   const getMode =
     typeof opts.getMode === "function" ? () => opts.getMode() : () => "manual";
-  const onAutoSelectionChange =
-    typeof opts.onAutoSelectionChange === "function"
-      ? (count) => opts.onAutoSelectionChange(count)
-      : () => {};
   const palette = {
     ...DEFAULT_PALETTE,
     ...(opts.palette ?? {}),
@@ -298,8 +294,6 @@ export async function createGame(mount, opts = {}) {
   const rules = new GameRules({ gridSize: GRID });
 
   const cardsByKey = new Map();
-  const autoSelectedTiles = new Set();
-  const autoSelectionOrder = [];
   const currentAssignments = new Map();
   const currentRoundOutcome = {
     betResult: null,
@@ -364,57 +358,8 @@ export async function createGame(mount, opts = {}) {
     }
   }
 
-  function emitAutoSelectionChange() {
-    onAutoSelectionChange(autoSelectionOrder.length);
-  }
-
   function notifyStateChange() {
     onChange(rules.getState());
-  }
-
-  function setAutoTileSelected(card, selected, { emit = true } = {}) {
-    if (!card || card.revealed || card._animating) return;
-    const key = `${card.row},${card.col}`;
-    if (selected) {
-      if (autoSelectedTiles.has(key)) return;
-      autoSelectedTiles.add(key);
-      autoSelectionOrder.push(card);
-      card.setAutoSelected(true);
-    } else {
-      if (!autoSelectedTiles.has(key)) return;
-      autoSelectedTiles.delete(key);
-      card.setAutoSelected(false);
-      const idx = autoSelectionOrder.indexOf(card);
-      if (idx >= 0) autoSelectionOrder.splice(idx, 1);
-    }
-    if (emit) emitAutoSelectionChange();
-  }
-
-  function clearAutoSelections({ emit = true } = {}) {
-    for (const card of autoSelectionOrder) {
-      card.setAutoSelected(false);
-    }
-    autoSelectedTiles.clear();
-    autoSelectionOrder.length = 0;
-    if (emit) emitAutoSelectionChange();
-  }
-
-  function applyAutoSelectionsFromCoordinates(list = []) {
-    clearAutoSelections({ emit: false });
-    let applied = 0;
-    for (const entry of list) {
-      const key = `${entry.row},${entry.col}`;
-      const card = cardsByKey.get(key);
-      if (!card || card.revealed || card._animating) continue;
-      setAutoTileSelected(card, true, { emit: false });
-      applied += 1;
-    }
-    emitAutoSelectionChange();
-    return applied;
-  }
-
-  function getAutoSelectionCoordinates() {
-    return autoSelectionOrder.map((card) => ({ row: card.row, col: card.col }));
   }
 
   function enterWaitingState(card) {
@@ -432,10 +377,6 @@ export async function createGame(mount, opts = {}) {
     { revealedByPlayer = true, forceFullIconSize = false } = {}
   ) {
     if (!card) return;
-    const useSelectionTint = card.isAutoSelected;
-    if (card.isAutoSelected) {
-      setAutoTileSelected(card, false);
-    }
     const content = contentLibrary[face] ?? {};
     soundManager.play("tileFlip");
     card._revealedFace = face;
@@ -450,7 +391,7 @@ export async function createGame(mount, opts = {}) {
       currentRoundOutcome.pendingWinningReveals;
     const started = card.reveal({
       content,
-      useSelectionTint,
+      useSelectionTint: false,
       revealedByPlayer,
       iconSizePercentage,
       iconRevealedSizeFactor: iconRevealFactor,
@@ -601,8 +542,6 @@ export async function createGame(mount, opts = {}) {
     if (card.revealed || card._animating || rules.gameOver) return;
 
     if (autoMode) {
-      const isSelected = autoSelectedTiles.has(`${card.row},${card.col}`);
-      setAutoTileSelected(card, !isSelected);
       return;
     }
 
@@ -615,7 +554,7 @@ export async function createGame(mount, opts = {}) {
 
   function handlePointerOver(card) {
     if (card.revealed || card._animating || rules.gameOver) return;
-    if (isAutoModeActive(getMode) && card.isAutoSelected) return;
+    if (isAutoModeActive(getMode)) return;
     soundManager.play("tileHover");
     card.hover(true);
   }
@@ -631,6 +570,7 @@ export async function createGame(mount, opts = {}) {
 
   function handlePointerDown(card) {
     if (card.revealed || card._animating || rules.gameOver) return;
+    if (isAutoModeActive(getMode)) return;
     soundManager.play("tileTapDown");
     card.setPressed(true);
   }
@@ -655,12 +595,11 @@ export async function createGame(mount, opts = {}) {
   registerCards();
   soundManager.play("gameStart");
 
-  function reset({ preserveAutoSelections = false } = {}) {
+  function reset() {
     rules.reset();
     currentAssignments.clear();
     resetRoundOutcome();
     rules.setAssignments(currentAssignments);
-    clearAutoSelections({ emit: !preserveAutoSelections });
     scene.hideWinPopup();
     scene.clearGrid();
     scene.buildGrid({
@@ -674,9 +613,6 @@ export async function createGame(mount, opts = {}) {
       }),
     });
     registerCards();
-    if (preserveAutoSelections) {
-      applyAutoSelectionsFromCoordinates(getAutoSelectionCoordinates());
-    }
     notifyStateChange();
   }
 
@@ -748,10 +684,7 @@ export async function createGame(mount, opts = {}) {
 
   function destroy() {
     scene.destroy();
-    clearAutoSelections({ emit: false });
     cardsByKey.clear();
-    autoSelectionOrder.length = 0;
-    autoSelectedTiles.clear();
     resetRoundOutcome();
   }
 
@@ -772,10 +705,7 @@ export async function createGame(mount, opts = {}) {
     destroy,
     revealSelectedCard,
     selectRandomTile,
-    getAutoSelections: getAutoSelectionCoordinates,
     revealAutoSelections,
-    clearAutoSelections,
-    applyAutoSelections: applyAutoSelectionsFromCoordinates,
     revealRemainingTiles,
     getAutoResetDelay: () => autoResetDelayMs,
     setAnimationsEnabled,

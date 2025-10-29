@@ -59,7 +59,7 @@ export class ControlPanel extends EventTarget {
     this.randomPickButtonState = "clickable";
     this.revealAllButtonState = "non-clickable";
     this.minesSelectState = "clickable";
-    this.autoStartButtonState = "non-clickable";
+    this.autoStartButtonState = "clickable";
     this.autoStartButtonMode = "start";
 
     this.totalProfitMultiplier = 1;
