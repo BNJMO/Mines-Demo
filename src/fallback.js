@@ -18,6 +18,33 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
 
   const tiles = [];
   const currentAssignments = new Map();
+  const currentOutcome = {
+    betResult: null,
+    winningKey: null,
+    winningTotal: 0,
+    winningRevealed: 0,
+    autoRevealTriggered: false,
+  };
+
+  function resetOutcome() {
+    currentOutcome.betResult = null;
+    currentOutcome.winningKey = null;
+    currentOutcome.winningTotal = 0;
+    currentOutcome.winningRevealed = 0;
+    currentOutcome.autoRevealTriggered = false;
+  }
+
+  function applyOutcome(meta = {}) {
+    resetOutcome();
+    currentOutcome.betResult = typeof meta.betResult === 'string' ? meta.betResult : null;
+    if (currentOutcome.betResult === 'win' && meta.winningKey != null) {
+      currentOutcome.winningKey = meta.winningKey;
+      const total = Number(meta.totalWinningCards);
+      if (Number.isFinite(total) && total > 0) {
+        currentOutcome.winningTotal = total;
+      }
+    }
+  }
 
   for (let r = 0; r < GRID; r++) {
     for (let c = 0; c < GRID; c++) {
@@ -35,7 +62,10 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
       t.classList.remove('revealed');
       t.textContent = '';
       delete t.dataset.cardType;
+      t.classList.remove('fallback-tile--win');
+      t.style.removeProperty('backgroundColor');
     });
+    resetOutcome();
   }
 
   function getKey(row, col) {
@@ -48,12 +78,35 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
     );
     if (!tile || tile.classList.contains('revealed')) return;
     tile.classList.add('revealed');
-    const key = contentKey ?? '❓';
-    tile.dataset.cardType = key;
-    tile.textContent = key;
+    const resolvedKey = contentKey ?? null;
+    const displayKey = resolvedKey ?? '❓';
+    tile.dataset.cardType = displayKey;
+    tile.textContent = displayKey;
+
+    if (
+      currentOutcome.betResult === 'win' &&
+      currentOutcome.winningKey != null &&
+      resolvedKey === currentOutcome.winningKey
+    ) {
+      currentOutcome.winningRevealed += 1;
+      tile.classList.add('fallback-tile--win');
+      tile.style.backgroundColor = '#5800a5';
+    }
+
+    if (
+      currentOutcome.betResult === 'win' &&
+      !currentOutcome.autoRevealTriggered &&
+      currentOutcome.winningKey != null &&
+      currentOutcome.winningTotal > 0 &&
+      currentOutcome.winningRevealed >= currentOutcome.winningTotal
+    ) {
+      currentOutcome.autoRevealTriggered = true;
+      setTimeout(() => revealRemainingTiles(), 0);
+    }
   }
 
-  function setRoundAssignments(assignments = []) {
+  function setRoundAssignments(assignments = [], meta = {}) {
+    reset();
     currentAssignments.clear();
     assignments.forEach((entry) => {
       if (
@@ -66,7 +119,16 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
         );
       }
     });
-    reset();
+    applyOutcome(meta);
+    if (
+      currentOutcome.betResult === 'win' &&
+      currentOutcome.winningKey != null &&
+      !currentOutcome.winningTotal
+    ) {
+      currentOutcome.winningTotal = assignments.filter(
+        (entry) => entry?.contentKey === currentOutcome.winningKey
+      ).length;
+    }
   }
 
   function revealSelectedCard() {
@@ -97,6 +159,7 @@ export function createFallbackMinesGame(mountSelector, opts = {}) {
   }
 
   function revealRemainingTiles() {
+    currentOutcome.autoRevealTriggered = true;
     tiles.forEach((tile) => {
       const row = Number(tile.dataset.row);
       const col = Number(tile.dataset.col);

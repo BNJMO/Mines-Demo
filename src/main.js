@@ -7,6 +7,8 @@ import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
 import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
+import roundWinSoundUrl from "../assets/sounds/Win.wav";
+import roundLostSoundUrl from "../assets/sounds/Lost.wav";
 
 let game;
 let controlPanel;
@@ -798,9 +800,12 @@ function generateScratchCardAssignments(betResult) {
   const positions = shuffleArray(createCardPositions());
   const assignments = [];
   const counts = new Map(cardTypes.map((key) => [key, 0]));
+  let winningKey = null;
 
   if (betResult === "win") {
-    const primaryType = shuffleArray(cardTypes)[0];
+    const shuffledTypes = shuffleArray(cardTypes);
+    const primaryType = shuffledTypes.length > 0 ? shuffledTypes[0] ?? null : null;
+    winningKey = primaryType ?? null;
     const primarySlots = Math.min(3, positions.length);
     for (let i = 0; i < primarySlots; i += 1) {
       const position = positions.shift();
@@ -845,7 +850,7 @@ function generateScratchCardAssignments(betResult) {
     }
   }
 
-  return assignments;
+  return { assignments, winningKey };
 }
 
 function prepareScratchRound(betResult) {
@@ -854,7 +859,7 @@ function prepareScratchRound(betResult) {
     return;
   }
 
-  const assignments = generateScratchCardAssignments(betResult);
+  const { assignments, winningKey } = generateScratchCardAssignments(betResult);
   currentRoundAssignments.clear();
   for (const entry of assignments) {
     currentRoundAssignments.set(
@@ -862,7 +867,15 @@ function prepareScratchRound(betResult) {
       entry.contentKey ?? null
     );
   }
-  game?.setRoundAssignments?.(assignments);
+  const totalWinningCards =
+    winningKey != null
+      ? assignments.filter((entry) => entry.contentKey === winningKey).length
+      : 0;
+  game?.setRoundAssignments?.(assignments, {
+    betResult,
+    winningKey,
+    totalWinningCards,
+  });
 }
 
 function handleBet(betResult = "lost") {
@@ -1051,6 +1064,8 @@ const opts = {
   tileFlipSoundPath: tileFlipSoundUrl,
   tileHoverSoundPath: tileHoverSoundUrl,
   gameStartSoundPath: gameStartSoundUrl,
+  roundWinSoundPath: roundWinSoundUrl,
+  roundLostSoundPath: roundLostSoundUrl,
   winPopupShowDuration: 260,
   winPopupWidth: 260,
   winPopupHeight: 200,

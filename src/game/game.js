@@ -5,6 +5,8 @@ import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
 import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
 import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
+import roundWinSoundUrl from "../../assets/sounds/Win.wav";
+import roundLostSoundUrl from "../../assets/sounds/Lost.wav";
 
 const CARD_TYPE_TEXTURES = (() => {
   const modules = import.meta.glob(
@@ -44,11 +46,15 @@ const DEFAULT_PALETTE = {
   winPopupSeparationLine: 0x1b2931,
 };
 
+const WIN_FACE_COLOR = 0x5800a5;
+
 const SOUND_ALIASES = {
   tileHover: "mines.tileHover",
   tileTapDown: "mines.tileTapDown",
   tileFlip: "mines.tileFlip",
   gameStart: "mines.gameStart",
+  roundWin: "mines.roundWin",
+  roundLost: "mines.roundLost",
 };
 
 function createDummySound() {
@@ -185,6 +191,8 @@ export async function createGame(mount, opts = {}) {
     tileFlip: opts.tileFlipSoundPath ?? tileFlipSoundUrl,
     tileHover: opts.tileHoverSoundPath ?? tileHoverSoundUrl,
     gameStart: opts.gameStartSoundPath ?? gameStartSoundUrl,
+    roundWin: opts.roundWinSoundPath ?? roundWinSoundUrl,
+    roundLost: opts.roundLostSoundPath ?? roundLostSoundUrl,
   };
 
   if (!CARD_TYPE_TEXTURES.length) {
@@ -293,6 +301,51 @@ export async function createGame(mount, opts = {}) {
   const autoSelectedTiles = new Set();
   const autoSelectionOrder = [];
   const currentAssignments = new Map();
+  const currentRoundOutcome = {
+    betResult: null,
+    winningKey: null,
+    winningCountRequired: 0,
+    revealedWinning: 0,
+    autoRevealTriggered: false,
+    feedbackPlayed: false,
+    soundKey: null,
+  };
+
+  function resetRoundOutcome() {
+    currentRoundOutcome.betResult = null;
+    currentRoundOutcome.winningKey = null;
+    currentRoundOutcome.winningCountRequired = 0;
+    currentRoundOutcome.revealedWinning = 0;
+    currentRoundOutcome.autoRevealTriggered = false;
+    currentRoundOutcome.feedbackPlayed = false;
+    currentRoundOutcome.soundKey = null;
+  }
+
+  function applyRoundOutcomeMeta(meta = {}, assignments = []) {
+    resetRoundOutcome();
+
+    const betResult = typeof meta.betResult === "string" ? meta.betResult : null;
+    currentRoundOutcome.betResult = betResult;
+
+    if (betResult === "win" && meta.winningKey != null) {
+      currentRoundOutcome.winningKey = meta.winningKey;
+      const explicitCount = Number(meta.totalWinningCards);
+      if (Number.isFinite(explicitCount) && explicitCount > 0) {
+        currentRoundOutcome.winningCountRequired = explicitCount;
+      } else {
+        const derivedCount = assignments.filter(
+          (entry) => entry?.contentKey === meta.winningKey
+        ).length;
+        currentRoundOutcome.winningCountRequired = derivedCount;
+      }
+    }
+
+    if (betResult === "win") {
+      currentRoundOutcome.soundKey = "roundWin";
+    } else if (betResult === "lost") {
+      currentRoundOutcome.soundKey = "roundLost";
+    }
+  }
 
   function registerCards() {
     cardsByKey.clear();
@@ -383,15 +436,64 @@ export async function createGame(mount, opts = {}) {
       iconRevealedSizeFactor,
       flipDuration,
       flipEaseFunction,
+      onComplete: handleCardRevealComplete,
     });
     if (typeof content.playSound === "function") {
       content.playSound({ revealedByPlayer, card });
     }
   }
 
+  function handleCardRevealComplete(card, payload = {}) {
+    if (!card) return;
+
+    const assignmentKey = `${card.row},${card.col}`;
+    const payloadKey =
+      payload?.key ??
+      payload?.content?.key ??
+      payload?.content?.face ??
+      card?._revealedFace ??
+      currentAssignments.get(assignmentKey) ??
+      null;
+
+    if (
+      currentRoundOutcome.betResult === "win" &&
+      currentRoundOutcome.winningKey != null &&
+      payloadKey != null &&
+      payloadKey === currentRoundOutcome.winningKey
+    ) {
+      currentRoundOutcome.revealedWinning += 1;
+      card.highlightWin?.({ faceColor: WIN_FACE_COLOR });
+    }
+
+    const state = rules.getState();
+
+    if (
+      currentRoundOutcome.betResult === "win" &&
+      !currentRoundOutcome.autoRevealTriggered &&
+      currentRoundOutcome.winningKey != null &&
+      currentRoundOutcome.winningCountRequired > 0 &&
+      currentRoundOutcome.revealedWinning >=
+        currentRoundOutcome.winningCountRequired &&
+      state.revealed < state.totalTiles
+    ) {
+      currentRoundOutcome.autoRevealTriggered = true;
+      revealRemainingTiles();
+    }
+
+    if (
+      !currentRoundOutcome.feedbackPlayed &&
+      currentRoundOutcome.soundKey &&
+      state.revealed >= state.totalTiles
+    ) {
+      currentRoundOutcome.feedbackPlayed = true;
+      soundManager.play(currentRoundOutcome.soundKey);
+    }
+  }
+
   function revealRemainingTiles() {
     const unrevealed = scene.cards.filter((card) => !card.revealed);
     if (!unrevealed.length) return;
+    currentRoundOutcome.autoRevealTriggered = true;
     const shuffled = [...unrevealed];
     for (let i = shuffled.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -400,6 +502,11 @@ export async function createGame(mount, opts = {}) {
 
     shuffled.forEach((card, index) => {
       const face = currentAssignments.get(`${card.row},${card.col}`) ?? null;
+      rules.revealResult({
+        row: card.row,
+        col: card.col,
+        result: face,
+      });
       const delay = disableAnimations
         ? 0
         : revealAllIntervalDelay * index;
@@ -408,6 +515,8 @@ export async function createGame(mount, opts = {}) {
         delay
       );
     });
+
+    notifyStateChange();
   }
 
   function handleCardTap(card) {
@@ -472,6 +581,7 @@ export async function createGame(mount, opts = {}) {
   function reset({ preserveAutoSelections = false } = {}) {
     rules.reset();
     currentAssignments.clear();
+    resetRoundOutcome();
     rules.setAssignments(currentAssignments);
     clearAutoSelections({ emit: !preserveAutoSelections });
     scene.hideWinPopup();
@@ -498,8 +608,9 @@ export async function createGame(mount, opts = {}) {
     // compatibility with the control panel.
   }
 
-  function setRoundAssignments(assignments = []) {
+  function setRoundAssignments(assignments = [], meta = {}) {
     currentAssignments.clear();
+    applyRoundOutcomeMeta(meta, assignments);
     for (const entry of assignments) {
       if (entry && typeof entry.row === "number" && typeof entry.col === "number") {
         const key = `${entry.row},${entry.col}`;
@@ -564,6 +675,7 @@ export async function createGame(mount, opts = {}) {
     cardsByKey.clear();
     autoSelectionOrder.length = 0;
     autoSelectedTiles.clear();
+    resetRoundOutcome();
   }
 
   function setAnimationsEnabled(enabled) {

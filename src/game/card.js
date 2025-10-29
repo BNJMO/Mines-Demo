@@ -44,9 +44,11 @@ export class Card {
     this._pressed = false;
     this._hoverToken = null;
     this._wiggleToken = null;
+    this._bumpToken = null;
     this._layoutScale = 1;
     this._shakeActive = false;
     this._swapHandled = false;
+    this._winHighlighted = false;
 
     this._tiltDir = 1;
     this._baseX = 0;
@@ -202,6 +204,57 @@ export class Card {
     this._animating = false;
   }
 
+  bump({ scaleMultiplier = 1.08, duration = 260 } = {}) {
+    const wrap = this._wrap;
+    if (!wrap) return;
+
+    const baseScaleX = wrap.scale.x;
+    const baseScaleY = wrap.scale.y;
+    const targetScaleX = baseScaleX * scaleMultiplier;
+    const targetScaleY = baseScaleY * scaleMultiplier;
+
+    const token = Symbol("card-bump");
+    this._bumpToken = token;
+
+    if (this.disableAnimations || duration <= 0) {
+      wrap.scale.x = baseScaleX;
+      wrap.scale.y = baseScaleY;
+      this._bumpToken = null;
+      return;
+    }
+
+    const easeOut = (value) => 1 - Math.pow(1 - value, 3);
+
+    this.tween({
+      duration,
+      ease: (t) => t,
+      update: (t) => {
+        if (this._bumpToken !== token) return;
+        const phase = t < 0.5 ? easeOut(t / 0.5) : easeOut((1 - t) / 0.5);
+        const nextScaleX = baseScaleX + (targetScaleX - baseScaleX) * phase;
+        const nextScaleY = baseScaleY + (targetScaleY - baseScaleY) * phase;
+        wrap.scale.x = nextScaleX;
+        wrap.scale.y = nextScaleY;
+      },
+      complete: () => {
+        if (this._bumpToken !== token) return;
+        wrap.scale.x = baseScaleX;
+        wrap.scale.y = baseScaleY;
+        this._bumpToken = null;
+      },
+    });
+  }
+
+  highlightWin({ faceColor = 0x5800a5, scaleMultiplier = 1.08, duration = 260 } = {}) {
+    if (!this.revealed || this._winHighlighted) {
+      return;
+    }
+
+    this._winHighlighted = true;
+    this.flipFace(faceColor);
+    this.bump({ scaleMultiplier, duration });
+  }
+
   forceFlatPose() {
     if (!this._wrap) return;
     this._wrap.scale.x = this._wrap.scale.y = 1;
@@ -210,6 +263,7 @@ export class Card {
     this.container.y = this._baseY;
     this.container.rotation = 0;
     this._shakeActive = false;
+    this._bumpToken = null;
   }
 
   reveal({
@@ -235,6 +289,7 @@ export class Card {
     }
 
     this._animating = true;
+    this._winHighlighted = false;
     this.stopHover();
     this.stopWiggle();
 
