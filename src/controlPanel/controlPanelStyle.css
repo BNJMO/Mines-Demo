@@ -224,7 +224,6 @@
 
 .control-bet-input {
   flex: 1 1 auto;
-  min-width: 0;
   border: none;
   background: transparent;
   color: inherit;
@@ -587,9 +586,9 @@
   border: none;
   background: #091b26;
   color: #9a9da6;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 12px 14px;
+  padding: 12px 2px;
   margin: 2px;
   border-radius: 4px;
   cursor: pointer;
@@ -619,8 +618,8 @@
 }
 
 .auto-advanced-input {
-  flex: 0 1 40%;
-  max-width: 40%;
+  flex: 0 1 35%;
+  max-width: 35%;
   min-width: 0;
   --control-bet-padding-right: clamp(68px, 26%, 96px);
   --control-bet-stepper-offset: clamp(42px, 16%, 56px);
