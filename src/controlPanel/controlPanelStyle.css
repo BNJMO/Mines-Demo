@@ -583,7 +583,7 @@
 }
 
 .auto-mode-toggle-btn {
-  flex: 1 1 auto;
+  flex: 1 1 50%;
   border: none;
   background: #091b26;
   color: #9a9da6;
@@ -594,10 +594,6 @@
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
-}
-
-.auto-mode-toggle-btn.is-reset {
-  flex: 0 0 25%;
 }
 
 .auto-mode-toggle-btn.is-active {
@@ -679,23 +675,6 @@
 }
 
 @media (max-width: 640px) {
-  .auto-advanced-strategy-row {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .auto-mode-toggle {
-    flex: 1 1 100%;
-  }
-
-  .auto-advanced-input {
-    flex: 1 1 100%;
-    max-width: none;
-    width: 100%;
-    --control-bet-padding-right: clamp(64px, 28vw, 92px);
-    --control-bet-stepper-offset: clamp(40px, 18vw, 56px);
-  }
-
   .auto-mode-toggle-btn {
     padding: 10px 12px;
     font-size: 0.75rem;
