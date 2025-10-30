@@ -1,7 +1,7 @@
 import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
-import { createServerDummy } from "./serverDummy/serverDummy.js";
+import { GameServerDummy } from "./serverDummy/gameServerDummy.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -149,7 +149,7 @@ function applyAutoResultsFromServer(results = []) {
 
 const serverDummyMount =
   document.querySelector(".app-wrapper") ?? document.body;
-serverDummyUI = createServerDummy(serverRelay, {
+serverDummyUI = new GameServerDummy(serverRelay, {
   mount: serverDummyMount,
   onDemoModeToggle: (value) => setDemoMode(value),
   initialDemoMode: demoMode,
