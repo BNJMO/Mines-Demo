@@ -80,5 +80,7 @@ body {
   .app-container {
     --app-container-vertical-padding: 32px;
     padding: 16px;
+    height: auto;
+    max-height: none;
   }
 }
