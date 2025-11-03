@@ -63,6 +63,8 @@ export class ControlPanel extends EventTarget {
 
     this.totalProfitMultiplier = 1;
 
+    this.betTooltipTimeout = null;
+
     const totalTilesOption = Number(this.options.totalTiles);
     const normalizedTotalTiles =
       Number.isFinite(totalTilesOption) && totalTilesOption > 0
@@ -171,7 +173,17 @@ export class ControlPanel extends EventTarget {
     this.betInput.autocomplete = "off";
     this.betInput.setAttribute("aria-label", this.options.betAmountLabel);
     this.betInput.className = "control-bet-input";
-    this.betInput.addEventListener("input", () => this.dispatchBetValueChange());
+    this.betInput.addEventListener("input", () => {
+      const numericValue = this.parseBetValue(this.betInput.value);
+      if (numericValue < 0) {
+        const formatted = this.formatBetValue(0);
+        this.betInput.value = formatted;
+        this.showBetAmountTooltip();
+        this.dispatchBetValueChange(formatted);
+        return;
+      }
+      this.dispatchBetValueChange();
+    });
     this.betInput.addEventListener("blur", () => {
       this.setBetInputValue(this.betInput.value);
     });
@@ -190,6 +202,12 @@ export class ControlPanel extends EventTarget {
       downAriaLabel: "Decrease bet amount",
     });
     this.betInputWrapper.appendChild(this.betStepper.element);
+
+    this.betTooltip = document.createElement("div");
+    this.betTooltip.className = "control-bet-tooltip";
+    this.betTooltip.setAttribute("role", "alert");
+    this.betTooltip.textContent = "This must be greater than or equal to 0";
+    this.betBox.appendChild(this.betTooltip);
 
     this.halfButton = document.createElement("button");
     this.halfButton.type = "button";
@@ -964,7 +982,11 @@ export class ControlPanel extends EventTarget {
 
   adjustBetValue(delta) {
     const current = this.getBetValue();
-    const next = clampToZero(current + delta);
+    const nextRaw = current + delta;
+    if (nextRaw < 0) {
+      this.showBetAmountTooltip();
+    }
+    const next = clampToZero(nextRaw);
     this.setBetInputValue(next);
   }
 
@@ -972,6 +994,21 @@ export class ControlPanel extends EventTarget {
     const current = this.getBetValue();
     const next = clampToZero(current * factor);
     this.setBetInputValue(next);
+  }
+
+  showBetAmountTooltip(message = "This must be greater than or equal to 0") {
+    if (!this.betTooltip) {
+      return;
+    }
+    this.betTooltip.textContent = message;
+    this.betTooltip.classList.add("is-visible");
+    if (this.betTooltipTimeout) {
+      clearTimeout(this.betTooltipTimeout);
+    }
+    this.betTooltipTimeout = setTimeout(() => {
+      this.betTooltip?.classList.remove("is-visible");
+      this.betTooltipTimeout = null;
+    }, 3000);
   }
 
   setBetInputValue(value, { emit = true } = {}) {
