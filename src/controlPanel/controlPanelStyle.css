@@ -139,6 +139,8 @@
   pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease;
   white-space: nowrap;
+  width: 100%;
+  box-sizing: border-box;
   z-index: 1;
 }
 
