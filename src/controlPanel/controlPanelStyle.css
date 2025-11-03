@@ -134,6 +134,7 @@
   border-radius: 16px;
   font-size: 0.85rem;
   font-weight: 600;
+  text-align: center;
   box-shadow: 0 8px 18px rgba(9, 27, 38, 0.35);
   opacity: 0;
   pointer-events: none;
