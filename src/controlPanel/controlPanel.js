@@ -982,7 +982,11 @@ export class ControlPanel extends EventTarget {
 
   adjustBetValue(delta) {
     const current = this.getBetValue();
-    const next = clampToZero(current + delta);
+    const nextRaw = current + delta;
+    if (nextRaw < 0) {
+      this.showBetAmountTooltip();
+    }
+    const next = clampToZero(nextRaw);
     this.setBetInputValue(next);
   }
 
