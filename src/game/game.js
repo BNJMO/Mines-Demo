@@ -206,6 +206,7 @@ export async function createGame(mount, opts = {}) {
   const winPopupShowDuration = opts.winPopupShowDuration ?? 260;
   const winPopupWidth = opts.winPopupWidth ?? 240;
   const winPopupHeight = opts.winPopupHeight ?? 170;
+  const maxRendererResolution = Math.max(1, opts.maxRendererResolution ?? 2);
 
   // Resolve mount element
   const root =
@@ -267,7 +268,8 @@ export async function createGame(mount, opts = {}) {
       width: startWidth,
       height: startHeight,
       antialias: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
+      autoDensity: true,
+      resolution: Math.min(window.devicePixelRatio || 1, maxRendererResolution),
     });
 
     // Clear the loading message
@@ -347,6 +349,7 @@ export async function createGame(mount, opts = {}) {
     try {
       ro.disconnect();
     } catch {}
+    window.removeEventListener("resize", resizeSquare);
     cleanupExplosionSprites();
     app.destroy(true);
     if (app.canvas?.parentNode === root) root.removeChild(app.canvas);
@@ -506,8 +509,8 @@ export async function createGame(mount, opts = {}) {
 
   function positionWinPopup() {
     winPopup.container.position.set(
-      app.renderer.width / 2,
-      app.renderer.height / 2
+      app.renderer.screen.width / 2,
+      app.renderer.screen.height / 2
     );
   }
 
@@ -1683,7 +1686,10 @@ export async function createGame(mount, opts = {}) {
   }
 
   function layoutSizes() {
-    const canvasSize = Math.min(app.renderer.width, app.renderer.height);
+    const canvasSize = Math.min(
+      app.renderer.screen.width,
+      app.renderer.screen.height
+    );
     const topSpace = 16;
     const boardSpace = Math.max(40, canvasSize - topSpace - 5);
     const baseGap = Math.max(1, Math.floor(boardSpace * gapBetweenTiles));
@@ -1730,7 +1736,10 @@ export async function createGame(mount, opts = {}) {
   }
 
   function centerBoard() {
-    board.position.set(app.renderer.width / 2, app.renderer.height / 2);
+    board.position.set(
+      app.renderer.screen.width / 2,
+      app.renderer.screen.height / 2
+    );
     board.scale.set(1);
     positionWinPopup();
   }
@@ -1740,6 +1749,11 @@ export async function createGame(mount, opts = {}) {
     const ch = Math.max(1, root.clientHeight || cw);
 
     const size = Math.floor(Math.min(cw, ch));
+    const deviceRatio = window.devicePixelRatio || 1;
+    const targetResolution = Math.min(deviceRatio, maxRendererResolution);
+    if (app.renderer.resolution !== targetResolution) {
+      app.renderer.resolution = targetResolution;
+    }
     app.renderer.resize(size, size);
     if (!tiles.length) {
       buildBoard();
@@ -1827,6 +1841,7 @@ export async function createGame(mount, opts = {}) {
 
   const ro = new ResizeObserver(() => resizeSquare());
   ro.observe(root);
+  window.addEventListener("resize", resizeSquare);
 
   return {
     app,
