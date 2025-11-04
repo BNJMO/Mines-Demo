@@ -120,7 +120,7 @@ export async function createGame(mount, opts = {}) {
   const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
-  const extraVerticalGap = Number(opts.extraVerticalGap ?? 10);
+  const extraVerticalGap = Number(opts.extraVerticalGap ?? 5);
 
   // Animation Options
   let disableAnimations = opts.disableAnimations ?? false;
@@ -129,7 +129,7 @@ export async function createGame(mount, opts = {}) {
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
   const hoverExitDuration = opts.hoverExitDuration ?? 200;
   const hoverTiltAxis = opts.hoverTiltAxis ?? "x"; // 'y' | 'x'
-  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.02;
+  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.00;
 
   /* Card Selected Wiggle */
   const wiggleSelectionEnabled = opts.wiggleSelectionEnabled ?? true;
@@ -859,7 +859,7 @@ export async function createGame(mount, opts = {}) {
         const wiggle =
           Math.sin(p * Math.PI * wiggleSelectionTimes) *
           wiggleSelectionIntensity;
-        setSkew(wrap, baseSkew + wiggle);
+        // setSkew(wrap, baseSkew + wiggle);
 
         const scaleWiggle =
           1 +
@@ -868,7 +868,7 @@ export async function createGame(mount, opts = {}) {
       },
       complete: () => {
         if (t._wiggleToken !== token) return;
-        setSkew(wrap, baseSkew);
+        // setSkew(wrap, baseSkew);
         wrap.scale.x = wrap.scale.y = baseScale;
         t._animating = false;
       },
