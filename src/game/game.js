@@ -120,6 +120,7 @@ export async function createGame(mount, opts = {}) {
   const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
+  const extraVerticalGap = Number(opts.extraVerticalGap ?? 5);
 
   // Animation Options
   let disableAnimations = opts.disableAnimations ?? false;
@@ -128,7 +129,7 @@ export async function createGame(mount, opts = {}) {
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
   const hoverExitDuration = opts.hoverExitDuration ?? 200;
   const hoverTiltAxis = opts.hoverTiltAxis ?? "x"; // 'y' | 'x'
-  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.02;
+  const hoverSkewAmount = opts.hoverSkewAmount ?? 0.00;
 
   /* Card Selected Wiggle */
   const wiggleSelectionEnabled = opts.wiggleSelectionEnabled ?? true;
@@ -858,7 +859,7 @@ export async function createGame(mount, opts = {}) {
         const wiggle =
           Math.sin(p * Math.PI * wiggleSelectionTimes) *
           wiggleSelectionIntensity;
-        setSkew(wrap, baseSkew + wiggle);
+        // setSkew(wrap, baseSkew + wiggle);
 
         const scaleWiggle =
           1 +
@@ -867,7 +868,7 @@ export async function createGame(mount, opts = {}) {
       },
       complete: () => {
         if (t._wiggleToken !== token) return;
-        setSkew(wrap, baseSkew);
+        // setSkew(wrap, baseSkew);
         wrap.scale.x = wrap.scale.y = baseScale;
         t._animating = false;
       },
@@ -1685,19 +1686,31 @@ export async function createGame(mount, opts = {}) {
     const canvasSize = Math.min(app.renderer.width, app.renderer.height);
     const topSpace = 16;
     const boardSpace = Math.max(40, canvasSize - topSpace - 5);
-    const gap = Math.max(1, Math.floor(boardSpace * gapBetweenTiles));
-    const totalGaps = gap * (GRID - 1);
-    const tileSize = Math.floor((boardSpace - totalGaps) / GRID);
-    const contentSize = tileSize * GRID + totalGaps;
-    return { tileSize, gap, contentSize };
+    const baseGap = Math.max(1, Math.floor(boardSpace * gapBetweenTiles));
+    const gapX = baseGap;
+    const gapY = baseGap + Math.max(0, extraVerticalGap);
+    const totalGapX = gapX * (GRID - 1);
+    const totalGapY = gapY * (GRID - 1);
+    const tileSize = Math.max(
+      1,
+      Math.floor(
+        Math.min(
+          (boardSpace - totalGapX) / GRID,
+          (boardSpace - totalGapY) / GRID
+        )
+      )
+    );
+    const contentWidth = tileSize * GRID + totalGapX;
+    const contentHeight = tileSize * GRID + totalGapY;
+    return { tileSize, gapX, gapY, contentWidth, contentHeight };
   }
 
   function layoutBoard(layout = layoutSizes()) {
     if (!tiles.length) return;
 
-    const { tileSize, gap, contentSize } = layout;
-    const startX = -contentSize / 2;
-    const startY = -contentSize / 2;
+    const { tileSize, gapX, gapY, contentWidth, contentHeight } = layout;
+    const startX = -contentWidth / 2;
+    const startY = -contentHeight / 2;
 
     for (const tile of tiles) {
       const targetSize = tileSize;
@@ -1707,8 +1720,8 @@ export async function createGame(mount, opts = {}) {
       tile.scale?.set?.(scale, scale);
       tile._layoutScale = scale;
 
-      const x = startX + tile.col * (targetSize + gap);
-      const y = startY + tile.row * (targetSize + gap);
+      const x = startX + tile.col * (targetSize + gapX);
+      const y = startY + tile.row * (targetSize + gapY);
 
       tile.position.set(x, y);
       tile._baseX = x;

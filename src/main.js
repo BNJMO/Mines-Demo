@@ -45,7 +45,7 @@ let totalProfitAmountDisplayValue = "0.00000000";
 const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
-const SERVER_RESPONSE_DELAY_MS = 250;
+const SERVER_RESPONSE_DELAY_MS = 150;
 
 function withRelaySuppressed(callback) {
   suppressRelay = true;
@@ -924,15 +924,15 @@ const opts = {
   hoverEnterDuration: 120,
   hoverExitDuration: 200,
   hoverTiltAxis: "x",
-  hoverSkewAmount: 0.02,
+  hoverSkewAmount: 0.00,
   disableAnimations: false,
 
   // Card Selected Wiggle
   wiggleSelectionEnabled: true,
   wiggleSelectionDuration: 900,
-  wiggleSelectionTimes: 15,
-  wiggleSelectionIntensity: 0.03,
-  wiggleSelectionScale: 0.005,
+  wiggleSelectionTimes: 6,
+  wiggleSelectionIntensity: 0.02,
+  wiggleSelectionScale: 0.1,
 
   // Card Reveal Flip
   flipDelayMin: 150,
