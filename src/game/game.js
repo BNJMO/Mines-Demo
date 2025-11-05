@@ -26,13 +26,14 @@ import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x091b26, // page/canvas background
-  tileBase: 0x2b4756, // main tile face
-  tileInset: 0x2b4756, // inner inset
+  tileBase: 0x213039, // main tile face
+  tileInset: 0x213039, // inner inset
   tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x1b2931, // visible lip beneath tile face
+  tileElevationBase: 0x18262d, // visible lip beneath tile face
+  tileElevationHover: 0x152a33, // hover elevation lip
   tileElevationShadow: 0x091b26, // soft drop shadow
-  hover: 0x528aa5, // hover
+  hover: 0x18262d, // hover
   pressedTint: 0x7a7a7a,
   defaultTint: 0xffffff,
   safeA: 0x0f181e, // outer
@@ -49,7 +50,8 @@ const PALETTE = {
   winPopupSeparationLine: 0x1b2931,
 };
 
-const AUTO_SELECTION_COLOR = 0x5800a5;
+const AUTO_SELECTION_COLOR = 0x5f2afd;
+const AUTO_SELECTION_ELEVATION_COLOR = 0x360fa9;
 
 function tween(
   app,
@@ -785,13 +787,28 @@ export async function createGame(mount, opts = {}) {
     // Change color
     const card = tile._card;
     const inset = tile._inset;
-    if (card && inset) {
+    const elevationLip = tile._elevationLip;
+    if (card || inset || elevationLip) {
       const size = tile._tileSize;
       const r = tile._tileRadius;
       const pad = tile._tilePad;
       if (on) {
-        flipFace(card, size, size, r, PALETTE.hover);
-        flipInset(inset, size, size, r, pad, PALETTE.hover);
+        if (card) {
+          flipFace(card, size, size, r, PALETTE.hover);
+        }
+        if (inset) {
+          flipInset(inset, size, size, r, pad, PALETTE.hover);
+        }
+        if (elevationLip) {
+          paintTileElevation(
+            elevationLip,
+            size,
+            r,
+            tile.isAutoSelected
+              ? AUTO_SELECTION_ELEVATION_COLOR
+              : PALETTE.tileElevationHover
+          );
+        }
       } else {
         refreshTileTint(tile);
       }
@@ -953,6 +970,14 @@ export async function createGame(mount, opts = {}) {
       .fill(color);
   }
 
+  function paintTileElevation(graphic, size, radius, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
+    }
+
+    graphic.clear().roundRect(0, 0, size, size, radius).fill(color);
+  }
+
   function applyTileTint(tile, tint) {
     if (!tile) return;
     if (tile._inset) {
@@ -968,8 +993,9 @@ export async function createGame(mount, opts = {}) {
 
     const card = tile._card;
     const inset = tile._inset;
+    const elevationLip = tile._elevationLip;
 
-    if (!card && !inset) {
+    if (!card && !inset && !elevationLip) {
       return;
     }
 
@@ -979,6 +1005,14 @@ export async function createGame(mount, opts = {}) {
       }
       if (inset) {
         inset.tint = PALETTE.defaultTint;
+      }
+      if (elevationLip) {
+        paintTileElevation(
+          elevationLip,
+          tile._tileSize,
+          tile._tileRadius,
+          PALETTE.tileElevationBase
+        );
       }
       return;
     }
@@ -993,9 +1027,13 @@ export async function createGame(mount, opts = {}) {
     const insetColor = tile.isAutoSelected
       ? AUTO_SELECTION_COLOR
       : PALETTE.tileInset;
+    const elevationColor = tile.isAutoSelected
+      ? AUTO_SELECTION_ELEVATION_COLOR
+      : PALETTE.tileElevationBase;
 
     paintTileBase(card, size, radius, baseColor);
     paintTileInset(inset, size, radius, pad, insetColor);
+    paintTileElevation(elevationLip, size, radius, elevationColor);
 
     if (card) {
       card.tint = PALETTE.defaultTint;
@@ -1101,9 +1139,8 @@ export async function createGame(mount, opts = {}) {
     shadowFilter.quality = 2;
     elevationShadow.filters = [shadowFilter];
 
-    const elevationLip = new Graphics()
-      .roundRect(0, 0, size, size, raduis)
-      .fill(PALETTE.tileElevationBase);
+    const elevationLip = new Graphics();
+    paintTileElevation(elevationLip, size, raduis, PALETTE.tileElevationBase);
     elevationLip.y = lipOffset;
     elevationLip.alpha = 0.85;
 
@@ -1139,6 +1176,7 @@ export async function createGame(mount, opts = {}) {
     t._wrap = flipWrap;
     t._card = card;
     t._inset = inset;
+    t._elevationLip = elevationLip;
     t._icon = icon;
     t._tileSize = size;
     t._tileRadius = raduis;
