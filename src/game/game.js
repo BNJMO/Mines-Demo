@@ -31,6 +31,7 @@ const PALETTE = {
   tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
   tileElevationBase: 0x152a33, // visible lip beneath tile face
+  tileElevationFlipped: 0x040c0f, // revealed tile elevation lip
   tileElevationHover: 0x1f3f4c, // hover elevation lip
   tileElevationShadow: 0x091b26, // soft drop shadow
   hover: 0x35586b, // hover
@@ -993,7 +994,7 @@ export async function createGame(mount, opts = {}) {
           elevationLip,
           tile._tileSize,
           tile._tileRadius,
-          PALETTE.tileElevationBase
+          PALETTE.tileElevationFlipped
         );
       }
       return;
