@@ -26,30 +26,31 @@ import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x091b26, // page/canvas background
-  tileBase: 0x2b4756, // main tile face
-  tileInset: 0x2b4756, // inner inset
+  tileBase: 0x223845, // main tile face
+  tileInset: 0x223845, // inner inset
   tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x1b2931, // visible lip beneath tile face
+  tileElevationBase: 0x152a33, // visible lip beneath tile face
+  tileElevationFlipped: 0x040c0f, // revealed tile elevation lip
+  tileElevationHover: 0x1f3f4c, // hover elevation lip
   tileElevationShadow: 0x091b26, // soft drop shadow
-  hover: 0x528aa5, // hover
-  pressedTint: 0x7a7a7a,
-  defaultTint: 0xffffff,
-  safeA: 0x0f181e, // outer
-  safeAUnrevealed: 0x0f181e,
-  safeB: 0x0f181e, // inner
-  safeBUnrevealed: 0x0f181e,
-  bombA: 0x0f181e,
-  bombAUnrevealed: 0x0f181e,
-  bombB: 0x0f181e,
-  bombBUnrevealed: 0x0f181e,
+  hover: 0x35586b, // hover
+  safeA: 0x061217, // outer
+  safeAUnrevealed: 0x061217,
+  safeB: 0x061217, // inner
+  safeBUnrevealed: 0x061217,
+  bombA: 0x061217,
+  bombAUnrevealed: 0x061217,
+  bombB: 0x061217,
+  bombBUnrevealed: 0x061217,
   winPopupBorder: 0xeaff00,
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
   winPopupSeparationLine: 0x1b2931,
 };
 
-const AUTO_SELECTION_COLOR = 0x5800a5;
+const AUTO_SELECTION_COLOR = 0x5f2afd;
+const AUTO_SELECTION_ELEVATION_COLOR = 0x360fa9;
 
 function tween(
   app,
@@ -785,13 +786,28 @@ export async function createGame(mount, opts = {}) {
     // Change color
     const card = tile._card;
     const inset = tile._inset;
-    if (card && inset) {
+    const elevationLip = tile._elevationLip;
+    if (card || inset || elevationLip) {
       const size = tile._tileSize;
       const r = tile._tileRadius;
       const pad = tile._tilePad;
       if (on) {
-        flipFace(card, size, size, r, PALETTE.hover);
-        flipInset(inset, size, size, r, pad, PALETTE.hover);
+        if (card) {
+          flipFace(card, size, size, r, PALETTE.hover);
+        }
+        if (inset) {
+          flipInset(inset, size, size, r, pad, PALETTE.hover);
+        }
+        if (elevationLip) {
+          paintTileElevation(
+            elevationLip,
+            size,
+            r,
+            tile.isAutoSelected
+              ? AUTO_SELECTION_ELEVATION_COLOR
+              : PALETTE.tileElevationHover
+          );
+        }
       } else {
         refreshTileTint(tile);
       }
@@ -953,14 +969,12 @@ export async function createGame(mount, opts = {}) {
       .fill(color);
   }
 
-  function applyTileTint(tile, tint) {
-    if (!tile) return;
-    if (tile._inset) {
-      tile._inset.tint = tint;
+  function paintTileElevation(graphic, size, radius, color) {
+    if (!graphic || typeof graphic.clear !== "function") {
+      return;
     }
-    if (tile._card) {
-      tile._card.tint = tint;
-    }
+
+    graphic.clear().roundRect(0, 0, size, size, radius).fill(color);
   }
 
   function refreshTileTint(tile) {
@@ -968,17 +982,23 @@ export async function createGame(mount, opts = {}) {
 
     const card = tile._card;
     const inset = tile._inset;
+    const elevationLip = tile._elevationLip;
 
-    if (!card && !inset) {
+    if (!card && !inset && !elevationLip) {
       return;
     }
 
     if (tile.revealed) {
-      if (card) {
-        card.tint = PALETTE.defaultTint;
-      }
-      if (inset) {
-        inset.tint = PALETTE.defaultTint;
+      if (elevationLip) {
+        const revealedElevationColor = tile._revealedWithSelectionBase
+          ? AUTO_SELECTION_ELEVATION_COLOR
+          : PALETTE.tileElevationFlipped;
+        paintTileElevation(
+          elevationLip,
+          tile._tileSize,
+          tile._tileRadius,
+          revealedElevationColor
+        );
       }
       return;
     }
@@ -993,16 +1013,13 @@ export async function createGame(mount, opts = {}) {
     const insetColor = tile.isAutoSelected
       ? AUTO_SELECTION_COLOR
       : PALETTE.tileInset;
+    const elevationColor = tile.isAutoSelected
+      ? AUTO_SELECTION_ELEVATION_COLOR
+      : PALETTE.tileElevationBase;
 
     paintTileBase(card, size, radius, baseColor);
     paintTileInset(inset, size, radius, pad, insetColor);
-
-    if (card) {
-      card.tint = PALETTE.defaultTint;
-    }
-    if (inset) {
-      inset.tint = PALETTE.defaultTint;
-    }
+    paintTileElevation(elevationLip, size, radius, elevationColor);
   }
 
   function notifyAutoSelectionChange() {
@@ -1101,9 +1118,8 @@ export async function createGame(mount, opts = {}) {
     shadowFilter.quality = 2;
     elevationShadow.filters = [shadowFilter];
 
-    const elevationLip = new Graphics()
-      .roundRect(0, 0, size, size, raduis)
-      .fill(PALETTE.tileElevationBase);
+    const elevationLip = new Graphics();
+    paintTileElevation(elevationLip, size, raduis, PALETTE.tileElevationBase);
     elevationLip.y = lipOffset;
     elevationLip.alpha = 0.85;
 
@@ -1139,10 +1155,12 @@ export async function createGame(mount, opts = {}) {
     t._wrap = flipWrap;
     t._card = card;
     t._inset = inset;
+    t._elevationLip = elevationLip;
     t._icon = icon;
     t._tileSize = size;
     t._tileRadius = raduis;
     t._tilePad = pad;
+    t._revealedWithSelectionBase = false;
 
     // Spwan animation
     const s0 = 0.0001;
@@ -1185,9 +1203,6 @@ export async function createGame(mount, opts = {}) {
           hoverTile(t, true);
         }
 
-        if (t._pressed) {
-          applyTileTint(t, PALETTE.pressedTint);
-        }
       }
     });
     t.on("pointerdown", () => {
@@ -1207,7 +1222,6 @@ export async function createGame(mount, opts = {}) {
       }
 
       playSoundEffect("tileTapDown");
-      applyTileTint(t, PALETTE.pressedTint);
       t._pressed = true;
     });
     t.on("pointerup", () => {
@@ -1442,6 +1456,8 @@ export async function createGame(mount, opts = {}) {
     } = options;
     if (tile._animating || tile.revealed) return false;
 
+    tile._revealedWithSelectionBase = false;
+
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
     const progress = Math.min(1, revealedCount / tiles.length);
@@ -1454,6 +1470,7 @@ export async function createGame(mount, opts = {}) {
       const wrap = tile._wrap;
       const card = tile._card;
       const inset = tile._inset;
+      const elevationLip = tile._elevationLip;
       const icon = tile._icon;
       const radius = tile._tileRadius;
       const pad = tile._tilePad;
@@ -1469,6 +1486,7 @@ export async function createGame(mount, opts = {}) {
         card.destroyed ||
         !inset ||
         inset.destroyed ||
+        (elevationLip && elevationLip.destroyed) ||
         !icon ||
         icon.destroyed
       ) {
@@ -1536,6 +1554,20 @@ export async function createGame(mount, opts = {}) {
             const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
             icon.width = maxW;
             icon.height = maxH;
+
+            if (elevationLip) {
+              tile._revealedWithSelectionBase =
+                revealedByPlayer && useSelectionBase;
+              const flippedElevationColor = tile._revealedWithSelectionBase
+                ? AUTO_SELECTION_ELEVATION_COLOR
+                : PALETTE.tileElevationFlipped;
+              paintTileElevation(
+                elevationLip,
+                tileSize,
+                radius,
+                flippedElevationColor
+              );
+            }
 
             if (face === "bomb") {
               icon.texture = bombTexture;
