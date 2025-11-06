@@ -26,22 +26,22 @@ import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x091b26, // page/canvas background
-  tileBase: 0x213039, // main tile face
-  tileInset: 0x213039, // inner inset
+  tileBase: 0x223845, // main tile face
+  tileInset: 0x223845, // inner inset
   tileStroke: 0x080e11, // subtle outline
   tileStrokeFlipped: 0x0f0f0f, // subtle outline
-  tileElevationBase: 0x18262d, // visible lip beneath tile face
-  tileElevationHover: 0x152a33, // hover elevation lip
+  tileElevationBase: 0x152a33, // visible lip beneath tile face
+  tileElevationHover: 0x1f3f4c, // hover elevation lip
   tileElevationShadow: 0x091b26, // soft drop shadow
-  hover: 0x18262d, // hover
-  safeA: 0x0f181e, // outer
-  safeAUnrevealed: 0x0f181e,
-  safeB: 0x0f181e, // inner
-  safeBUnrevealed: 0x0f181e,
-  bombA: 0x0f181e,
-  bombAUnrevealed: 0x0f181e,
-  bombB: 0x0f181e,
-  bombBUnrevealed: 0x0f181e,
+  hover: 0x35586b, // hover
+  safeA: 0x061217, // outer
+  safeAUnrevealed: 0x061217,
+  safeB: 0x061217, // inner
+  safeBUnrevealed: 0x061217,
+  bombA: 0x061217,
+  bombAUnrevealed: 0x061217,
+  bombB: 0x061217,
+  bombBUnrevealed: 0x061217,
   winPopupBorder: 0xeaff00,
   winPopupBackground: 0x091b26,
   winPopupMultiplierText: 0xeaff00,
