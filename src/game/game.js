@@ -948,8 +948,7 @@ export async function createGame(mount, opts = {}) {
     graphic
       .clear()
       .roundRect(0, 0, size, size, radius)
-      .fill(color)
-      .stroke({ color: PALETTE.tileStroke, width: strokeWidth, alpha: 0.9 });
+      .fill(color);
   }
 
   function paintTileInset(graphic, size, radius, pad, color) {
@@ -1387,13 +1386,7 @@ export async function createGame(mount, opts = {}) {
 
   function flipFace(graphic, w, h, r, color, stroke = true) {
     graphic.clear().roundRect(0, 0, w, h, r).fill(color);
-    if (stroke) {
-      graphic.stroke({
-        color: PALETTE.tileStrokeFlipped,
-        width: strokeWidth,
-        alpha: 0.5,
-      });
-    }
+    // Tile strokes have been removed, keep signature for compatibility.
   }
 
   function flipInset(graphic, w, h, r, pad, color) {
