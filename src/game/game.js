@@ -1464,6 +1464,7 @@ export async function createGame(mount, opts = {}) {
       const wrap = tile._wrap;
       const card = tile._card;
       const inset = tile._inset;
+      const elevationLip = tile._elevationLip;
       const icon = tile._icon;
       const radius = tile._tileRadius;
       const pad = tile._tilePad;
@@ -1479,6 +1480,7 @@ export async function createGame(mount, opts = {}) {
         card.destroyed ||
         !inset ||
         inset.destroyed ||
+        (elevationLip && elevationLip.destroyed) ||
         !icon ||
         icon.destroyed
       ) {
@@ -1546,6 +1548,15 @@ export async function createGame(mount, opts = {}) {
             const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
             icon.width = maxW;
             icon.height = maxH;
+
+            if (elevationLip) {
+              paintTileElevation(
+                elevationLip,
+                tileSize,
+                radius,
+                PALETTE.tileElevationFlipped
+              );
+            }
 
             if (face === "bomb") {
               icon.texture = bombTexture;
