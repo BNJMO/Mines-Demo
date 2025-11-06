@@ -34,8 +34,6 @@ const PALETTE = {
   tileElevationHover: 0x152a33, // hover elevation lip
   tileElevationShadow: 0x091b26, // soft drop shadow
   hover: 0x18262d, // hover
-  pressedTint: 0x7a7a7a,
-  defaultTint: 0xffffff,
   safeA: 0x0f181e, // outer
   safeAUnrevealed: 0x0f181e,
   safeB: 0x0f181e, // inner
@@ -978,16 +976,6 @@ export async function createGame(mount, opts = {}) {
     graphic.clear().roundRect(0, 0, size, size, radius).fill(color);
   }
 
-  function applyTileTint(tile, tint) {
-    if (!tile) return;
-    if (tile._inset) {
-      tile._inset.tint = tint;
-    }
-    if (tile._card) {
-      tile._card.tint = tint;
-    }
-  }
-
   function refreshTileTint(tile) {
     if (!tile) return;
 
@@ -1000,12 +988,6 @@ export async function createGame(mount, opts = {}) {
     }
 
     if (tile.revealed) {
-      if (card) {
-        card.tint = PALETTE.defaultTint;
-      }
-      if (inset) {
-        inset.tint = PALETTE.defaultTint;
-      }
       if (elevationLip) {
         paintTileElevation(
           elevationLip,
@@ -1034,13 +1016,6 @@ export async function createGame(mount, opts = {}) {
     paintTileBase(card, size, radius, baseColor);
     paintTileInset(inset, size, radius, pad, insetColor);
     paintTileElevation(elevationLip, size, radius, elevationColor);
-
-    if (card) {
-      card.tint = PALETTE.defaultTint;
-    }
-    if (inset) {
-      inset.tint = PALETTE.defaultTint;
-    }
   }
 
   function notifyAutoSelectionChange() {
@@ -1223,9 +1198,6 @@ export async function createGame(mount, opts = {}) {
           hoverTile(t, true);
         }
 
-        if (t._pressed) {
-          applyTileTint(t, PALETTE.pressedTint);
-        }
       }
     });
     t.on("pointerdown", () => {
@@ -1245,7 +1217,6 @@ export async function createGame(mount, opts = {}) {
       }
 
       playSoundEffect("tileTapDown");
-      applyTileTint(t, PALETTE.pressedTint);
       t._pressed = true;
     });
     t.on("pointerup", () => {
