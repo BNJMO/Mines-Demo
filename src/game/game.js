@@ -1449,6 +1449,10 @@ export async function createGame(mount, opts = {}) {
     } = options;
     if (tile._animating || tile.revealed) return false;
 
+    // Lock the tile immediately so further pointer interactions cannot
+    // restart the flip while we wait for the animation delay to elapse.
+    tile._animating = true;
+
     tile._revealedWithSelectionBase = false;
 
     const unrevealed = tiles.filter((t) => !t.revealed).length;
