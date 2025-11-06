@@ -990,11 +990,14 @@ export async function createGame(mount, opts = {}) {
 
     if (tile.revealed) {
       if (elevationLip) {
+        const revealedElevationColor = tile._revealedWithSelectionBase
+          ? AUTO_SELECTION_ELEVATION_COLOR
+          : PALETTE.tileElevationFlipped;
         paintTileElevation(
           elevationLip,
           tile._tileSize,
           tile._tileRadius,
-          PALETTE.tileElevationFlipped
+          revealedElevationColor
         );
       }
       return;
@@ -1157,6 +1160,7 @@ export async function createGame(mount, opts = {}) {
     t._tileSize = size;
     t._tileRadius = raduis;
     t._tilePad = pad;
+    t._revealedWithSelectionBase = false;
 
     // Spwan animation
     const s0 = 0.0001;
@@ -1452,6 +1456,8 @@ export async function createGame(mount, opts = {}) {
     } = options;
     if (tile._animating || tile.revealed) return false;
 
+    tile._revealedWithSelectionBase = false;
+
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
     const progress = Math.min(1, revealedCount / tiles.length);
@@ -1550,11 +1556,16 @@ export async function createGame(mount, opts = {}) {
             icon.height = maxH;
 
             if (elevationLip) {
+              tile._revealedWithSelectionBase =
+                revealedByPlayer && useSelectionBase;
+              const flippedElevationColor = tile._revealedWithSelectionBase
+                ? AUTO_SELECTION_ELEVATION_COLOR
+                : PALETTE.tileElevationFlipped;
               paintTileElevation(
                 elevationLip,
                 tileSize,
                 radius,
-                PALETTE.tileElevationFlipped
+                flippedElevationColor
               );
             }
 
