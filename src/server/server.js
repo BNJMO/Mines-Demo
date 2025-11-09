@@ -1,8 +1,12 @@
 import { ServerRelay } from "../serverRelay.js";
 
 export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
+export const DEFAULT_SCRATCH_GAME_ID = "MineCrash";
 
 let sessionId = null;
+let sessionGameDetails = null;
+let sessionGameUrl = null;
+let sessionUserToken = null;
 
 function normalizeBaseUrl(url) {
   if (typeof url !== "string") {
@@ -17,8 +21,33 @@ function normalizeBaseUrl(url) {
   return trimmed.replace(/\/+$/, "");
 }
 
+function normalizeScratchGameId(id) {
+  if (typeof id !== "string") {
+    return DEFAULT_SCRATCH_GAME_ID;
+  }
+
+  const trimmed = id.trim();
+  if (!trimmed) {
+    return DEFAULT_SCRATCH_GAME_ID;
+  }
+
+  return trimmed;
+}
+
 export function getSessionId() {
   return sessionId;
+}
+
+export function getGameSessionDetails() {
+  return sessionGameDetails;
+}
+
+export function getGameUrl() {
+  return sessionGameUrl;
+}
+
+export function getUserToken() {
+  return sessionUserToken;
 }
 
 function isServerRelay(candidate) {
@@ -122,6 +151,144 @@ export async function initializeSessionId({
   }
 
   return sessionId;
+}
+
+export async function initializeGameSession({
+  url = DEFAULT_SERVER_URL,
+  scratchGameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+} = {}) {
+  const baseUrl = normalizeBaseUrl(url);
+  const gameId = normalizeScratchGameId(scratchGameId);
+  const endpoint = `${baseUrl}/join/${encodeURIComponent(gameId)}/`;
+
+  sessionGameDetails = null;
+  sessionGameUrl = null;
+  sessionUserToken = null;
+
+  const requestPayload = {
+    method: "GET",
+    url: endpoint,
+    gameId,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:join:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+      },
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:join:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:join:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to join game session: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to join game session: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (!parsedBody || typeof parsedBody !== "object") {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:join:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Join game session response was not valid JSON",
+      });
+    }
+    throw new Error("Join game session response was not valid JSON");
+  }
+
+  const isSuccess = Boolean(parsedBody?.IsSuccess);
+  const responseData = parsedBody?.ResponseData ?? null;
+
+  if (!isSuccess || !responseData) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:join:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Join game session response did not indicate success",
+      });
+    }
+    throw new Error("Join game session response did not indicate success");
+  }
+
+  const gameData = responseData?.GameData ?? null;
+  const userData = responseData?.UserData ?? null;
+  const userDataList = responseData?.UserDataList ?? null;
+  const gameIds = Array.isArray(responseData?.GameIds)
+    ? [...responseData.GameIds]
+    : [];
+
+  sessionGameDetails = {
+    isSuccess,
+    gameIds,
+    gameData,
+    userData,
+    userDataList,
+    raw: parsedBody,
+  };
+
+  sessionGameUrl =
+    typeof gameData?.gameUrl === "string" && gameData.gameUrl
+      ? gameData.gameUrl
+      : null;
+  sessionUserToken =
+    typeof gameData?.userToken === "string" && gameData.userToken
+      ? gameData.userToken
+      : null;
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:join:response", {
+      ...responsePayload,
+      ok: true,
+      gameSession: sessionGameDetails,
+      gameUrl: sessionGameUrl,
+      userToken: sessionUserToken,
+    });
+  }
+
+  return sessionGameDetails;
 }
 
 function createLogEntry(direction, type, payload) {
