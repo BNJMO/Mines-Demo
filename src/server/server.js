@@ -21,25 +21,56 @@ export function getSessionId() {
   return sessionId;
 }
 
-export async function initializeSessionId({ url = DEFAULT_SERVER_URL } = {}) {
+function isServerRelay(candidate) {
+  return candidate instanceof ServerRelay;
+}
+
+export async function initializeSessionId({
+  url = DEFAULT_SERVER_URL,
+  relay,
+} = {}) {
   const baseUrl = normalizeBaseUrl(url);
   const endpoint = `${baseUrl}/get_session_id`;
 
-  const response = await fetch(endpoint, {
+  const requestPayload = {
     method: "GET",
-    headers: {
-      Accept: "application/json, text/plain, */*",
-    },
-  });
+    url: endpoint,
+  };
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to initialize session id: ${response.status} ${response.statusText}`
-    );
+  if (isServerRelay(relay)) {
+    relay.send("api:get_session_id:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+      },
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:get_session_id:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
   }
 
   const rawBody = await response.text();
   let nextSessionId = rawBody;
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: rawBody,
+    request: requestPayload,
+  };
 
   try {
     const parsed = JSON.parse(rawBody);
@@ -57,10 +88,39 @@ export async function initializeSessionId({ url = DEFAULT_SERVER_URL } = {}) {
   }
 
   if (typeof nextSessionId !== "string" || nextSessionId.length === 0) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:get_session_id:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Session id response did not include a session id value",
+      });
+    }
     throw new Error("Session id response did not include a session id value");
   }
 
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:get_session_id:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to initialize session id: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to initialize session id: ${response.status} ${response.statusText}`
+    );
+  }
+
   sessionId = nextSessionId;
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:get_session_id:response", {
+      ...responsePayload,
+      ok: true,
+      sessionId,
+    });
+  }
+
   return sessionId;
 }
 

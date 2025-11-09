@@ -16,7 +16,7 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
-let demoMode = true;
+let demoMode = false;
 const serverRelay = new ServerRelay();
 let serverUI = null;
 let suppressRelay = false;
@@ -985,7 +985,7 @@ const opts = {
 
 (async () => {
   try {
-    await initializeSessionId();
+    await initializeSessionId({ relay: serverRelay });
     sessionIdInitialized = true;
   } catch (error) {
     console.error("Session ID initialization failed:", error);
