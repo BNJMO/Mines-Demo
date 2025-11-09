@@ -1,5 +1,69 @@
 import { ServerRelay } from "../serverRelay.js";
 
+export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
+
+let sessionId = null;
+
+function normalizeBaseUrl(url) {
+  if (typeof url !== "string") {
+    return DEFAULT_SERVER_URL;
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return DEFAULT_SERVER_URL;
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
+
+export function getSessionId() {
+  return sessionId;
+}
+
+export async function initializeSessionId({ url = DEFAULT_SERVER_URL } = {}) {
+  const baseUrl = normalizeBaseUrl(url);
+  const endpoint = `${baseUrl}/get_session_id`;
+
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Accept: "application/json, text/plain, */*",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to initialize session id: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const rawBody = await response.text();
+  let nextSessionId = rawBody;
+
+  try {
+    const parsed = JSON.parse(rawBody);
+    if (typeof parsed === "string") {
+      nextSessionId = parsed;
+    } else if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.sessionId === "string"
+    ) {
+      nextSessionId = parsed.sessionId;
+    }
+  } catch (error) {
+    // Response is not JSON; treat raw body as the session id string.
+  }
+
+  if (typeof nextSessionId !== "string" || nextSessionId.length === 0) {
+    throw new Error("Session id response did not include a session id value");
+  }
+
+  sessionId = nextSessionId;
+  return sessionId;
+}
+
 function createLogEntry(direction, type, payload) {
   const entry = document.createElement("div");
   entry.className = `server__log-entry server__log-entry--${direction}`;

@@ -1,7 +1,7 @@
 import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
-import { createServer } from "./server/server.js";
+import { createServer, initializeSessionId } from "./server/server.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -38,6 +38,7 @@ let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
+let sessionIdInitialized = false;
 
 let totalProfitMultiplierValue = 1;
 let totalProfitAmountDisplayValue = "0.00000000";
@@ -983,6 +984,13 @@ const opts = {
 };
 
 (async () => {
+  try {
+    await initializeSessionId();
+    sessionIdInitialized = true;
+  } catch (error) {
+    console.error("Session ID initialization failed:", error);
+  }
+
   const totalTiles = opts.grid * opts.grid;
   const maxMines = Math.max(1, totalTiles - 1);
   const initialMines = Math.max(1, Math.min(opts.mines ?? 1, maxMines));
