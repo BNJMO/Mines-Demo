@@ -5,6 +5,9 @@ import {
   createServer,
   initializeSessionId,
   initializeGameSession,
+  submitBet,
+  getGameSessionDetails,
+  DEFAULT_SCRATCH_GAME_ID,
 } from "./server/server.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
@@ -726,13 +729,38 @@ function performBet() {
   manualRoundNeedsReset = false;
 }
 
-function handleBet() {
+async function handleBet() {
   if (!demoMode && !suppressRelay) {
     disableServerRoundSetupControls();
+    const betAmount = controlPanel?.getBetValue?.();
+    const minesValue = controlPanel?.getMinesValue?.();
     sendRelayMessage("action:bet", {
-      bet: controlPanel?.getBetValue?.(),
-      mines: controlPanel?.getMinesValue?.(),
+      bet: betAmount,
+      mines: minesValue,
     });
+
+    const sessionDetails = getGameSessionDetails();
+    const activeGameId =
+      Array.isArray(sessionDetails?.gameIds) && sessionDetails.gameIds.length > 0
+        ? sessionDetails.gameIds[0]
+        : DEFAULT_SCRATCH_GAME_ID;
+
+    try {
+      await submitBet({
+        amount: betAmount,
+        rate: minesValue,
+        gameId: activeGameId,
+        relay: serverRelay,
+      });
+      performBet();
+    } catch (error) {
+      console.error("Failed to submit bet", error);
+      setControlPanelBetState(true);
+      setControlPanelRandomState(controlPanelMode === "manual");
+      setControlPanelMinesState(true);
+      controlPanel?.setModeToggleClickable?.(true);
+      controlPanel?.setBetControlsClickable?.(true);
+    }
     return;
   }
 

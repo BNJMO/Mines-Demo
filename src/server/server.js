@@ -7,6 +7,10 @@ let sessionId = null;
 let sessionGameDetails = null;
 let sessionGameUrl = null;
 let sessionUserToken = null;
+let lastBetResult = null;
+let lastBetRoundId = null;
+let lastBetBalance = null;
+let lastBetRegisteredBets = [];
 
 function normalizeBaseUrl(url) {
   if (typeof url !== "string") {
@@ -48,6 +52,22 @@ export function getGameUrl() {
 
 export function getUserToken() {
   return sessionUserToken;
+}
+
+export function getLastBetResult() {
+  return lastBetResult;
+}
+
+export function getLastBetRoundId() {
+  return lastBetRoundId;
+}
+
+export function getLastBetBalance() {
+  return lastBetBalance;
+}
+
+export function getLastBetRegisteredBets() {
+  return lastBetRegisteredBets;
 }
 
 function isServerRelay(candidate) {
@@ -289,6 +309,196 @@ export async function initializeGameSession({
   }
 
   return sessionGameDetails;
+}
+
+function normalizeBetAmount(amount) {
+  const numeric = Number(amount);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, numeric);
+}
+
+function normalizeBetRate(rate) {
+  const numeric = Number(rate);
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.max(1, Math.floor(numeric));
+}
+
+function cloneRegisteredBets(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((bet) => ({
+    ...(bet ?? {}),
+  }));
+}
+
+export async function submitBet({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  amount = 0,
+  rate = 0,
+  relay,
+} = {}) {
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  lastBetResult = null;
+  lastBetRoundId = null;
+  lastBetBalance = null;
+  lastBetRegisteredBets = [];
+
+  const normalizedAmount = normalizeBetAmount(amount);
+  const normalizedRate = normalizeBetRate(rate);
+
+  const betInfo = {
+    id: 4,
+    title: {
+      key: "straight",
+      value: {},
+    },
+    type: "straight",
+    items: [],
+    rate: normalizedRate,
+    state: "Active",
+  };
+
+  const requestBody = {
+    type: "bet",
+    amount: normalizedAmount,
+    betInfo,
+  };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:bet:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:bet:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:bet:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit bet: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit bet: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (!parsedBody || typeof parsedBody !== "object") {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:bet:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Bet response was not valid JSON",
+      });
+    }
+    throw new Error("Bet response was not valid JSON");
+  }
+
+  const isSuccess = Boolean(parsedBody?.IsSuccess);
+  const responseData = parsedBody?.ResponseData ?? null;
+
+  if (!responseData) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:bet:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Bet response did not include response data",
+      });
+    }
+    throw new Error("Bet response did not include response data");
+  }
+
+  const balanceValue = responseData?.balance;
+  const roundIdValue = responseData?.roundId;
+  const registeredBetsValue = responseData?.registeredBets;
+
+  lastBetResult = {
+    isSuccess,
+    responseData,
+    raw: parsedBody,
+  };
+  lastBetBalance =
+    typeof balanceValue === "string"
+      ? balanceValue
+      : balanceValue != null
+      ? String(balanceValue)
+      : null;
+  lastBetRoundId = Number.isFinite(roundIdValue)
+    ? roundIdValue
+    : Number.isFinite(Number(roundIdValue))
+    ? Number(roundIdValue)
+    : roundIdValue ?? null;
+  lastBetRegisteredBets = cloneRegisteredBets(registeredBetsValue);
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:bet:response", {
+      ...responsePayload,
+      ok: true,
+      bet: {
+        success: isSuccess,
+        balance: lastBetBalance,
+        roundId: lastBetRoundId,
+        registeredBets: lastBetRegisteredBets,
+      },
+    });
+  }
+
+  return lastBetResult;
 }
 
 function createLogEntry(direction, type, payload) {
