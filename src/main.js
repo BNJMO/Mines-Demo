@@ -6,6 +6,7 @@ import {
   initializeSessionId,
   initializeGameSession,
   submitBet,
+  leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
 } from "./server/server.js";
@@ -47,6 +48,7 @@ let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
+let leaveSessionInProgress = false;
 
 let totalProfitMultiplierValue = 1;
 let totalProfitAmountDisplayValue = "0.00000000";
@@ -721,6 +723,14 @@ function handleCashout() {
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
+function getActiveGameId() {
+  const sessionDetails = getGameSessionDetails();
+  if (Array.isArray(sessionDetails?.gameIds) && sessionDetails.gameIds.length > 0) {
+    return sessionDetails.gameIds[0];
+  }
+  return DEFAULT_SCRATCH_GAME_ID;
+}
+
 function performBet() {
   applyMinesOption(controlPanel?.getMinesValue?.(), {
     syncGame: true,
@@ -739,17 +749,11 @@ async function handleBet() {
       mines: minesValue,
     });
 
-    const sessionDetails = getGameSessionDetails();
-    const activeGameId =
-      Array.isArray(sessionDetails?.gameIds) && sessionDetails.gameIds.length > 0
-        ? sessionDetails.gameIds[0]
-        : DEFAULT_SCRATCH_GAME_ID;
-
     try {
       await submitBet({
         amount: betAmount,
         rate: minesValue,
-        gameId: activeGameId,
+        gameId: getActiveGameId(),
         relay: serverRelay,
       });
       performBet();
@@ -766,6 +770,40 @@ async function handleBet() {
 
   performBet();
 }
+
+function requestLeaveGameSession(options = {}) {
+  if (demoMode || leaveSessionInProgress || !gameSessionInitialized) {
+    return;
+  }
+
+  leaveSessionInProgress = true;
+
+  leaveGameSession({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+    keepalive: Boolean(options.keepalive),
+  })
+    .then(() => {
+      gameSessionInitialized = false;
+    })
+    .catch((error) => {
+      console.error("Failed to leave game session", error);
+    })
+    .finally(() => {
+      leaveSessionInProgress = false;
+    });
+}
+
+window.addEventListener("beforeunload", () => {
+  requestLeaveGameSession({ keepalive: true });
+});
+
+window.addEventListener("pagehide", (event) => {
+  if (event?.persisted) {
+    return;
+  }
+  requestLeaveGameSession({ keepalive: true });
+});
 
 function handleGameStateChange(state) {
   lastKnownGameState = state;

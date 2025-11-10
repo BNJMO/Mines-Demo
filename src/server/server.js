@@ -501,6 +501,130 @@ export async function submitBet({
   return lastBetResult;
 }
 
+export async function leaveGameSession({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+  keepalive = false,
+} = {}) {
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/leave/${encodeURIComponent(normalizedGameId)}/`;
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:leave:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+      },
+      keepalive: Boolean(keepalive),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:leave:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:leave:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to leave game session: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to leave game session: ${response.status} ${response.statusText}`
+    );
+  }
+
+  let isSuccess = false;
+  let message = null;
+  let responseCode = null;
+  let responseData = null;
+
+  if (parsedBody && typeof parsedBody === "object") {
+    isSuccess = Boolean(parsedBody?.IsSuccess ?? parsedBody?.success ?? false);
+    message = parsedBody?.Message ?? null;
+    responseCode = parsedBody?.ResponseCode ?? null;
+    responseData = parsedBody?.ResponseData ?? null;
+  } else if (!rawBody) {
+    isSuccess = true;
+  }
+
+  if (!isSuccess) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:leave:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Leave game session response did not indicate success",
+      });
+    }
+    throw new Error("Leave game session response did not indicate success");
+  }
+
+  sessionGameDetails = null;
+  sessionGameUrl = null;
+  sessionUserToken = null;
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:leave:response", {
+      ...responsePayload,
+      ok: true,
+      result: {
+        isSuccess,
+        message,
+        responseCode,
+        responseData,
+      },
+    });
+  }
+
+  return {
+    isSuccess,
+    message,
+    responseCode,
+    responseData,
+    raw: parsedBody ?? rawBody,
+  };
+}
+
 function createLogEntry(direction, type, payload) {
   const entry = document.createElement("div");
   entry.className = `server__log-entry server__log-entry--${direction}`;
