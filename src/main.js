@@ -49,6 +49,13 @@ let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
 let leaveSessionInProgress = false;
+let leaveSessionPromise = null;
+
+const gameRoot = document.querySelector("#game");
+let gameLoadingOverlay = gameRoot?.querySelector(".loading") ?? null;
+if (!demoMode && gameRoot && gameLoadingOverlay) {
+  gameRoot.classList.add("is-loading");
+}
 
 let totalProfitMultiplierValue = 1;
 let totalProfitAmountDisplayValue = "0.00000000";
@@ -57,6 +64,130 @@ const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
 const SERVER_RESPONSE_DELAY_MS = 150;
+const SERVER_INITIALIZATION_RETRY_DELAY_MS = 3000;
+
+let serverInitializationGeneration = 0;
+let serverInitializationPromise = null;
+
+function delay(duration) {
+  const timeout = Number(duration);
+  const normalized = Number.isFinite(timeout) && timeout >= 0 ? timeout : 0;
+  return new Promise((resolve) => {
+    setTimeout(resolve, normalized);
+  });
+}
+
+function ensureGameLoadingOverlay() {
+  if (!gameLoadingOverlay) {
+    gameLoadingOverlay = document.createElement("div");
+    gameLoadingOverlay.className = "loading";
+    gameLoadingOverlay.textContent = "Loading Game";
+  } else if (!gameLoadingOverlay.textContent) {
+    gameLoadingOverlay.textContent = "Loading Game";
+  }
+  return gameLoadingOverlay;
+}
+
+function showGameLoadingOverlay() {
+  if (!gameRoot) {
+    return;
+  }
+  const overlay = ensureGameLoadingOverlay();
+  if (!overlay.isConnected) {
+    gameRoot.prepend(overlay);
+  }
+  gameRoot.classList.add("is-loading");
+}
+
+function hideGameLoadingOverlay() {
+  if (gameLoadingOverlay?.isConnected) {
+    gameLoadingOverlay.remove();
+  }
+  gameRoot?.classList.remove("is-loading");
+}
+
+function cancelServerInitialization() {
+  serverInitializationGeneration += 1;
+  serverInitializationPromise = null;
+}
+
+async function runServerInitializationLoop({ showLoading = true } = {}) {
+  if (demoMode) {
+    return false;
+  }
+
+  const currentGeneration = ++serverInitializationGeneration;
+
+  if (showLoading) {
+    showGameLoadingOverlay();
+  }
+
+  while (!demoMode && currentGeneration === serverInitializationGeneration) {
+    sessionIdInitialized = false;
+    gameSessionInitialized = false;
+
+    try {
+      await initializeSessionId({ relay: serverRelay });
+      sessionIdInitialized = true;
+    } catch (error) {
+      sessionIdInitialized = false;
+      console.error("Session ID initialization failed:", error);
+      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (demoMode || currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    try {
+      await initializeGameSession({ relay: serverRelay });
+      gameSessionInitialized = true;
+    } catch (error) {
+      gameSessionInitialized = false;
+      console.error("Game session initialization failed:", error);
+      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (gameSessionInitialized) {
+      hideGameLoadingOverlay();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function startServerInitialization(options = {}) {
+  if (demoMode) {
+    return Promise.resolve(false);
+  }
+
+  if (serverInitializationPromise) {
+    return serverInitializationPromise;
+  }
+
+  const promise = runServerInitializationLoop(options)
+    .catch((error) => {
+      console.error("Server initialization encountered an error:", error);
+      return false;
+    })
+    .finally(() => {
+      if (serverInitializationPromise === promise) {
+        serverInitializationPromise = null;
+      }
+    });
+
+  serverInitializationPromise = promise;
+  return promise;
+}
 
 function withRelaySuppressed(callback) {
   suppressRelay = true;
@@ -134,7 +265,29 @@ function setDemoMode(value) {
   serverUI?.setDemoMode?.(next);
 
   if (demoMode) {
+    cancelServerInitialization();
+    hideGameLoadingOverlay();
     clearSelectionDelay();
+    leaveSessionPromise = requestLeaveGameSession({ force: true });
+    sessionIdInitialized = false;
+  }
+
+  if (!demoMode) {
+    cancelServerInitialization();
+    sessionIdInitialized = false;
+    gameSessionInitialized = false;
+    showGameLoadingOverlay();
+
+    const pendingLeave = leaveSessionPromise;
+    if (pendingLeave && typeof pendingLeave.finally === "function") {
+      pendingLeave.finally(() => {
+        if (!demoMode) {
+          startServerInitialization({ showLoading: true });
+        }
+      });
+    } else {
+      startServerInitialization({ showLoading: true });
+    }
   }
 }
 
@@ -740,6 +893,11 @@ function performBet() {
 }
 
 async function handleBet() {
+  if (!demoMode && !gameSessionInitialized) {
+    console.warn("Cannot submit bet: game session is not initialized yet.");
+    return;
+  }
+
   if (!demoMode && !suppressRelay) {
     disableServerRoundSetupControls();
     const betAmount = controlPanel?.getBetValue?.();
@@ -772,26 +930,45 @@ async function handleBet() {
 }
 
 function requestLeaveGameSession(options = {}) {
-  if (demoMode || leaveSessionInProgress || !gameSessionInitialized) {
-    return;
+  const force = Boolean(options.force);
+  if (leaveSessionInProgress) {
+    return leaveSessionPromise ?? Promise.resolve(false);
+  }
+
+  if (!force && (demoMode || !gameSessionInitialized)) {
+    return Promise.resolve(false);
+  }
+
+  if (!gameSessionInitialized) {
+    sessionIdInitialized = false;
+    return Promise.resolve(false);
   }
 
   leaveSessionInProgress = true;
 
-  leaveGameSession({
+  const promise = leaveGameSession({
     gameId: getActiveGameId(),
     relay: serverRelay,
     keepalive: Boolean(options.keepalive),
   })
     .then(() => {
       gameSessionInitialized = false;
+      sessionIdInitialized = false;
+      return true;
     })
     .catch((error) => {
       console.error("Failed to leave game session", error);
+      return false;
     })
     .finally(() => {
       leaveSessionInProgress = false;
+      if (leaveSessionPromise === promise) {
+        leaveSessionPromise = null;
+      }
     });
+
+  leaveSessionPromise = promise;
+  return promise;
 }
 
 window.addEventListener("beforeunload", () => {
@@ -1055,20 +1232,10 @@ const opts = {
 };
 
 (async () => {
-  try {
-    await initializeSessionId({ relay: serverRelay });
-    sessionIdInitialized = true;
-  } catch (error) {
-    console.error("Session ID initialization failed:", error);
-  }
-
-  if (sessionIdInitialized) {
-    try {
-      await initializeGameSession({ relay: serverRelay });
-      gameSessionInitialized = true;
-    } catch (error) {
-      console.error("Game session initialization failed:", error);
-    }
+  if (!demoMode) {
+    await startServerInitialization({ showLoading: true });
+  } else {
+    hideGameLoadingOverlay();
   }
 
   const totalTiles = opts.grid * opts.grid;
