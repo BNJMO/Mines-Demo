@@ -278,7 +278,7 @@ export async function createGame(mount, opts = {}) {
       height: startHeight,
       antialias: true,
       autoDensity: true,
-      resolution: window.devicePixelRatio || 1,
+      resolution: getDeviceRatio(),
     });
 
     // Clear the loading message
@@ -405,6 +405,30 @@ export async function createGame(mount, opts = {}) {
   }
 
   // Game functions
+  function getDeviceRatio() {
+    return window.devicePixelRatio || 1;
+  }
+
+  function updateSvgTextureResolution(texture, resolution = getDeviceRatio()) {
+    if (!texture?.baseTexture) return;
+
+    const baseTexture = texture.baseTexture;
+    const currentResolution = Number(baseTexture.resolution ?? 1);
+    if (Math.abs(currentResolution - resolution) < 0.001) {
+      return;
+    }
+
+    if (typeof baseTexture.setResolution === "function") {
+      baseTexture.setResolution(resolution);
+    } else {
+      baseTexture.resolution = resolution;
+    }
+
+    if (typeof baseTexture.update === "function") {
+      baseTexture.update();
+    }
+  }
+
   function createWinPopup() {
     const popupWidth = winPopupWidth;
     const popupHeight = winPopupHeight;
@@ -482,9 +506,18 @@ export async function createGame(mount, opts = {}) {
     coinSprite.anchor.set(0.5);
     coinSprite.eventMode = "none";
     coinSprite.visible = Boolean(coinTexture);
-    if (coinTexture) {
+
+    const refreshCoinIcon = () => {
+      if (!coinSprite.texture || coinSprite.texture === Texture.EMPTY) return;
+
+      updateSvgTextureResolution(coinSprite.texture);
       coinSprite.width = coinIconSize;
       coinSprite.height = coinIconSize;
+      coinSprite.visible = true;
+    };
+
+    if (coinTexture) {
+      refreshCoinIcon();
     }
     amountRow.addChild(coinSprite);
 
@@ -504,9 +537,7 @@ export async function createGame(mount, opts = {}) {
         .then(() => {
           if (!coinTexture) return;
           coinSprite.texture = coinTexture;
-          coinSprite.width = coinIconSize;
-          coinSprite.height = coinIconSize;
-          coinSprite.visible = true;
+          refreshCoinIcon();
           layoutAmountRow();
         })
         .catch((err) => {
@@ -523,6 +554,7 @@ export async function createGame(mount, opts = {}) {
       multiplierText,
       amountText,
       layoutAmountRow,
+      refreshCoinIcon,
     };
   }
 
@@ -599,6 +631,7 @@ export async function createGame(mount, opts = {}) {
     if (coinTexture) return coinTexture;
 
     coinTexture = await Assets.load(bitcoinIconUrl);
+    updateSvgTextureResolution(coinTexture);
     return coinTexture;
   }
 
@@ -1803,7 +1836,7 @@ export async function createGame(mount, opts = {}) {
     const ch = Math.max(1, root.clientHeight || cw);
 
     const size = Math.floor(Math.min(cw, ch));
-    const deviceRatio = window.devicePixelRatio || 1;
+    const deviceRatio = getDeviceRatio();
     if (app.renderer.resolution !== deviceRatio) {
       app.renderer.resolution = deviceRatio;
     }
@@ -1814,6 +1847,8 @@ export async function createGame(mount, opts = {}) {
       layoutBoard();
     }
     centerBoard();
+    winPopup.refreshCoinIcon?.();
+    winPopup.layoutAmountRow?.();
     positionWinPopup();
   }
 
