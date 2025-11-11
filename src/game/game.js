@@ -3,6 +3,7 @@ import {
   Container,
   Graphics,
   Text,
+  TextStyle,
   Texture,
   Rectangle,
   AnimatedSprite,
@@ -15,6 +16,7 @@ import {
 import Ease from "../ease.js";
 import diamondTextureUrl from "../../assets/sprites/Diamond.png";
 import bombTextureUrl from "../../assets/sprites/Bomb.png";
+import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.svg";
 import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
@@ -207,7 +209,6 @@ export async function createGame(mount, opts = {}) {
   const winPopupShowDuration = opts.winPopupShowDuration ?? 260;
   const winPopupWidth = opts.winPopupWidth ?? 240;
   const winPopupHeight = opts.winPopupHeight ?? 170;
-  const maxRendererResolution = Math.max(1, opts.maxRendererResolution ?? 2);
 
   // Resolve mount element
   const root =
@@ -270,7 +271,7 @@ export async function createGame(mount, opts = {}) {
       height: startHeight,
       antialias: true,
       autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, maxRendererResolution),
+      resolution: window.devicePixelRatio || 1,
     });
 
     // Clear the loading message
@@ -439,59 +440,51 @@ export async function createGame(mount, opts = {}) {
       )
       .fill(PALETTE.winPopupSeparationLine);
 
+    const multiplierTextStyle = new TextStyle({
+      fill: PALETTE.winPopupMultiplierText,
+      fontFamily,
+      fontSize: 36,
+      fontWeight: "700",
+      align: "center",
+    });
     const multiplierText = new Text({
       text: "1.00×",
-      style: {
-        fill: PALETTE.winPopupMultiplierText,
-        fontFamily,
-        fontSize: 36,
-        fontWeight: "700",
-        align: "center",
-      },
+      style: multiplierTextStyle,
     });
     multiplierText.anchor.set(0.5);
     multiplierText.position.set(0, multiplierVerticalOffset);
 
     const amountRow = new Container();
 
+    const amountTextStyle = new TextStyle({
+      fill: 0xffffff,
+      fontFamily,
+      fontSize: 24,
+      fontWeight: "600",
+      align: "center",
+    });
     const amountText = new Text({
       text: "0.0",
-      style: {
-        fill: 0xffffff,
-        fontFamily,
-        fontSize: 24,
-        fontWeight: "600",
-        align: "center",
-      },
+      style: amountTextStyle,
     });
     amountText.anchor.set(0.5);
     amountRow.addChild(amountText);
 
-    const coinContainer = new Container();
-    const coinRadius = 16;
-    const coinBg = new Graphics();
-    coinBg.circle(0, 0, coinRadius).fill(0xf6a821);
-    const coinText = new Text({
-      text: "₿",
-      style: {
-        fill: 0xffffff,
-        fontFamily,
-        fontSize: 18,
-        fontWeight: "700",
-        align: "center",
-      },
-    });
-    coinText.anchor.set(0.5);
-    coinContainer.addChild(coinBg, coinText);
-    amountRow.addChild(coinContainer);
+    const coinIconSize = 32;
+    const coinSprite = Sprite.from(bitcoinIconUrl);
+    coinSprite.anchor.set(0.5);
+    coinSprite.eventMode = "none";
+    coinSprite.width = coinIconSize;
+    coinSprite.height = coinIconSize;
+    amountRow.addChild(coinSprite);
 
     const layoutAmountRow = () => {
       const spacing = 20;
-      const coinDiameter = coinRadius * 2;
-      const totalWidth = amountText.width + spacing + coinDiameter;
+      const coinWidth = coinSprite.width;
+      const totalWidth = amountText.width + spacing + coinWidth;
 
-      amountText.position.set(-(spacing / 2 + coinRadius), 0);
-      coinContainer.position.set(totalWidth / 2 - coinRadius, 0);
+      amountText.position.set(-(spacing / 2 + coinWidth / 2), 0);
+      coinSprite.position.set(totalWidth / 2 - coinWidth / 2, 0);
 
       amountRow.position.set(0, amountRowVerticalOffset);
     };
@@ -1779,9 +1772,8 @@ export async function createGame(mount, opts = {}) {
 
     const size = Math.floor(Math.min(cw, ch));
     const deviceRatio = window.devicePixelRatio || 1;
-    const targetResolution = Math.min(deviceRatio, maxRendererResolution);
-    if (app.renderer.resolution !== targetResolution) {
-      app.renderer.resolution = targetResolution;
+    if (app.renderer.resolution !== deviceRatio) {
+      app.renderer.resolution = deviceRatio;
     }
     app.renderer.resize(size, size);
     if (!tiles.length) {
