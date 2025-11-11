@@ -792,7 +792,7 @@ export class ControlPanel extends EventTarget {
 
     this.animationToggleWrapper = document.createElement("div");
     this.animationToggleWrapper.className = "control-animations-toggle";
-    this.footerActions.appendChild(this.animationToggleWrapper);
+    // this.footerActions.appendChild(this.animationToggleWrapper); // TODO: Enable back for testing 
 
     const label = document.createElement("span");
     label.className = "control-animations-label";
@@ -821,7 +821,7 @@ export class ControlPanel extends EventTarget {
       }
       this.dispatchEvent(new CustomEvent("showdummyserver"));
     });
-    this.footerActions.appendChild(this.showDummyServerButton);
+    // this.footerActions.appendChild(this.showDummyServerButton); // TODO: Enable back for testing
   }
 
   setMode(mode) {
