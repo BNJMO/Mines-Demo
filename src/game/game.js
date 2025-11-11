@@ -242,6 +242,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   let diamondTexture = null;
+  let coinTexture = null;
   try {
     await loadDiamondTexture();
   } catch (e) {
@@ -249,6 +250,12 @@ export async function createGame(mount, opts = {}) {
   }
 
   let bombTexture = null;
+  try {
+    await loadCoinTexture();
+  } catch (e) {
+    console.error("loadCoinTexture failed", e);
+  }
+
   try {
     await loadBombTexture();
   } catch (e) {
@@ -471,16 +478,19 @@ export async function createGame(mount, opts = {}) {
     amountRow.addChild(amountText);
 
     const coinIconSize = 32;
-    const coinSprite = Sprite.from(bitcoinIconUrl);
+    const coinSprite = new Sprite(coinTexture ?? Texture.EMPTY);
     coinSprite.anchor.set(0.5);
     coinSprite.eventMode = "none";
-    coinSprite.width = coinIconSize;
-    coinSprite.height = coinIconSize;
+    coinSprite.visible = Boolean(coinTexture);
+    if (coinTexture) {
+      coinSprite.width = coinIconSize;
+      coinSprite.height = coinIconSize;
+    }
     amountRow.addChild(coinSprite);
 
     const layoutAmountRow = () => {
       const spacing = 20;
-      const coinWidth = coinSprite.width;
+      const coinWidth = coinSprite.visible ? coinSprite.width : 0;
       const totalWidth = amountText.width + spacing + coinWidth;
 
       amountText.position.set(-(spacing / 2 + coinWidth / 2), 0);
@@ -488,6 +498,21 @@ export async function createGame(mount, opts = {}) {
 
       amountRow.position.set(0, amountRowVerticalOffset);
     };
+
+    if (!coinTexture) {
+      loadCoinTexture()
+        .then(() => {
+          if (!coinTexture) return;
+          coinSprite.texture = coinTexture;
+          coinSprite.width = coinIconSize;
+          coinSprite.height = coinIconSize;
+          coinSprite.visible = true;
+          layoutAmountRow();
+        })
+        .catch((err) => {
+          console.error("Failed to load bitcoin icon texture", err);
+        });
+    }
 
     layoutAmountRow();
 
@@ -568,6 +593,13 @@ export async function createGame(mount, opts = {}) {
     if (diamondTexture) return;
 
     diamondTexture = await Assets.load(diamondTexturePath);
+  }
+
+  async function loadCoinTexture() {
+    if (coinTexture) return coinTexture;
+
+    coinTexture = await Assets.load(bitcoinIconUrl);
+    return coinTexture;
   }
 
   async function loadBombTexture() {
