@@ -209,6 +209,7 @@ export async function createGame(mount, opts = {}) {
   const winPopupShowDuration = opts.winPopupShowDuration ?? 260;
   const winPopupWidth = opts.winPopupWidth ?? 240;
   const winPopupHeight = opts.winPopupHeight ?? 170;
+  const winPopupCoinIconSize = opts.winPopupCoinIconSize ?? 32;
 
   // Resolve mount element
   const root =
@@ -243,6 +244,11 @@ export async function createGame(mount, opts = {}) {
 
   let diamondTexture = null;
   let coinTexture = null;
+  let coinTextureTargetSize = 0;
+  let coinTexturePromise = null;
+  let coinTexturePromiseTargetSize = 0;
+  let bitcoinSvgMarkup = null;
+  let bitcoinSvgMarkupPromise = null;
   try {
     await loadDiamondTexture();
   } catch (e) {
@@ -409,26 +415,6 @@ export async function createGame(mount, opts = {}) {
     return window.devicePixelRatio || 1;
   }
 
-  function updateSvgTextureResolution(texture, resolution = getDeviceRatio()) {
-    if (!texture?.baseTexture) return;
-
-    const baseTexture = texture.baseTexture;
-    const currentResolution = Number(baseTexture.resolution ?? 1);
-    if (Math.abs(currentResolution - resolution) < 0.001) {
-      return;
-    }
-
-    if (typeof baseTexture.setResolution === "function") {
-      baseTexture.setResolution(resolution);
-    } else {
-      baseTexture.resolution = resolution;
-    }
-
-    if (typeof baseTexture.update === "function") {
-      baseTexture.update();
-    }
-  }
-
   function createWinPopup() {
     const popupWidth = winPopupWidth;
     const popupHeight = winPopupHeight;
@@ -501,27 +487,13 @@ export async function createGame(mount, opts = {}) {
     amountText.anchor.set(0.5);
     amountRow.addChild(amountText);
 
-    const coinIconSize = 32;
     const coinSprite = new Sprite(coinTexture ?? Texture.EMPTY);
     coinSprite.anchor.set(0.5);
     coinSprite.eventMode = "none";
     coinSprite.visible = Boolean(coinTexture);
-
-    const refreshCoinIcon = () => {
-      if (!coinSprite.texture || coinSprite.texture === Texture.EMPTY) return;
-
-      updateSvgTextureResolution(coinSprite.texture);
-      coinSprite.width = coinIconSize;
-      coinSprite.height = coinIconSize;
-      coinSprite.visible = true;
-    };
-
-    if (coinTexture) {
-      refreshCoinIcon();
-    }
     amountRow.addChild(coinSprite);
 
-    const layoutAmountRow = () => {
+    function layoutAmountRow() {
       const spacing = 20;
       const coinWidth = coinSprite.visible ? coinSprite.width : 0;
       const totalWidth = amountText.width + spacing + coinWidth;
@@ -530,22 +502,59 @@ export async function createGame(mount, opts = {}) {
       coinSprite.position.set(totalWidth / 2 - coinWidth / 2, 0);
 
       amountRow.position.set(0, amountRowVerticalOffset);
-    };
-
-    if (!coinTexture) {
-      loadCoinTexture()
-        .then(() => {
-          if (!coinTexture) return;
-          coinSprite.texture = coinTexture;
-          refreshCoinIcon();
-          layoutAmountRow();
-        })
-        .catch((err) => {
-          console.error("Failed to load bitcoin icon texture", err);
-        });
     }
 
+    let coinRefreshSequence = 0;
+    const refreshCoinIcon = async () => {
+      const refreshId = ++coinRefreshSequence;
+      const resolution = getDeviceRatio();
+      const normalizedResolution = Math.max(1, Number(resolution) || 1);
+      const targetPixelSize = Math.max(
+        1,
+        Math.ceil(winPopupCoinIconSize * normalizedResolution)
+      );
+
+      if (coinTexture && coinTextureTargetSize >= targetPixelSize) {
+        coinSprite.texture = coinTexture;
+        coinSprite.width = winPopupCoinIconSize;
+        coinSprite.height = winPopupCoinIconSize;
+        coinSprite.visible = Boolean(coinTexture);
+        layoutAmountRow();
+        return;
+      }
+
+      coinSprite.visible = false;
+
+      try {
+        const texture = await loadCoinTexture(resolution);
+        if (refreshId !== coinRefreshSequence) {
+          return;
+        }
+
+        if (texture) {
+          coinSprite.texture = texture;
+          coinSprite.width = winPopupCoinIconSize;
+          coinSprite.height = winPopupCoinIconSize;
+          coinSprite.visible = true;
+        } else {
+          coinSprite.texture = Texture.EMPTY;
+          coinSprite.visible = false;
+        }
+      } catch (err) {
+        if (refreshId === coinRefreshSequence) {
+          coinSprite.texture = Texture.EMPTY;
+          coinSprite.visible = false;
+        }
+        console.error("Failed to refresh bitcoin icon texture", err);
+      } finally {
+        if (refreshId === coinRefreshSequence) {
+          layoutAmountRow();
+        }
+      }
+    };
+
     layoutAmountRow();
+    refreshCoinIcon();
 
     container.addChild(border, inner, centerLine, multiplierText, amountRow);
 
@@ -627,12 +636,95 @@ export async function createGame(mount, opts = {}) {
     diamondTexture = await Assets.load(diamondTexturePath);
   }
 
-  async function loadCoinTexture() {
-    if (coinTexture) return coinTexture;
+  async function fetchBitcoinSvgMarkup() {
+    if (bitcoinSvgMarkup) {
+      return bitcoinSvgMarkup;
+    }
 
-    coinTexture = await Assets.load(bitcoinIconUrl);
-    updateSvgTextureResolution(coinTexture);
-    return coinTexture;
+    if (bitcoinSvgMarkupPromise) {
+      return bitcoinSvgMarkupPromise;
+    }
+
+    bitcoinSvgMarkupPromise = (async () => {
+      const response = await fetch(bitcoinIconUrl);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch bitcoin icon SVG: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const svgText = await response.text();
+      bitcoinSvgMarkup = svgText;
+      return svgText;
+    })();
+
+    try {
+      return await bitcoinSvgMarkupPromise;
+    } finally {
+      bitcoinSvgMarkupPromise = null;
+    }
+  }
+
+  async function loadCoinTexture(resolution = getDeviceRatio()) {
+    const normalizedResolution = Math.max(1, Number(resolution) || 1);
+    const targetSize = Math.max(
+      1,
+      Math.ceil(winPopupCoinIconSize * normalizedResolution)
+    );
+
+    if (coinTexture && coinTextureTargetSize >= targetSize) {
+      return coinTexture;
+    }
+
+    if (
+      coinTexturePromise &&
+      coinTexturePromiseTargetSize >= targetSize
+    ) {
+      const pendingTexture = await coinTexturePromise;
+      coinTexture = pendingTexture;
+      coinTextureTargetSize = coinTexturePromiseTargetSize;
+      return pendingTexture;
+    }
+
+    const loadPromise = (async () => {
+      const svgMarkup = await fetchBitcoinSvgMarkup();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
+      const parserError = doc.querySelector("parsererror");
+      if (parserError) {
+        throw new Error("Failed to parse bitcoin icon SVG");
+      }
+
+      const svgElement = doc.documentElement;
+      svgElement.setAttribute("width", String(targetSize));
+      svgElement.setAttribute("height", String(targetSize));
+
+      const serialized = new XMLSerializer().serializeToString(svgElement);
+      const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+        serialized
+      )}`;
+
+      return Assets.load({ src: dataUrl });
+    })();
+
+    coinTexturePromise = loadPromise;
+    coinTexturePromiseTargetSize = targetSize;
+
+    try {
+      const texture = await loadPromise;
+      const previousTexture = coinTexture && coinTexture !== texture ? coinTexture : null;
+      coinTexture = texture;
+      coinTextureTargetSize = targetSize;
+
+      if (previousTexture) {
+        previousTexture.destroy(true);
+      }
+
+      return texture;
+    } finally {
+      coinTexturePromise = null;
+      coinTexturePromiseTargetSize = 0;
+    }
   }
 
   async function loadBombTexture() {
