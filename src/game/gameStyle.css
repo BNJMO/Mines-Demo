@@ -34,18 +34,30 @@
   aspect-ratio: 1 / 1;
 }
 
+
 .loading {
+  position: absolute;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%;
   font-size: 1.5rem;
   color: #eaff00;
+  background: #091b26;
+  z-index: 2;
 }
 
 .loading::after {
   content: "...";
   animation: dots 1.5s steps(4, end) infinite;
+}
+
+#game.is-loading {
+  pointer-events: none;
+}
+
+#game.is-loading canvas {
+  visibility: hidden;
 }
 
 @keyframes dots {

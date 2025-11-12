@@ -38,8 +38,7 @@ export class ControlPanel extends EventTarget {
       minesLabel: options.minesLabel ?? "Mines",
       gemsLabel: options.gemsLabel ?? "Gems",
       animationsLabel: options.animationsLabel ?? "Animations",
-      showDummyServerLabel:
-        options.showDummyServerLabel ?? "Show Dummy Server",
+      showServerLabel: options.showServerLabel ?? "Show Server",
       initialAnimationsEnabled:
         options.initialAnimationsEnabled ?? true,
       initialMines: options.initialMines ?? 1,
@@ -811,17 +810,17 @@ export class ControlPanel extends EventTarget {
     );
     this.animationToggleWrapper.appendChild(this.animationToggleButton);
 
-    this.showDummyServerButton = document.createElement("button");
-    this.showDummyServerButton.type = "button";
-    this.showDummyServerButton.className = "control-show-dummy-server";
-    this.showDummyServerButton.textContent = this.options.showDummyServerLabel;
-    this.showDummyServerButton.addEventListener("click", () => {
-      if (this.showDummyServerButton.disabled) {
+    this.showServerButton = document.createElement("button");
+    this.showServerButton.type = "button";
+    this.showServerButton.className = "control-show-server";
+    this.showServerButton.textContent = this.options.showServerLabel;
+    this.showServerButton.addEventListener("click", () => {
+      if (this.showServerButton.disabled) {
         return;
       }
-      this.dispatchEvent(new CustomEvent("showdummyserver"));
+      this.dispatchEvent(new CustomEvent("showserver"));
     });
-    this.footerActions.appendChild(this.showDummyServerButton);
+    this.footerActions.appendChild(this.showServerButton);
   }
 
   setMode(mode) {
@@ -1272,12 +1271,12 @@ export class ControlPanel extends EventTarget {
     );
   }
 
-  setDummyServerPanelVisibility(isVisible) {
-    if (!this.showDummyServerButton) return;
+  setServerPanelVisibility(isVisible) {
+    if (!this.showServerButton) return;
     const disabled = Boolean(isVisible);
-    this.showDummyServerButton.disabled = disabled;
-    this.showDummyServerButton.classList.toggle("is-disabled", disabled);
-    this.showDummyServerButton.setAttribute("aria-disabled", String(disabled));
+    this.showServerButton.disabled = disabled;
+    this.showServerButton.classList.toggle("is-disabled", disabled);
+    this.showServerButton.setAttribute("aria-disabled", String(disabled));
   }
 
   setBetButtonMode(mode) {

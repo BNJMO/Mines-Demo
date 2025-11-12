@@ -1,7 +1,15 @@
 import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
-import { createServerDummy } from "./serverDummy/serverDummy.js";
+import {
+  createServer,
+  initializeSessionId,
+  initializeGameSession,
+  submitBet,
+  leaveGameSession,
+  getGameSessionDetails,
+  DEFAULT_SCRATCH_GAME_ID,
+} from "./server/server.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -16,9 +24,9 @@ import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
-let demoMode = true;
+let demoMode = false;
 const serverRelay = new ServerRelay();
-let serverDummyUI = null;
+let serverUI = null;
 let suppressRelay = false;
 let betButtonMode = "bet";
 let roundActive = false;
@@ -38,6 +46,34 @@ let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
+let sessionIdInitialized = false;
+let gameSessionInitialized = false;
+let leaveSessionInProgress = false;
+let leaveSessionPromise = null;
+
+const controlPanelInteractivityState = {
+  betButton: false,
+  randomButton: false,
+  minesSelect: false,
+  autoStartButton: false,
+  modeToggle: false,
+  betControls: false,
+  numberOfBets: false,
+  advancedToggle: false,
+  advancedStrategy: false,
+  stopOnProfit: false,
+  stopOnLoss: false,
+};
+
+function isControlPanelInteractivityAllowed() {
+  return demoMode || gameSessionInitialized;
+}
+
+const gameRoot = document.querySelector("#game");
+let gameLoadingOverlay = gameRoot?.querySelector(".loading") ?? null;
+if (!demoMode && gameRoot && gameLoadingOverlay) {
+  gameRoot.classList.add("is-loading");
+}
 
 let totalProfitMultiplierValue = 1;
 let totalProfitAmountDisplayValue = "0.00000000";
@@ -46,6 +82,140 @@ const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
 const SERVER_RESPONSE_DELAY_MS = 150;
+const SERVER_INITIALIZATION_RETRY_DELAY_MS = 3000;
+
+let serverInitializationGeneration = 0;
+let serverInitializationPromise = null;
+
+function delay(duration) {
+  const timeout = Number(duration);
+  const normalized = Number.isFinite(timeout) && timeout >= 0 ? timeout : 0;
+  return new Promise((resolve) => {
+    setTimeout(resolve, normalized);
+  });
+}
+
+function ensureGameLoadingOverlay() {
+  if (!gameLoadingOverlay) {
+    gameLoadingOverlay = document.createElement("div");
+    gameLoadingOverlay.className = "loading";
+    gameLoadingOverlay.textContent = "Loading Game";
+  } else if (!gameLoadingOverlay.textContent) {
+    gameLoadingOverlay.textContent = "Loading Game";
+  }
+  return gameLoadingOverlay;
+}
+
+function showGameLoadingOverlay() {
+  if (!gameRoot) {
+    return;
+  }
+  const overlay = ensureGameLoadingOverlay();
+  if (!overlay.isConnected) {
+    gameRoot.prepend(overlay);
+  }
+  gameRoot.classList.add("is-loading");
+}
+
+function hideGameLoadingOverlay() {
+  if (gameLoadingOverlay?.isConnected) {
+    gameLoadingOverlay.remove();
+  }
+  gameRoot?.classList.remove("is-loading");
+}
+
+function cancelServerInitialization() {
+  serverInitializationGeneration += 1;
+  serverInitializationPromise = null;
+}
+
+async function runServerInitializationLoop({ showLoading = true } = {}) {
+  if (demoMode) {
+    return false;
+  }
+
+  const currentGeneration = ++serverInitializationGeneration;
+
+  if (showLoading) {
+    showGameLoadingOverlay();
+  }
+
+  while (!demoMode && currentGeneration === serverInitializationGeneration) {
+    sessionIdInitialized = false;
+    gameSessionInitialized = false;
+    refreshStoredControlPanelInteractivity();
+
+    try {
+      await initializeSessionId({ relay: serverRelay });
+      sessionIdInitialized = true;
+    } catch (error) {
+      sessionIdInitialized = false;
+      console.error("Session ID initialization failed:", error);
+      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      refreshStoredControlPanelInteractivity();
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (demoMode || currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    await delay(600);
+
+    if (demoMode || currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    try {
+      await initializeGameSession({ relay: serverRelay });
+      gameSessionInitialized = true;
+      refreshStoredControlPanelInteractivity();
+    } catch (error) {
+      gameSessionInitialized = false;
+      console.error("Game session initialization failed:", error);
+      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      refreshStoredControlPanelInteractivity();
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (gameSessionInitialized) {
+      hideGameLoadingOverlay();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function startServerInitialization(options = {}) {
+  if (demoMode) {
+    return Promise.resolve(false);
+  }
+
+  if (serverInitializationPromise) {
+    return serverInitializationPromise;
+  }
+
+  const promise = runServerInitializationLoop(options)
+    .catch((error) => {
+      console.error("Server initialization encountered an error:", error);
+      return false;
+    })
+    .finally(() => {
+      if (serverInitializationPromise === promise) {
+        serverInitializationPromise = null;
+      }
+    });
+
+  serverInitializationPromise = promise;
+  return promise;
+}
 
 function withRelaySuppressed(callback) {
   suppressRelay = true;
@@ -114,16 +284,41 @@ function setDemoMode(value) {
   const next = Boolean(value);
   if (demoMode === next) {
     serverRelay.setDemoMode(next);
-    serverDummyUI?.setDemoMode?.(next);
+    serverUI?.setDemoMode?.(next);
+    refreshStoredControlPanelInteractivity();
     return;
   }
 
   demoMode = next;
   serverRelay.setDemoMode(next);
-  serverDummyUI?.setDemoMode?.(next);
+  serverUI?.setDemoMode?.(next);
+  refreshStoredControlPanelInteractivity();
 
   if (demoMode) {
+    cancelServerInitialization();
+    hideGameLoadingOverlay();
     clearSelectionDelay();
+    leaveSessionPromise = requestLeaveGameSession({ force: true });
+    sessionIdInitialized = false;
+  }
+
+  if (!demoMode) {
+    cancelServerInitialization();
+    sessionIdInitialized = false;
+    gameSessionInitialized = false;
+    refreshStoredControlPanelInteractivity();
+    showGameLoadingOverlay();
+
+    const pendingLeave = leaveSessionPromise;
+    if (pendingLeave && typeof pendingLeave.finally === "function") {
+      pendingLeave.finally(() => {
+        if (!demoMode) {
+          startServerInitialization({ showLoading: true });
+        }
+      });
+    } else {
+      startServerInitialization({ showLoading: true });
+    }
   }
 }
 
@@ -147,19 +342,19 @@ function applyAutoResultsFromServer(results = []) {
   game?.revealAutoSelections?.(results);
 }
 
-const serverDummyMount =
+const serverMount =
   document.querySelector(".app-wrapper") ?? document.body;
-serverDummyUI = createServerDummy(serverRelay, {
-  mount: serverDummyMount,
+serverUI = createServer(serverRelay, {
+  mount: serverMount,
   onDemoModeToggle: (value) => setDemoMode(value),
   initialDemoMode: demoMode,
   initialHidden: true,
   onVisibilityChange: (isVisible) => {
-    controlPanel?.setDummyServerPanelVisibility?.(isVisible);
+    controlPanel?.setServerPanelVisibility?.(isVisible);
   },
 });
-controlPanel?.setDummyServerPanelVisibility?.(
-  serverDummyUI?.isVisible?.() ?? false
+controlPanel?.setServerPanelVisibility?.(
+  serverUI?.isVisible?.() ?? false
 );
 serverRelay.setDemoMode(demoMode);
 
@@ -212,7 +407,8 @@ serverRelay.addEventListener("demomodechange", (event) => {
     return;
   }
   demoMode = value;
-  serverDummyUI?.setDemoMode?.(value);
+  serverUI?.setDemoMode?.(value);
+  refreshStoredControlPanelInteractivity();
   if (demoMode) {
     clearSelectionDelay();
   }
@@ -223,28 +419,171 @@ function setControlPanelBetMode(mode) {
   controlPanel?.setBetButtonMode?.(betButtonMode);
 }
 
-function setControlPanelBetState(isClickable) {
+function setControlPanelBetState(isClickable, { store = true } = {}) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.betButton = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
   controlPanel?.setBetButtonState?.(
-    isClickable ? "clickable" : "non-clickable"
+    clickable ? "clickable" : "non-clickable"
   );
 }
 
-function setControlPanelRandomState(isClickable) {
+function setControlPanelRandomState(isClickable, { store = true } = {}) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.randomButton = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
   controlPanel?.setRandomPickState?.(
-    isClickable ? "clickable" : "non-clickable"
+    clickable ? "clickable" : "non-clickable"
   );
 }
 
-function setControlPanelAutoStartState(isClickable) {
-  const shouldEnable = isClickable && !autoStopFinishing;
+function setControlPanelAutoStartState(isClickable, { store = true } = {}) {
+  if (store) {
+    controlPanelInteractivityState.autoStartButton = Boolean(isClickable);
+  }
+  const shouldEnable = Boolean(isClickable) && !autoStopFinishing;
+  const clickable = shouldEnable && isControlPanelInteractivityAllowed();
   controlPanel?.setAutoStartButtonState?.(
-    shouldEnable ? "clickable" : "non-clickable"
+    clickable ? "clickable" : "non-clickable"
   );
 }
 
-function setControlPanelMinesState(isClickable) {
+function setControlPanelMinesState(isClickable, { store = true } = {}) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.minesSelect = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
   controlPanel?.setMinesSelectState?.(
-    isClickable ? "clickable" : "non-clickable"
+    clickable ? "clickable" : "non-clickable"
+  );
+}
+
+function setControlPanelModeToggleClickable(isClickable, { store = true } = {}) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.modeToggle = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setModeToggleClickable?.(clickable);
+}
+
+function setControlPanelBetControlsClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.betControls = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setBetControlsClickable?.(clickable);
+}
+
+function setControlPanelNumberOfBetsClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.numberOfBets = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setNumberOfBetsClickable?.(clickable);
+}
+
+function setControlPanelAdvancedToggleClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.advancedToggle = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setAdvancedToggleClickable?.(clickable);
+}
+
+function setControlPanelAdvancedStrategyControlsClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.advancedStrategy = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setAdvancedStrategyControlsClickable?.(clickable);
+}
+
+function setControlPanelStopOnProfitClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.stopOnProfit = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setStopOnProfitClickable?.(clickable);
+}
+
+function setControlPanelStopOnLossClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.stopOnLoss = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setStopOnLossClickable?.(clickable);
+}
+
+function refreshStoredControlPanelInteractivity() {
+  setControlPanelBetState(controlPanelInteractivityState.betButton, {
+    store: false,
+  });
+  setControlPanelRandomState(controlPanelInteractivityState.randomButton, {
+    store: false,
+  });
+  setControlPanelMinesState(controlPanelInteractivityState.minesSelect, {
+    store: false,
+  });
+  setControlPanelAutoStartState(
+    controlPanelInteractivityState.autoStartButton,
+    { store: false }
+  );
+  setControlPanelModeToggleClickable(controlPanelInteractivityState.modeToggle, {
+    store: false,
+  });
+  setControlPanelBetControlsClickable(
+    controlPanelInteractivityState.betControls,
+    { store: false }
+  );
+  setControlPanelNumberOfBetsClickable(
+    controlPanelInteractivityState.numberOfBets,
+    { store: false }
+  );
+  setControlPanelAdvancedToggleClickable(
+    controlPanelInteractivityState.advancedToggle,
+    { store: false }
+  );
+  setControlPanelAdvancedStrategyControlsClickable(
+    controlPanelInteractivityState.advancedStrategy,
+    { store: false }
+  );
+  setControlPanelStopOnProfitClickable(
+    controlPanelInteractivityState.stopOnProfit,
+    { store: false }
+  );
+  setControlPanelStopOnLossClickable(
+    controlPanelInteractivityState.stopOnLoss,
+    { store: false }
   );
 }
 
@@ -252,8 +591,8 @@ function disableServerRoundSetupControls() {
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
   setControlPanelMinesState(false);
-  controlPanel?.setModeToggleClickable?.(false);
-  controlPanel?.setBetControlsClickable?.(false);
+  setControlPanelModeToggleClickable(false);
+  setControlPanelBetControlsClickable(false);
 }
 
 function normalizeMinesValue(value, maxMines) {
@@ -319,25 +658,25 @@ function setAutoRunUIState(active) {
       controlPanel.setAutoStartButtonMode?.("stop");
       setControlPanelAutoStartState(true);
     }
-    controlPanel.setModeToggleClickable?.(false);
-    controlPanel.setBetControlsClickable?.(false);
+    setControlPanelModeToggleClickable(false);
+    setControlPanelBetControlsClickable(false);
     setControlPanelMinesState(false);
-    controlPanel.setNumberOfBetsClickable?.(false);
-    controlPanel.setAdvancedToggleClickable?.(false);
-    controlPanel.setAdvancedStrategyControlsClickable?.(false);
-    controlPanel.setStopOnProfitClickable?.(false);
-    controlPanel.setStopOnLossClickable?.(false);
+    setControlPanelNumberOfBetsClickable(false);
+    setControlPanelAdvancedToggleClickable(false);
+    setControlPanelAdvancedStrategyControlsClickable(false);
+    setControlPanelStopOnProfitClickable(false);
+    setControlPanelStopOnLossClickable(false);
   } else {
     controlPanel.setAutoStartButtonMode?.("start");
     autoStopFinishing = false;
     setControlPanelAutoStartState(true);
-    controlPanel.setModeToggleClickable?.(true);
-    controlPanel.setBetControlsClickable?.(true);
-    controlPanel.setNumberOfBetsClickable?.(true);
-    controlPanel.setAdvancedToggleClickable?.(true);
-    controlPanel.setAdvancedStrategyControlsClickable?.(true);
-    controlPanel.setStopOnProfitClickable?.(true);
-    controlPanel.setStopOnLossClickable?.(true);
+    setControlPanelModeToggleClickable(true);
+    setControlPanelBetControlsClickable(true);
+    setControlPanelNumberOfBetsClickable(true);
+    setControlPanelAdvancedToggleClickable(true);
+    setControlPanelAdvancedStrategyControlsClickable(true);
+    setControlPanelStopOnProfitClickable(true);
+    setControlPanelStopOnLossClickable(true);
     if (roundActive && !minesSelectionLocked) {
       setControlPanelMinesState(true);
     }
@@ -623,12 +962,12 @@ function prepareForNewRoundState({ preserveAutoSelections = false } = {}) {
   if (controlPanelMode !== "auto") {
     manualRoundNeedsReset = false;
     setControlPanelMinesState(false);
-    controlPanel?.setModeToggleClickable?.(false);
-    controlPanel?.setBetControlsClickable?.(false);
+    setControlPanelModeToggleClickable(false);
+    setControlPanelBetControlsClickable(false);
   } else if (!autoRunActive) {
     setControlPanelMinesState(true);
-    controlPanel?.setModeToggleClickable?.(true);
-    controlPanel?.setBetControlsClickable?.(true);
+    setControlPanelModeToggleClickable(true);
+    setControlPanelBetControlsClickable(true);
   }
 
   if (preserveAutoSelections) {
@@ -659,13 +998,13 @@ function finalizeRound({ preserveAutoSelections = false } = {}) {
   if (autoRunActive) {
     setControlPanelBetState(false);
     setControlPanelMinesState(false);
-    controlPanel?.setModeToggleClickable?.(false);
-    controlPanel?.setBetControlsClickable?.(false);
+    setControlPanelModeToggleClickable(false);
+    setControlPanelBetControlsClickable(false);
   } else {
     setControlPanelBetState(true);
     setControlPanelMinesState(true);
-    controlPanel?.setModeToggleClickable?.(true);
-    controlPanel?.setBetControlsClickable?.(true);
+    setControlPanelModeToggleClickable(true);
+    setControlPanelBetControlsClickable(true);
   }
 
   if (preserveAutoSelections) {
@@ -712,6 +1051,14 @@ function handleCashout() {
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
 }
 
+function getActiveGameId() {
+  const sessionDetails = getGameSessionDetails();
+  if (Array.isArray(sessionDetails?.gameIds) && sessionDetails.gameIds.length > 0) {
+    return sessionDetails.gameIds[0];
+  }
+  return DEFAULT_SCRATCH_GAME_ID;
+}
+
 function performBet() {
   applyMinesOption(controlPanel?.getMinesValue?.(), {
     syncGame: true,
@@ -720,18 +1067,96 @@ function performBet() {
   manualRoundNeedsReset = false;
 }
 
-function handleBet() {
+async function handleBet() {
+  if (!demoMode && !gameSessionInitialized) {
+    console.warn("Cannot submit bet: game session is not initialized yet.");
+    return;
+  }
+
   if (!demoMode && !suppressRelay) {
     disableServerRoundSetupControls();
+    const betAmount = controlPanel?.getBetValue?.();
+    const minesValue = controlPanel?.getMinesValue?.();
     sendRelayMessage("action:bet", {
-      bet: controlPanel?.getBetValue?.(),
-      mines: controlPanel?.getMinesValue?.(),
+      bet: betAmount,
+      mines: minesValue,
     });
+
+    try {
+      await submitBet({
+        amount: betAmount,
+        rate: minesValue,
+        gameId: getActiveGameId(),
+        relay: serverRelay,
+      });
+      performBet();
+    } catch (error) {
+      console.error("Failed to submit bet", error);
+      setControlPanelBetState(true);
+      setControlPanelRandomState(controlPanelMode === "manual");
+      setControlPanelMinesState(true);
+      setControlPanelModeToggleClickable(true);
+      setControlPanelBetControlsClickable(true);
+    }
     return;
   }
 
   performBet();
 }
+
+function requestLeaveGameSession(options = {}) {
+  const force = Boolean(options.force);
+  if (leaveSessionInProgress) {
+    return leaveSessionPromise ?? Promise.resolve(false);
+  }
+
+  if (!force && (demoMode || !gameSessionInitialized)) {
+    return Promise.resolve(false);
+  }
+
+  if (!gameSessionInitialized) {
+    sessionIdInitialized = false;
+    return Promise.resolve(false);
+  }
+
+  leaveSessionInProgress = true;
+
+  const promise = leaveGameSession({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+    keepalive: Boolean(options.keepalive),
+  })
+    .then(() => {
+      gameSessionInitialized = false;
+      sessionIdInitialized = false;
+      refreshStoredControlPanelInteractivity();
+      return true;
+    })
+    .catch((error) => {
+      console.error("Failed to leave game session", error);
+      return false;
+    })
+    .finally(() => {
+      leaveSessionInProgress = false;
+      if (leaveSessionPromise === promise) {
+        leaveSessionPromise = null;
+      }
+    });
+
+  leaveSessionPromise = promise;
+  return promise;
+}
+
+window.addEventListener("beforeunload", () => {
+  requestLeaveGameSession({ keepalive: true });
+});
+
+window.addEventListener("pagehide", (event) => {
+  if (event?.persisted) {
+    return;
+  }
+  requestLeaveGameSession({ keepalive: true });
+});
 
 function handleGameStateChange(state) {
   lastKnownGameState = state;
@@ -983,6 +1408,15 @@ const opts = {
 };
 
 (async () => {
+  let serverInitializationTask = null;
+  if (!demoMode) {
+    serverInitializationTask = startServerInitialization({
+      showLoading: true,
+    });
+  } else {
+    hideGameLoadingOverlay();
+  }
+
   const totalTiles = opts.grid * opts.grid;
   const maxMines = Math.max(1, totalTiles - 1);
   const initialMines = Math.max(1, Math.min(opts.mines ?? 1, maxMines));
@@ -1081,8 +1515,8 @@ const opts = {
       opts.disableAnimations = !enabled;
       game?.setAnimationsEnabled?.(enabled);
     });
-    controlPanel.addEventListener("showdummyserver", () => {
-      serverDummyUI?.show?.();
+    controlPanel.addEventListener("showserver", () => {
+      serverUI?.show?.();
     });
     controlPanel.addEventListener("bet", handleBetButtonClick);
     controlPanel.addEventListener("randompick", handleRandomPickClick);
@@ -1094,11 +1528,21 @@ const opts = {
     setTotalProfitAmountValue("0.00000000");
     handleAutoSelectionChange(autoSelectionCount);
     opts.disableAnimations = !(controlPanel.getAnimationsEnabled?.() ?? true);
-    controlPanel.setDummyServerPanelVisibility(
-      serverDummyUI?.isVisible?.() ?? false
+    controlPanel.setServerPanelVisibility(
+      serverUI?.isVisible?.() ?? false
     );
   } catch (err) {
     console.error("Control panel initialization failed:", err);
+  }
+
+  if (serverInitializationTask) {
+    serverInitializationTask = serverInitializationTask.then((result) => {
+      refreshStoredControlPanelInteractivity();
+      return result;
+    });
+    await serverInitializationTask;
+  } else {
+    refreshStoredControlPanelInteractivity();
   }
 
   // Initialize Game
