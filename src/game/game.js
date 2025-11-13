@@ -128,6 +128,8 @@ export async function createGame(mount, opts = {}) {
   // Animation Options
   let disableAnimations = opts.disableAnimations ?? false;
   /* Card Hover */
+  const isRoundActive =
+    typeof opts.isRoundActive === "function" ? () => opts.isRoundActive() : () => true;
   const hoverEnabled = opts.hoverEnabled ?? true;
   const hoverEnterDuration = opts.hoverEnterDuration ?? 120;
   const hoverExitDuration = opts.hoverExitDuration ?? 200;
@@ -916,7 +918,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   function hoverTile(tile, on) {
-    if (!hoverEnabled || !tile || tile._animating) return;
+    if (!hoverEnabled || !tile || tile._animating || !isRoundActive()) return;
 
     const wrap = tile._wrap;
     if (!wrap) return;
@@ -1332,6 +1334,8 @@ export async function createGame(mount, opts = {}) {
     }
 
     t.on("pointerover", () => {
+      if (!isRoundActive()) return;
+
       const autoMode = isAutoModeActive();
       const untapedCount = tiles.filter((tile) => !tile.taped).length;
       if (!autoMode && untapedCount <= mines) return;
