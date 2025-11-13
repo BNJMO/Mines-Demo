@@ -980,6 +980,7 @@ const opts = {
   onWin: handleGameWin,
   onGameOver: handleGameOver,
   onChange: handleGameStateChange,
+  isRoundActive: () => roundActive,
 };
 
 (async () => {
