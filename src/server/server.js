@@ -1,7 +1,7 @@
 import { ServerRelay } from "../serverRelay.js";
 
 export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
-export const DEFAULT_SCRATCH_GAME_ID = "MineCrash";
+export const DEFAULT_SCRATCH_GAME_ID = "CrashMines";
 
 let sessionId = null;
 let sessionGameDetails = null;
@@ -367,6 +367,19 @@ export async function submitBet({
   rate = 0,
   relay,
 } = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot submit bet before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:bet:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
   const baseUrl = normalizeBaseUrl(url);
   const normalizedGameId = normalizeScratchGameId(gameId);
   const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
@@ -416,6 +429,8 @@ export async function submitBet({
       headers: {
         Accept: "application/json, text/plain, */*",
         "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
       },
       body: JSON.stringify(requestBody),
     });
@@ -509,17 +524,29 @@ export async function submitBet({
     : roundIdValue ?? null;
   lastBetRegisteredBets = cloneRegisteredBets(registeredBetsValue);
 
+  const betSummary = {
+    success: isSuccess,
+    balance: lastBetBalance,
+    roundId: lastBetRoundId,
+    registeredBets: lastBetRegisteredBets,
+  };
+
+  const relayPayload = {
+    ...responsePayload,
+    ok: isSuccess,
+    bet: betSummary,
+  };
+
+  if (!isSuccess) {
+    relayPayload.error = "Bet response indicated failure";
+  }
+
   if (isServerRelay(relay)) {
-    relay.deliver("api:bet:response", {
-      ...responsePayload,
-      ok: true,
-      bet: {
-        success: isSuccess,
-        balance: lastBetBalance,
-        roundId: lastBetRoundId,
-        registeredBets: lastBetRegisteredBets,
-      },
-    });
+    relay.deliver("api:bet:response", relayPayload);
+  }
+
+  if (!isSuccess) {
+    throw new Error("Bet response indicated failure");
   }
 
   return lastBetResult;
