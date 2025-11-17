@@ -301,6 +301,7 @@ export async function createGame(mount, opts = {}) {
   let selectedTile = null;
   const autoSelectedTiles = new Set();
   const autoSelectionOrder = [];
+  let forcedRevealMap = null;
 
   // API callbacks
   const onWin = opts.onWin ?? (() => {});
@@ -321,6 +322,7 @@ export async function createGame(mount, opts = {}) {
     const emitAutoSelectionChange = !preserveAutoSelections;
     buildBoard({ emitAutoSelectionChange });
     centerBoard();
+    forcedRevealMap = null;
     if (preserveAutoSelections && preservedAutoSelections?.length) {
       applyAutoSelectionsFromCoordinates(preservedAutoSelections);
     }
@@ -1655,6 +1657,33 @@ export async function createGame(mount, opts = {}) {
   }
 
   function revealAllTiles(triggeredBombTile, { stagger = true } = {}) {
+    const serverMap = forcedRevealMap;
+    forcedRevealMap = null;
+
+    if (serverMap) {
+      const unrevealed = tiles.filter(
+        (t) => !t.revealed && t !== triggeredBombTile
+      );
+
+      const reveals = unrevealed.map((tile, idx) => {
+        const key = `${tile.row},${tile.col}`;
+        const face = serverMap.get(key) ?? (bombPositions.has(key) ? "bomb" : "diamond");
+        return { tile, face, index: idx };
+      });
+
+      reveals.forEach(({ tile, face, index }) => {
+        if (stagger && revealAllIntervalDelay > 0 && !disableAnimations) {
+          setTimeout(() => {
+            revealTileWithFlip(tile, face, false);
+          }, revealAllIntervalDelay * index);
+        } else {
+          revealTileWithFlip(tile, face, false);
+        }
+      });
+
+      return;
+    }
+
     const unrevealed = tiles.filter((t) => !t.revealed);
     const bombsNeeded = mines - 1;
     let available = unrevealed.filter((t) => t !== triggeredBombTile);
@@ -1683,6 +1712,36 @@ export async function createGame(mount, opts = {}) {
         revealTileWithFlip(t, isBomb ? "bomb" : "diamond", false);
       }
     });
+  }
+
+  function setServerRevealMap(map) {
+    forcedRevealMap = normalizeServerRevealMap(map);
+  }
+
+  function normalizeServerRevealMap(map) {
+    if (!Array.isArray(map)) {
+      return null;
+    }
+
+    const normalized = new Map();
+
+    map.forEach((rowValues, rowIndex) => {
+      if (!Array.isArray(rowValues)) {
+        return;
+      }
+
+      rowValues.forEach((value, colIndex) => {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric === -1) {
+          return;
+        }
+
+        const face = numeric === 0 ? "bomb" : "diamond";
+        normalized.set(`${rowIndex},${colIndex}`, face);
+      });
+    });
+
+    return normalized.size > 0 ? normalized : null;
   }
 
   function buildBoard({ emitAutoSelectionChange = true } = {}) {
@@ -1889,5 +1948,6 @@ export async function createGame(mount, opts = {}) {
     getAutoResetDelay,
     showWinPopup: spawnWinPopup,
     setAnimationsEnabled,
+    setServerRevealMap,
   };
 }

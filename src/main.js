@@ -6,6 +6,7 @@ import {
   initializeSessionId,
   initializeGameSession,
   submitBet,
+  submitStep,
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
@@ -271,6 +272,16 @@ function setTotalProfitAmountValue(value) {
   const normalized = normalizeTotalProfitAmount(value);
   totalProfitAmountDisplayValue = normalized;
   controlPanel?.setProfitValue?.(normalized);
+}
+
+function updateProfitFromServerState(state) {
+  if (!state || typeof state !== "object") {
+    return;
+  }
+
+  if (state.multiplier != null) {
+    setTotalProfitMultiplierValue(state.multiplier);
+  }
 }
 
 function sendRelayMessage(type, payload = {}) {
@@ -643,6 +654,34 @@ function beginSelectionDelay() {
   selectionPending = true;
   setControlPanelBetState(false);
   setControlPanelRandomState(false);
+}
+
+function scheduleSelectionResolution({ isBomb = false, serverMap = null } = {}) {
+  if (selectionDelayHandle) {
+    clearTimeout(selectionDelayHandle);
+    selectionDelayHandle = null;
+  }
+
+  selectionDelayHandle = setTimeout(() => {
+    selectionDelayHandle = null;
+
+    if (!roundActive) {
+      selectionPending = false;
+      return;
+    }
+
+    if (serverMap && typeof game?.setServerRevealMap === "function") {
+      game.setServerRevealMap(serverMap);
+    }
+
+    if (isBomb) {
+      game?.SetSelectedCardIsBomb?.();
+    } else {
+      game?.setSelectedCardIsDiamond?.();
+    }
+
+    selectionPending = false;
+  }, SERVER_RESPONSE_DELAY_MS);
 }
 
 function setAutoRunUIState(active) {
@@ -1197,6 +1236,49 @@ function handleRandomPickClick() {
   game?.selectRandomTile?.();
 }
 
+async function requestServerSelectionReveal(selection) {
+  const row = Number(selection?.row);
+  const col = Number(selection?.col);
+
+  if (!Number.isFinite(row) || !Number.isFinite(col)) {
+    console.error("Invalid selection coordinates", selection);
+    scheduleSelectionResolution({ isBomb: true });
+    return;
+  }
+
+  try {
+    const stepResult = await submitStep({
+      row,
+      col,
+      gameId: getActiveGameId(),
+      relay: serverRelay,
+    });
+
+    const state = stepResult?.state ?? stepResult?.responseData?.state ?? null;
+    updateProfitFromServerState(state);
+
+    const normalizedStatus = String(state?.status ?? "").toLowerCase();
+    const serverMap = Array.isArray(state?.map) ? state.map : null;
+    const isBomb = normalizedStatus === "lost";
+    const roundCompleteStatuses = new Set([
+      "lost",
+      "won",
+      "win",
+      "completed",
+      "finished",
+    ]);
+    const shouldRevealMap = serverMap && roundCompleteStatuses.has(normalizedStatus);
+
+    scheduleSelectionResolution({
+      isBomb,
+      serverMap: shouldRevealMap ? serverMap : null,
+    });
+  } catch (error) {
+    console.error("Failed to reveal tile via server:", error);
+    scheduleSelectionResolution({ isBomb: true });
+  }
+}
+
 function handleCardSelected(selection) {
   if (!roundActive) {
     return;
@@ -1212,34 +1294,19 @@ function handleCardSelected(selection) {
   }
 
   beginSelectionDelay();
+  const payload = {
+    row: selection?.row,
+    col: selection?.col,
+  };
 
   if (!demoMode && !suppressRelay) {
-    const payload = {
-      row: selection?.row,
-      col: selection?.col,
-    };
     sendRelayMessage("game:manual-selection", payload);
+    requestServerSelectionReveal(payload);
     return;
   }
 
-  selectionDelayHandle = setTimeout(() => {
-    selectionDelayHandle = null;
-
-    if (!roundActive) {
-      selectionPending = false;
-      return;
-    }
-
-    const revealBomb = Math.random() < 0.15;
-
-    if (revealBomb) {
-      game?.SetSelectedCardIsBomb?.();
-    } else {
-      game?.setSelectedCardIsDiamond?.();
-    }
-
-    selectionPending = false;
-  }, SERVER_RESPONSE_DELAY_MS);
+  const revealBomb = Math.random() < 0.15;
+  scheduleSelectionResolution({ isBomb: revealBomb });
 }
 
 function handleAutoSelectionChange(count) {
