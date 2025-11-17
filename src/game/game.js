@@ -868,7 +868,12 @@ export async function createGame(mount, opts = {}) {
   }
 
   function spawnExplosionSheetOnTile(tile) {
-    if (!explosionSheetEnabled || !explosionFrames || !explosionFrames.length)
+    if (
+      disableAnimations ||
+      !explosionSheetEnabled ||
+      !explosionFrames ||
+      !explosionFrames.length
+    )
       return;
 
     const anim = new AnimatedSprite(explosionFrames);
@@ -1094,6 +1099,7 @@ export async function createGame(mount, opts = {}) {
     disableAnimations = nextDisabled;
 
     if (disableAnimations) {
+      cleanupExplosionSprites();
       for (const tile of tiles) {
         if (!tile) continue;
         stopHover(tile);
