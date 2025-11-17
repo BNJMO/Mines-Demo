@@ -9,13 +9,17 @@ import {
   AnimatedSprite,
   Assets,
   Sprite,
-  BlurFilter,
 } from "pixi.js";
 
 // Sound will be loaded inside createGame function
 import Ease from "../ease.js";
 import diamondTextureUrl from "../../assets/sprites/Diamond.png";
 import bombTextureUrl from "../../assets/sprites/Bomb.png";
+import tileUnflippedTextureUrl from "../../assets/sprites/tile_unflipped.svg";
+import tileHoveredTextureUrl from "../../assets/sprites/tile_hovered.svg";
+import tileFlippedTextureUrl from "../../assets/sprites/tile_flipped.svg";
+import tileSelectedTextureUrl from "../../assets/sprites/tile_selected.svg";
+import tileSelectedFlippedTextureUrl from "../../assets/sprites/tile_selectedFlipped.svg";
 import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.svg";
 import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
@@ -50,9 +54,6 @@ const PALETTE = {
   winPopupMultiplierText: 0xeaff00,
   winPopupSeparationLine: 0x1b2931,
 };
-
-const AUTO_SELECTION_COLOR = 0x5f2afd;
-const AUTO_SELECTION_ELEVATION_COLOR = 0x360fa9;
 
 function tween(
   app,
@@ -115,6 +116,16 @@ export async function createGame(mount, opts = {}) {
   // Visuals
   const diamondTexturePath = opts.dimaondTexturePath ?? diamondTextureUrl;
   const bombTexturePath = opts.bombTexturePath ?? bombTextureUrl;
+  const tileUnflippedTexturePath =
+    opts.tileUnflippedTexturePath ?? tileUnflippedTextureUrl;
+  const tileHoveredTexturePath =
+    opts.tileHoveredTexturePath ?? tileHoveredTextureUrl;
+  const tileFlippedTexturePath =
+    opts.tileFlippedTexturePath ?? tileFlippedTextureUrl;
+  const tileSelectedTexturePath =
+    opts.tileSelectedTexturePath ?? tileSelectedTextureUrl;
+  const tileSelectedFlippedTexturePath =
+    opts.tileSelectedFlippedTexturePath ?? tileSelectedFlippedTextureUrl;
   const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
   const iconRevealedSizeOpacity = opts.iconRevealedSizeOpacity ?? 0.4;
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
@@ -123,7 +134,7 @@ export async function createGame(mount, opts = {}) {
   const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
-  const extraVerticalGap = Number(opts.extraVerticalGap ?? 5);
+  const extraVerticalGap = Number(opts.extraVerticalGap ?? 0);
 
   // Animation Options
   let disableAnimations = opts.disableAnimations ?? false;
@@ -267,6 +278,17 @@ export async function createGame(mount, opts = {}) {
     await loadBombTexture();
   } catch (e) {
     console.error("loadBombTexture failed", e);
+  }
+
+  let tileTextureUnflipped = null;
+  let tileTextureHovered = null;
+  let tileTextureFlipped = null;
+  let tileTextureSelected = null;
+  let tileTextureSelectedFlipped = null;
+  try {
+    await loadTileTextures();
+  } catch (e) {
+    console.error("loadTileTextures failed", e);
   }
 
   try {
@@ -734,6 +756,34 @@ export async function createGame(mount, opts = {}) {
     bombTexture = await Assets.load(bombTexturePath);
   }
 
+  async function loadTileTextures() {
+    if (
+      tileTextureUnflipped &&
+      tileTextureHovered &&
+      tileTextureFlipped &&
+      tileTextureSelected &&
+      tileTextureSelectedFlipped
+    ) {
+      return;
+    }
+
+    const [unflipped, hovered, flipped, selected, selectedFlipped] =
+      await Promise.all([
+        Assets.load(tileUnflippedTexturePath),
+        Assets.load(tileHoveredTexturePath),
+        Assets.load(tileFlippedTexturePath),
+        Assets.load(tileSelectedTexturePath),
+        Assets.load(tileSelectedFlippedTexturePath),
+      ]);
+
+    tileTextureUnflipped = unflipped ?? Texture.WHITE;
+    tileTextureHovered = hovered ?? tileTextureUnflipped;
+    tileTextureFlipped = flipped ?? tileTextureUnflipped;
+    tileTextureSelected = selected ?? tileTextureUnflipped;
+    tileTextureSelectedFlipped =
+      selectedFlipped ?? tileTextureFlipped ?? tileTextureUnflipped;
+  }
+
   async function loadExplosionFrames() {
     if (explosionFrames) return;
 
@@ -934,35 +984,8 @@ export async function createGame(mount, opts = {}) {
     const token = Symbol("hover");
     tile._hoverToken = token;
 
-    // Change color
-    const card = tile._card;
-    const inset = tile._inset;
-    const elevationLip = tile._elevationLip;
-    if (card || inset || elevationLip) {
-      const size = tile._tileSize;
-      const r = tile._tileRadius;
-      const pad = tile._tilePad;
-      if (on) {
-        if (card) {
-          flipFace(card, size, size, r, PALETTE.hover);
-        }
-        if (inset) {
-          flipInset(inset, size, size, r, pad, PALETTE.hover);
-        }
-        if (elevationLip) {
-          paintTileElevation(
-            elevationLip,
-            size,
-            r,
-            tile.isAutoSelected
-              ? AUTO_SELECTION_ELEVATION_COLOR
-              : PALETTE.tileElevationHover
-          );
-        }
-      } else {
-        refreshTileTint(tile);
-      }
-    }
+    tile._hovered = Boolean(on && !tile.revealed);
+    refreshTileTint(tile);
 
     if (disableAnimations) {
       tile._wrap.scale.set(endScale);
@@ -1046,7 +1069,15 @@ export async function createGame(mount, opts = {}) {
   }
 
   function stopHover(t) {
+    if (!t) {
+      return;
+    }
+
     t._hoverToken = Symbol("hover-cancelled");
+    if (t._hovered) {
+      t._hovered = false;
+      refreshTileTint(t);
+    }
   }
 
   function stopWiggle(t) {
@@ -1091,85 +1122,51 @@ export async function createGame(mount, opts = {}) {
     }
   }
 
-  function paintTileBase(graphic, size, radius, color) {
-    if (!graphic || typeof graphic.clear !== "function") {
-      return;
-    }
-
-    graphic
-      .clear()
-      .roundRect(0, 0, size, size, radius)
-      .fill(color);
-  }
-
-  function paintTileInset(graphic, size, radius, pad, color) {
-    if (!graphic || typeof graphic.clear !== "function") {
-      return;
-    }
-
-    graphic
-      .clear()
-      .roundRect(
-        pad,
-        pad,
-        size - pad * 2,
-        size - pad * 2,
-        Math.max(8, radius - 6)
-      )
-      .fill(color);
-  }
-
-  function paintTileElevation(graphic, size, radius, color) {
-    if (!graphic || typeof graphic.clear !== "function") {
-      return;
-    }
-
-    graphic.clear().roundRect(0, 0, size, size, radius).fill(color);
-  }
-
   function refreshTileTint(tile) {
     if (!tile) return;
 
-    const card = tile._card;
-    const inset = tile._inset;
-    const elevationLip = tile._elevationLip;
-
-    if (!card && !inset && !elevationLip) {
+    const sprite = tile._tileSprite;
+    if (!sprite) {
       return;
     }
+
+    const ensureSize = () => {
+      const targetSize = tile._tileSize ?? sprite.width;
+      if (targetSize) {
+        sprite.width = targetSize;
+        sprite.height = targetSize;
+      }
+    };
 
     if (tile.revealed) {
-      if (elevationLip) {
-        const revealedElevationColor = tile._revealedWithSelectionBase
-          ? AUTO_SELECTION_ELEVATION_COLOR
-          : PALETTE.tileElevationFlipped;
-        paintTileElevation(
-          elevationLip,
-          tile._tileSize,
-          tile._tileRadius,
-          revealedElevationColor
-        );
+      const useSelectedFlipped = Boolean(tile._revealedWithSelectionBase);
+      if (useSelectedFlipped && !tileTextureSelectedFlipped) {
+        tile._revealedWithSelectionBase = false;
       }
+      const flippedTexture = useSelectedFlipped
+        ? tileTextureSelectedFlipped
+        : tileTextureFlipped;
+      sprite.texture = flippedTexture ?? tileTextureUnflipped ?? Texture.WHITE;
+      ensureSize();
       return;
     }
 
-    const size = tile._tileSize;
-    const radius = tile._tileRadius;
-    const pad = tile._tilePad;
+    if (tile._hovered) {
+      sprite.texture =
+        tileTextureHovered ?? tileTextureUnflipped ?? Texture.WHITE;
+      ensureSize();
+      return;
+    }
 
-    const baseColor = tile.isAutoSelected
-      ? AUTO_SELECTION_COLOR
-      : PALETTE.tileBase;
-    const insetColor = tile.isAutoSelected
-      ? AUTO_SELECTION_COLOR
-      : PALETTE.tileInset;
-    const elevationColor = tile.isAutoSelected
-      ? AUTO_SELECTION_ELEVATION_COLOR
-      : PALETTE.tileElevationBase;
+    if (tile.isAutoSelected) {
+      sprite.texture =
+        tileTextureSelected ?? tileTextureUnflipped ?? Texture.WHITE;
+      ensureSize();
+      return;
+    }
 
-    paintTileBase(card, size, radius, baseColor);
-    paintTileInset(inset, size, radius, pad, insetColor);
-    paintTileElevation(elevationLip, size, radius, elevationColor);
+    sprite.texture = tileTextureUnflipped ?? Texture.WHITE;
+    ensureSize();
   }
 
   function notifyAutoSelectionChange() {
@@ -1253,31 +1250,13 @@ export async function createGame(mount, opts = {}) {
   }
 
   function createTile(row, col, size) {
-    const raduis = Math.min(18, size * 0.18);
-    const pad = Math.max(7, Math.floor(size * 0.08));
-    const elevationOffset = Math.max(4, Math.floor(size * 0.07));
-    const lipOffset = Math.max(2, Math.floor(size * 0.04));
-    const shadowBlur = Math.max(4, Math.floor(size * 0.09));
-
-    const elevationShadow = new Graphics()
-      .roundRect(0, 0, size, size, raduis)
-      .fill(PALETTE.tileElevationShadow);
-    elevationShadow.y = elevationOffset;
-    elevationShadow.alpha = 0.32;
-    const shadowFilter = new BlurFilter(shadowBlur);
-    shadowFilter.quality = 2;
-    elevationShadow.filters = [shadowFilter];
-
-    const elevationLip = new Graphics();
-    paintTileElevation(elevationLip, size, raduis, PALETTE.tileElevationBase);
-    elevationLip.y = lipOffset;
-    elevationLip.alpha = 0.85;
-
-    const card = new Graphics();
-    paintTileBase(card, size, raduis, PALETTE.tileBase);
-
-    const inset = new Graphics();
-    paintTileInset(inset, size, raduis, pad, PALETTE.tileInset);
+    const tileSprite = new Sprite(
+      tileTextureUnflipped ?? tileTextureFlipped ?? Texture.WHITE
+    );
+    tileSprite.width = size;
+    tileSprite.height = size;
+    tileSprite.position.set(0, 0);
+    tileSprite.eventMode = "none";
 
     const icon = new Sprite();
     icon.anchor.set(0.5);
@@ -1287,7 +1266,7 @@ export async function createGame(mount, opts = {}) {
 
     // Centered wrapper – flip happens here
     const flipWrap = new Container();
-    flipWrap.addChild(elevationShadow, elevationLip, card, inset, icon);
+    flipWrap.addChild(tileSprite, icon);
     flipWrap.position.set(size / 2, size / 2);
     flipWrap.pivot.set(size / 2, size / 2);
 
@@ -1299,18 +1278,18 @@ export async function createGame(mount, opts = {}) {
     t.row = row;
     t.col = col;
     t.revealed = false;
+    t._revealedWithSelectionBase = false;
     t._animating = false;
     t._layoutScale = 1;
 
     t._wrap = flipWrap;
-    t._card = card;
-    t._inset = inset;
-    t._elevationLip = elevationLip;
+    t._tileSprite = tileSprite;
     t._icon = icon;
     t._tileSize = size;
-    t._tileRadius = raduis;
-    t._tilePad = pad;
-    t._revealedWithSelectionBase = false;
+    t._hovered = false;
+    t.hitArea = new Rectangle(0, 0, size, size);
+
+    refreshTileTint(t);
 
     // Spwan animation
     const s0 = 0.0001;
@@ -1537,18 +1516,6 @@ export async function createGame(mount, opts = {}) {
     finalizeAutoWin();
   }
 
-  function flipFace(graphic, w, h, r, color, stroke = true) {
-    graphic.clear().roundRect(0, 0, w, h, r).fill(color);
-    // Tile strokes have been removed, keep signature for compatibility.
-  }
-
-  function flipInset(graphic, w, h, r, pad, color) {
-    graphic
-      .clear()
-      .roundRect(pad, pad, w - pad * 2, h - pad * 2, Math.max(8, r - 6))
-      .fill(color);
-  }
-
   function easeFlip(t) {
     switch (flipEaseFunction) {
       case "easeInOutBack":
@@ -1606,8 +1573,6 @@ export async function createGame(mount, opts = {}) {
     // restart the flip while we wait for the animation delay to elapse.
     tile._animating = true;
 
-    tile._revealedWithSelectionBase = false;
-
     const unrevealed = tiles.filter((t) => !t.revealed).length;
     const revealedCount = tiles.length - unrevealed;
     const progress = Math.min(1, revealedCount / tiles.length);
@@ -1618,13 +1583,10 @@ export async function createGame(mount, opts = {}) {
       stopHover(tile);
       stopWiggle(tile);
       const wrap = tile._wrap;
-      const card = tile._card;
-      const inset = tile._inset;
-      const elevationLip = tile._elevationLip;
+      const tileSprite = tile._tileSprite;
       const icon = tile._icon;
-      const radius = tile._tileRadius;
-      const pad = tile._tilePad;
       const tileSize = tile._tileSize;
+      const useSelectedTextures = Boolean(revealedByPlayer && useSelectionBase);
 
       if (
         tile.destroyed ||
@@ -1632,11 +1594,8 @@ export async function createGame(mount, opts = {}) {
         !wrap.scale ||
         !wrap.skew ||
         wrap.destroyed ||
-        !card ||
-        card.destroyed ||
-        !inset ||
-        inset.destroyed ||
-        (elevationLip && elevationLip.destroyed) ||
+        !tileSprite ||
+        tileSprite.destroyed ||
         !icon ||
         icon.destroyed
       ) {
@@ -1646,6 +1605,15 @@ export async function createGame(mount, opts = {}) {
       }
 
       tile._animating = true;
+
+      if (useSelectedTextures) {
+        tileSprite.texture =
+          tileTextureSelected ?? tileTextureUnflipped ?? Texture.WHITE;
+        if (tileSize) {
+          tileSprite.width = tileSize;
+          tileSprite.height = tileSize;
+        }
+      }
 
       if (revealedByPlayer) {
         playSoundEffect("tileFlip");
@@ -1670,8 +1638,7 @@ export async function createGame(mount, opts = {}) {
             !wrap.scale ||
             !wrap.skew ||
             wrap.destroyed ||
-            card.destroyed ||
-            inset.destroyed ||
+            tileSprite.destroyed ||
             icon.destroyed
           ) {
             tile._animating = false;
@@ -1704,33 +1671,18 @@ export async function createGame(mount, opts = {}) {
             const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
             icon.width = maxW;
             icon.height = maxH;
-
-            if (elevationLip) {
-              tile._revealedWithSelectionBase =
-                revealedByPlayer && useSelectionBase;
-              const flippedElevationColor = tile._revealedWithSelectionBase
-                ? AUTO_SELECTION_ELEVATION_COLOR
-                : PALETTE.tileElevationFlipped;
-              paintTileElevation(
-                elevationLip,
-                tileSize,
-                radius,
-                flippedElevationColor
-              );
+            const flippedTexture = useSelectedTextures
+              ? tileTextureSelectedFlipped ?? tileTextureFlipped
+              : tileTextureFlipped;
+            tileSprite.texture =
+              flippedTexture ?? tileTextureUnflipped ?? Texture.WHITE;
+            if (tileSize) {
+              tileSprite.width = tileSize;
+              tileSprite.height = tileSize;
             }
 
             if (face === "bomb") {
               icon.texture = bombTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.bombA
-                : PALETTE.bombAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.bombB
-                : PALETTE.bombBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
               if (revealedByPlayer) {
                 spawnExplosionSheetOnTile(tile);
@@ -1740,16 +1692,6 @@ export async function createGame(mount, opts = {}) {
             } else {
               // Diamond
               icon.texture = diamondTexture;
-              const facePalette = revealedByPlayer
-                ? useSelectionBase
-                  ? AUTO_SELECTION_COLOR
-                  : PALETTE.safeA
-                : PALETTE.safeAUnrevealed;
-              flipFace(card, tileSize, tileSize, radius, facePalette);
-              const insetPalette = revealedByPlayer
-                ? PALETTE.safeB
-                : PALETTE.safeBUnrevealed;
-              flipInset(inset, tileSize, tileSize, radius, pad, insetPalette);
 
               if (revealedByPlayer) {
                 const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
@@ -1778,7 +1720,9 @@ export async function createGame(mount, opts = {}) {
 
           forceFlatPose(tile);
           tile._animating = false;
+          tile._revealedWithSelectionBase = useSelectedTextures;
           tile.revealed = true;
+          refreshTileTint(tile);
 
           if (revealedByPlayer) {
             if (face === "bomb") {
