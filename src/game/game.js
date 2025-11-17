@@ -1271,6 +1271,7 @@ export async function createGame(mount, opts = {}) {
     t._icon = icon;
     t._tileSize = size;
     t._hovered = false;
+    t.hitArea = new Rectangle(0, 0, size, size);
 
     refreshTileTint(t);
 
