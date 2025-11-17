@@ -131,7 +131,7 @@ export async function createGame(mount, opts = {}) {
   const autoResetDelayMs = Number(opts.autoResetDelayMs ?? 1500);
   const strokeWidth = opts.strokeWidth ?? 1;
   const gapBetweenTiles = opts.gapBetweenTiles ?? 0.012;
-  const extraVerticalGap = Number(opts.extraVerticalGap ?? 5);
+  const extraVerticalGap = Number(opts.extraVerticalGap ?? 0);
 
   // Animation Options
   let disableAnimations = opts.disableAnimations ?? false;
