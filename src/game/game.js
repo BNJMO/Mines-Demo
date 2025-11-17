@@ -19,6 +19,7 @@ import tileUnflippedTextureUrl from "../../assets/sprites/tile_unflipped.svg";
 import tileHoveredTextureUrl from "../../assets/sprites/tile_hovered.svg";
 import tileFlippedTextureUrl from "../../assets/sprites/tile_flipped.svg";
 import tileSelectedTextureUrl from "../../assets/sprites/tile_selected.svg";
+import tileSelectedFlippedTextureUrl from "../../assets/sprites/tile_selectedFlipped.svg";
 import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.svg";
 import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
@@ -123,6 +124,8 @@ export async function createGame(mount, opts = {}) {
     opts.tileFlippedTexturePath ?? tileFlippedTextureUrl;
   const tileSelectedTexturePath =
     opts.tileSelectedTexturePath ?? tileSelectedTextureUrl;
+  const tileSelectedFlippedTexturePath =
+    opts.tileSelectedFlippedTexturePath ?? tileSelectedFlippedTextureUrl;
   const iconSizePercentage = opts.iconSizePercentage ?? 0.7;
   const iconRevealedSizeOpacity = opts.iconRevealedSizeOpacity ?? 0.4;
   const iconRevealedSizeFactor = opts.iconRevealedSizeFactor ?? 0.85;
@@ -281,6 +284,7 @@ export async function createGame(mount, opts = {}) {
   let tileTextureHovered = null;
   let tileTextureFlipped = null;
   let tileTextureSelected = null;
+  let tileTextureSelectedFlipped = null;
   try {
     await loadTileTextures();
   } catch (e) {
@@ -757,22 +761,27 @@ export async function createGame(mount, opts = {}) {
       tileTextureUnflipped &&
       tileTextureHovered &&
       tileTextureFlipped &&
-      tileTextureSelected
+      tileTextureSelected &&
+      tileTextureSelectedFlipped
     ) {
       return;
     }
 
-    const [unflipped, hovered, flipped, selected] = await Promise.all([
-      Assets.load(tileUnflippedTexturePath),
-      Assets.load(tileHoveredTexturePath),
-      Assets.load(tileFlippedTexturePath),
-      Assets.load(tileSelectedTexturePath),
-    ]);
+    const [unflipped, hovered, flipped, selected, selectedFlipped] =
+      await Promise.all([
+        Assets.load(tileUnflippedTexturePath),
+        Assets.load(tileHoveredTexturePath),
+        Assets.load(tileFlippedTexturePath),
+        Assets.load(tileSelectedTexturePath),
+        Assets.load(tileSelectedFlippedTexturePath),
+      ]);
 
     tileTextureUnflipped = unflipped ?? Texture.WHITE;
     tileTextureHovered = hovered ?? tileTextureUnflipped;
     tileTextureFlipped = flipped ?? tileTextureUnflipped;
     tileTextureSelected = selected ?? tileTextureUnflipped;
+    tileTextureSelectedFlipped =
+      selectedFlipped ?? tileTextureFlipped ?? tileTextureUnflipped;
   }
 
   async function loadExplosionFrames() {
@@ -1130,8 +1139,14 @@ export async function createGame(mount, opts = {}) {
     };
 
     if (tile.revealed) {
-      sprite.texture =
-        tileTextureFlipped ?? tileTextureUnflipped ?? Texture.WHITE;
+      const useSelectedFlipped = Boolean(tile._revealedWithSelectionBase);
+      if (useSelectedFlipped && !tileTextureSelectedFlipped) {
+        tile._revealedWithSelectionBase = false;
+      }
+      const flippedTexture = useSelectedFlipped
+        ? tileTextureSelectedFlipped
+        : tileTextureFlipped;
+      sprite.texture = flippedTexture ?? tileTextureUnflipped ?? Texture.WHITE;
       ensureSize();
       return;
     }
@@ -1263,6 +1278,7 @@ export async function createGame(mount, opts = {}) {
     t.row = row;
     t.col = col;
     t.revealed = false;
+    t._revealedWithSelectionBase = false;
     t._animating = false;
     t._layoutScale = 1;
 
@@ -1570,6 +1586,7 @@ export async function createGame(mount, opts = {}) {
       const tileSprite = tile._tileSprite;
       const icon = tile._icon;
       const tileSize = tile._tileSize;
+      const useSelectedTextures = Boolean(revealedByPlayer && useSelectionBase);
 
       if (
         tile.destroyed ||
@@ -1589,7 +1606,7 @@ export async function createGame(mount, opts = {}) {
 
       tile._animating = true;
 
-      if (revealedByPlayer && useSelectionBase) {
+      if (useSelectedTextures) {
         tileSprite.texture =
           tileTextureSelected ?? tileTextureUnflipped ?? Texture.WHITE;
         if (tileSize) {
@@ -1654,8 +1671,11 @@ export async function createGame(mount, opts = {}) {
             const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
             icon.width = maxW;
             icon.height = maxH;
+            const flippedTexture = useSelectedTextures
+              ? tileTextureSelectedFlipped ?? tileTextureFlipped
+              : tileTextureFlipped;
             tileSprite.texture =
-              tileTextureFlipped ?? tileTextureUnflipped ?? Texture.WHITE;
+              flippedTexture ?? tileTextureUnflipped ?? Texture.WHITE;
             if (tileSize) {
               tileSprite.width = tileSize;
               tileSprite.height = tileSize;
@@ -1700,6 +1720,7 @@ export async function createGame(mount, opts = {}) {
 
           forceFlatPose(tile);
           tile._animating = false;
+          tile._revealedWithSelectionBase = useSelectedTextures;
           tile.revealed = true;
           refreshTileTint(tile);
 
