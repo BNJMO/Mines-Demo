@@ -178,6 +178,19 @@ export async function initializeGameSession({
   scratchGameId = DEFAULT_SCRATCH_GAME_ID,
   relay,
 } = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot join game session before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:join:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
   const baseUrl = normalizeBaseUrl(url);
   const gameId = normalizeScratchGameId(scratchGameId);
   const endpoint = `${baseUrl}/join/${encodeURIComponent(gameId)}/`;
@@ -203,6 +216,8 @@ export async function initializeGameSession({
       method: "GET",
       headers: {
         Accept: "application/json, text/plain, */*",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
       },
     });
   } catch (networkError) {
