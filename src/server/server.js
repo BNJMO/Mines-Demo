@@ -382,7 +382,9 @@ export async function submitBet({
 
   const baseUrl = normalizeBaseUrl(url);
   const normalizedGameId = normalizeScratchGameId(gameId);
-  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(
+    normalizedGameId
+  )}?betInfo`;
 
   lastBetResult = null;
   lastBetRoundId = null;
