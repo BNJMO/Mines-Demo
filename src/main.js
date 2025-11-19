@@ -1102,6 +1102,9 @@ const opts = {
     console.error("Control panel initialization failed:", err);
   }
 
+  // Keep the control panel disabled until the game finishes loading
+  controlPanel?.setInteractable?.(false);
+
   // Initialize Game
   try {
     game = await createGame("#game", opts);
@@ -1130,5 +1133,7 @@ const opts = {
         </div>
       `;
     }
+  } finally {
+    controlPanel?.setInteractable?.(true);
   }
 })();
