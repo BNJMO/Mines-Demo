@@ -343,6 +343,40 @@ function normalizeBetAmount(amount) {
   return Math.max(0, numeric);
 }
 
+function formatBetAmountLiteral(amount) {
+  const normalized = normalizeBetAmount(amount);
+  const safeDecimals = 8;
+  try {
+    return normalized.toFixed(safeDecimals);
+  } catch (error) {
+    // Fall back to a stringified version if toFixed fails for any reason.
+    const fallback = String(normalized);
+    if (/e/i.test(fallback)) {
+      // Ensure we always return a decimal literal, even if the fallback
+      // contains an exponent, by defaulting to zero with the expected
+      // precision.
+      return Number.isFinite(normalized)
+        ? normalized.toLocaleString("en-US", {
+            useGrouping: false,
+            minimumFractionDigits: safeDecimals,
+            maximumFractionDigits: safeDecimals,
+          })
+        : "0.00000000";
+    }
+    return fallback;
+  }
+}
+
+function serializeBetRequestBody({ type = "bet", amountLiteral, betInfo }) {
+  const safeType = typeof type === "string" && type.length ? type : "bet";
+  const literal =
+    typeof amountLiteral === "string" && amountLiteral.length > 0
+      ? amountLiteral
+      : "0.00000000";
+  const betInfoJson = JSON.stringify(betInfo ?? {});
+  return `{"type":${JSON.stringify(safeType)},"amount":${literal},"betInfo":${betInfoJson}}`;
+}
+
 function normalizeBetRate(rate) {
   const numeric = Number(rate);
   if (!Number.isFinite(numeric)) {
@@ -393,6 +427,7 @@ export async function submitBet({
 
   const normalizedAmount = normalizeBetAmount(amount);
   const normalizedRate = normalizeBetRate(rate);
+  const amountLiteral = formatBetAmountLiteral(normalizedAmount);
 
   const betInfo = {
     id: 4,
@@ -412,11 +447,18 @@ export async function submitBet({
     betInfo,
   };
 
+  const serializedRequestBody = serializeBetRequestBody({
+    type: requestBody.type,
+    amountLiteral,
+    betInfo,
+  });
+
   const requestPayload = {
     method: "POST",
     url: endpoint,
     gameId: normalizedGameId,
     body: requestBody,
+    bodyLiteral: serializedRequestBody,
   };
 
   if (isServerRelay(relay)) {
@@ -434,7 +476,7 @@ export async function submitBet({
         "X-CASINOTV-TOKEN": sessionId,
         "X-CASINOTV-PROTOCOL-VERSION": "1.1",
       },
-      body: JSON.stringify(requestBody),
+      body: serializedRequestBody,
     });
   } catch (networkError) {
     if (isServerRelay(relay)) {
