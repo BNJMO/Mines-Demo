@@ -752,6 +752,146 @@ export async function submitStep({
   };
 }
 
+export async function submitCashout({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error("Cannot submit cashout before the session id is initialized");
+    if (isServerRelay(relay)) {
+      relay.deliver("api:cashout:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  const requestBody = {
+    type: "cashout",
+  };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:cashout:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:cashout:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:cashout:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit cashout: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit cashout: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (!parsedBody || typeof parsedBody !== "object") {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:cashout:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Cashout response was not valid JSON",
+      });
+    }
+    throw new Error("Cashout response was not valid JSON");
+  }
+
+  const isSuccess = Boolean(parsedBody?.IsSuccess);
+  const responseData = parsedBody?.ResponseData ?? null;
+  const state = responseData?.state ?? null;
+
+  if (!responseData) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:cashout:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Cashout response did not include response data",
+      });
+    }
+    throw new Error("Cashout response did not include response data");
+  }
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:cashout:response", {
+      ...responsePayload,
+      ok: isSuccess,
+      cashout: {
+        success: isSuccess,
+        state,
+      },
+    });
+  }
+
+  if (!isSuccess) {
+    throw new Error("Cashout response indicated failure");
+  }
+
+  return {
+    isSuccess,
+    responseData,
+    state,
+    raw: parsedBody,
+  };
+}
+
 export async function leaveGameSession({
   url = DEFAULT_SERVER_URL,
   gameId = DEFAULT_SCRATCH_GAME_ID,

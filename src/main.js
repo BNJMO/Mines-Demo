@@ -7,6 +7,7 @@ import {
   initializeGameSession,
   submitBet,
   submitStep,
+  submitCashout,
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
@@ -281,6 +282,10 @@ function updateProfitFromServerState(state) {
 
   if (state.multiplier != null) {
     setTotalProfitMultiplierValue(state.multiplier);
+  }
+
+  if (state.winAmount != null) {
+    setTotalProfitAmountValue(state.winAmount);
   }
 }
 
@@ -1081,6 +1086,36 @@ function handleCashout() {
 
   if (!demoMode && !suppressRelay) {
     sendRelayMessage("action:cashout", {});
+    setControlPanelBetState(false);
+    setControlPanelRandomState(false);
+
+    (async () => {
+      try {
+        const cashoutResult = await submitCashout({
+          gameId: getActiveGameId(),
+          relay: serverRelay,
+        });
+
+        const state = cashoutResult?.state ?? cashoutResult?.responseData?.state ?? null;
+        updateProfitFromServerState(state);
+
+        const serverMap = Array.isArray(state?.map) ? state.map : null;
+        if (serverMap && typeof game?.setServerRevealMap === "function") {
+          game.setServerRevealMap(serverMap);
+        }
+
+        markManualRoundForReset();
+        game?.revealRemainingTiles?.();
+        showCashoutPopup();
+        finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
+        handleAutoRoundFinished();
+      } catch (error) {
+        console.error("Failed to submit cashout", error);
+        setControlPanelBetState(true);
+        setControlPanelRandomState(true);
+      }
+    })();
+
     return;
   }
 
