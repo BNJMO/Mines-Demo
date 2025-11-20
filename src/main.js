@@ -67,6 +67,20 @@ const controlPanelInteractivityState = {
   stopOnLoss: false,
 };
 
+function hasPositiveBetAmount(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0;
+}
+
+function getCurrentBetValue() {
+  return controlPanel?.getBetValue?.() ?? 0;
+}
+
+function syncDemoModeWithBetAmount(value = getCurrentBetValue()) {
+  const shouldUseServerMode = hasPositiveBetAmount(value);
+  setDemoMode(!shouldUseServerMode);
+}
+
 function isControlPanelInteractivityAllowed() {
   return demoMode || gameSessionInitialized;
 }
@@ -362,7 +376,14 @@ const serverMount =
   document.querySelector(".app-wrapper") ?? document.body;
 serverUI = createServer(serverRelay, {
   mount: serverMount,
-  onDemoModeToggle: (value) => setDemoMode(value),
+  onDemoModeToggle: (value) => {
+    const betValue = getCurrentBetValue();
+    if (!hasPositiveBetAmount(betValue) && !value) {
+      setDemoMode(true);
+      return;
+    }
+    setDemoMode(value);
+  },
   initialDemoMode: demoMode,
   initialHidden: true,
   onVisibilityChange: (isVisible) => {
@@ -1532,6 +1553,7 @@ const opts = {
       maxMines,
       initialMines,
     });
+    syncDemoModeWithBetAmount(controlPanel?.getBetValue?.());
     controlPanelMode = controlPanel?.getMode?.() ?? "manual";
     controlPanel.addEventListener("modechange", (event) => {
       const nextMode = event.detail?.mode === "auto" ? "auto" : "manual";
@@ -1568,6 +1590,9 @@ const opts = {
       }
     });
     controlPanel.addEventListener("betvaluechange", (event) => {
+      syncDemoModeWithBetAmount(
+        event.detail?.numericValue ?? event.detail?.value
+      );
       console.debug(`Bet value updated to ${event.detail.value}`);
       sendRelayMessage("control:bet-value", {
         value: event.detail?.value,
