@@ -28,7 +28,6 @@ import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
 import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../../assets/sounds/Win.wav";
-import gameStartSoundUrl from "../../assets/sounds/GameStart.wav";
 
 const PALETTE = {
   appBg: 0x091b26, // page/canvas background
@@ -187,7 +186,6 @@ export async function createGame(mount, opts = {}) {
   const bombRevealedSoundPath =
     opts.bombRevealedSoundPath ?? bombRevealedSoundUrl;
   const winSoundPath = opts.winSoundPath ?? winSoundUrl;
-  const gameStartSoundPath = opts.gameStartSoundPath ?? gameStartSoundUrl;
   const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
   const diamondRevealPitchMax = Number(opts.diamondRevealPitchMax ?? 1.5);
 
@@ -198,7 +196,6 @@ export async function createGame(mount, opts = {}) {
     diamondRevealed: diamondRevealedSoundPath,
     bombRevealed: bombRevealedSoundPath,
     win: winSoundPath,
-    gameStart: gameStartSoundPath,
   };
 
   const enabledSoundKeys = new Set(
@@ -214,7 +211,6 @@ export async function createGame(mount, opts = {}) {
     diamondRevealed: "mines.diamondRevealed",
     bombRevealed: "mines.bombRevealed",
     win: "mines.win",
-    gameStart: "mines.gameStart",
   };
 
   /* Win pop-up */
@@ -331,7 +327,6 @@ export async function createGame(mount, opts = {}) {
   let tiles = [];
   let bombPositions = new Set();
   let gameOver = false;
-  let shouldPlayStartSound = true;
   let revealedSafe = 0;
   let totalSafe = GRID * GRID - mines;
   let waitingForChoice = false;
@@ -352,7 +347,6 @@ export async function createGame(mount, opts = {}) {
     gameOver = false;
     hideWinPopup();
     bombPositions.clear();
-    shouldPlayStartSound = true;
     const preservedAutoSelections = preserveAutoSelections
       ? getAutoSelectionCoordinates()
       : null;
@@ -1870,10 +1864,6 @@ export async function createGame(mount, opts = {}) {
 
     layoutBoard(layout);
 
-    if (shouldPlayStartSound) {
-      playSoundEffect("gameStart");
-      shouldPlayStartSound = false;
-    }
   }
 
   function layoutSizes() {
