@@ -140,23 +140,14 @@ function hideGameLoadingOverlay() {
   gameRoot?.classList.remove("is-loading");
 }
 
-function cancelServerInitialization() {
-  serverInitializationGeneration += 1;
-  serverInitializationPromise = null;
-}
-
 async function runServerInitializationLoop({ showLoading = true } = {}) {
-  if (demoMode) {
-    return false;
-  }
-
   const currentGeneration = ++serverInitializationGeneration;
 
   if (showLoading) {
     showGameLoadingOverlay();
   }
 
-  while (!demoMode && currentGeneration === serverInitializationGeneration) {
+  while (currentGeneration === serverInitializationGeneration) {
     sessionIdInitialized = false;
     gameSessionInitialized = false;
     refreshStoredControlPanelInteractivity();
@@ -167,7 +158,7 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
     } catch (error) {
       sessionIdInitialized = false;
       console.error("Session ID initialization failed:", error);
-      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+      if (currentGeneration !== serverInitializationGeneration) {
         return false;
       }
       refreshStoredControlPanelInteractivity();
@@ -175,13 +166,13 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
       continue;
     }
 
-    if (demoMode || currentGeneration !== serverInitializationGeneration) {
+    if (currentGeneration !== serverInitializationGeneration) {
       return false;
     }
 
     await delay(600);
 
-    if (demoMode || currentGeneration !== serverInitializationGeneration) {
+    if (currentGeneration !== serverInitializationGeneration) {
       return false;
     }
 
@@ -192,7 +183,7 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
     } catch (error) {
       gameSessionInitialized = false;
       console.error("Game session initialization failed:", error);
-      if (demoMode || currentGeneration !== serverInitializationGeneration) {
+      if (currentGeneration !== serverInitializationGeneration) {
         return false;
       }
       refreshStoredControlPanelInteractivity();
@@ -210,10 +201,6 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
 }
 
 function startServerInitialization(options = {}) {
-  if (demoMode) {
-    return Promise.resolve(false);
-  }
-
   if (serverInitializationPromise) {
     return serverInitializationPromise;
   }
@@ -325,30 +312,10 @@ function setDemoMode(value) {
   refreshStoredControlPanelInteractivity();
 
   if (demoMode) {
-    cancelServerInitialization();
     hideGameLoadingOverlay();
     clearSelectionDelay();
-    leaveSessionPromise = requestLeaveGameSession({ force: true });
-    sessionIdInitialized = false;
-  }
-
-  if (!demoMode) {
-    cancelServerInitialization();
-    sessionIdInitialized = false;
-    gameSessionInitialized = false;
-    refreshStoredControlPanelInteractivity();
+  } else {
     showGameLoadingOverlay();
-
-    const pendingLeave = leaveSessionPromise;
-    if (pendingLeave && typeof pendingLeave.finally === "function") {
-      pendingLeave.finally(() => {
-        if (!demoMode) {
-          startServerInitialization({ showLoading: true });
-        }
-      });
-    } else {
-      startServerInitialization({ showLoading: true });
-    }
   }
 }
 
@@ -1533,13 +1500,9 @@ const opts = {
 
 (async () => {
   let serverInitializationTask = null;
-  if (!demoMode) {
-    serverInitializationTask = startServerInitialization({
-      showLoading: true,
-    });
-  } else {
-    hideGameLoadingOverlay();
-  }
+  serverInitializationTask = startServerInitialization({
+    showLoading: true,
+  });
 
   const totalTiles = opts.grid * opts.grid;
   const maxMines = Math.max(1, totalTiles - 1);
