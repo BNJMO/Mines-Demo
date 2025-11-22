@@ -97,7 +97,7 @@ let totalProfitAmountDisplayValue = "0.00000000";
 const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
 
-const SERVER_RESPONSE_DELAY_MS = 150;
+const SERVER_RESPONSE_DELAY_MS = 0;
 const SERVER_INITIALIZATION_RETRY_DELAY_MS = 3000;
 
 let serverInitializationGeneration = 0;
@@ -1528,6 +1528,7 @@ const opts = {
   onWin: handleGameWin,
   onGameOver: handleGameOver,
   onChange: handleGameStateChange,
+  isRoundActive: () => roundActive,
 };
 
 (async () => {
@@ -1700,5 +1701,7 @@ const opts = {
         </div>
       `;
     }
+  } finally {
+    controlPanel?.setInteractable?.(true);
   }
 })();
