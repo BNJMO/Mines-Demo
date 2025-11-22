@@ -22,7 +22,6 @@ import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
-import gameStartSoundUrl from "../assets/sounds/GameStart.wav";
 
 let game;
 let controlPanel;
@@ -1494,7 +1493,6 @@ const opts = {
   diamondRevealedSoundPath: diamondRevealedSoundUrl,
   bombRevealedSoundPath: bombRevealedSoundUrl,
   winSoundPath: winSoundUrl,
-  gameStartSoundPath: gameStartSoundUrl,
   diamondRevealPitchMin: 1.0,
   diamondRevealPitchMax: 1.25,
 
