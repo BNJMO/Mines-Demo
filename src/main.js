@@ -314,8 +314,6 @@ function setDemoMode(value) {
   if (demoMode) {
     hideGameLoadingOverlay();
     clearSelectionDelay();
-  } else {
-    showGameLoadingOverlay();
   }
 }
 
