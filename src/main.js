@@ -81,6 +81,21 @@ function syncDemoModeWithBetAmount(value = getCurrentBetValue()) {
   setDemoMode(!shouldUseServerMode);
 }
 
+function handleKeyboardShortcuts(event) {
+  const isServerPanelShortcut =
+    event.ctrlKey &&
+    event.altKey &&
+    !event.metaKey &&
+    String(event.key || "").toLowerCase() === "o";
+
+  if (!isServerPanelShortcut) {
+    return;
+  }
+
+  event.preventDefault();
+  serverUI?.show?.();
+}
+
 function isControlPanelInteractivityAllowed() {
   return demoMode || gameSessionInitialized;
 }
@@ -359,6 +374,8 @@ controlPanel?.setServerPanelVisibility?.(
   serverUI?.isVisible?.() ?? false
 );
 serverRelay.setDemoMode(demoMode);
+
+document.addEventListener("keydown", handleKeyboardShortcuts);
 
 serverRelay.addEventListener("incoming", (event) => {
   const { type, payload } = event.detail ?? {};
