@@ -255,8 +255,9 @@ export async function createGame(mount, opts = {}) {
   function drawHistorySlot(slot, value) {
     const width = 32;
     const height = 28;
+    // removeChildren() returns an array and is not chainable with Graphics clear()
+    slot.removeChildren();
     slot
-      .removeChildren()
       .clear()
       .roundRect(0, 0, width, height, 8)
       .fill({ color: COLORS.historyEmpty });
