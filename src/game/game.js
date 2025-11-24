@@ -234,6 +234,12 @@ export async function createGame(mount, opts = {}) {
       return Promise.resolve();
     }
 
+    // Ensure the ticker is running so the animation can complete even if it was
+    // previously stopped by an animations toggle or render pause.
+    if (!app.ticker.started) {
+      app.ticker.start();
+    }
+
     return new Promise((resolve) => {
       let tick = 0;
       const spin = (delta) => {
