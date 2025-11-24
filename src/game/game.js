@@ -3,6 +3,19 @@ import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_BASE_RADIUS = 130;
+const HISTORY_BAR_HEIGHT = 64;
+
+const COLORS = {
+  headsPrimary: 0xfda83c,
+  headsHighlight: 0xffc666,
+  headsShadow: 0x8a5112,
+  tailsPrimary: 0x3c5cff,
+  tailsHighlight: 0x5d7aff,
+  tailsShadow: 0x14264f,
+  historyFrame: 0x0f2734,
+  historyEmpty: 0x153243,
+};
 
 function resolveRoot(mount) {
   const root = typeof mount === "string" ? document.querySelector(mount) : mount;
@@ -55,91 +68,57 @@ export async function createGame(mount, opts = {}) {
   const stage = new Container();
   app.stage.addChild(stage);
 
-  const statusText = new Text({
-    text: "Waiting for bet",
-    style: new TextStyle({
-      fill: "#ffffff",
-      fontSize: 20,
-      fontFamily,
-    }),
-  });
-  statusText.anchor.set(0.5);
-  stage.addChild(statusText);
-
   const statsText = new Text({
     text: "",
     style: new TextStyle({
       fill: "#7bdcb5",
+      fontSize: 13,
+      fontFamily,
+      letterSpacing: 0.5,
+    }),
+  });
+  statsText.anchor.set(0, 0);
+  stage.addChild(statsText);
+
+  const statusText = new Text({
+    text: "Waiting for bet",
+    style: new TextStyle({
+      fill: "#c5d5e2",
       fontSize: 14,
       fontFamily,
     }),
   });
-  statsText.anchor.set(0.5, 0);
-  stage.addChild(statsText);
+  statusText.anchor.set(0, 1);
+  stage.addChild(statusText);
+
+  const coinContainer = new Container();
+  stage.addChild(coinContainer);
+
+  const coinBase = new Graphics();
+  const coinDiamond = new Graphics();
+  const coinHighlight = new Graphics();
+  coinContainer.addChild(coinBase, coinDiamond, coinHighlight);
+
+  const historyBar = new Graphics();
+  stage.addChild(historyBar);
 
   const historyLabel = new Text({
-    text: "History:",
+    text: "History",
     style: new TextStyle({
-      fill: "#9eb3c2",
+      fill: "#93aabb",
       fontSize: 12,
       fontFamily,
+      letterSpacing: 0.5,
     }),
   });
   historyLabel.anchor.set(0, 0.5);
   stage.addChild(historyLabel);
 
-  const historyText = new Text({
-    text: "",
-    style: new TextStyle({
-      fill: "#ffffff",
-      fontSize: 12,
-      fontFamily,
-    }),
+  const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
+    const graphic = new Graphics();
+    stage.addChild(graphic);
+    return graphic;
   });
-  historyText.anchor.set(0, 0.5);
-  stage.addChild(historyText);
-
-  const coinContainer = new Container();
-  stage.addChild(coinContainer);
-
-  const coinFaceHeads = new Graphics()
-    .circle(0, 0, 70)
-    .fill({ color: 0xffa726 })
-    .stroke({ color: 0xffe0b2, width: 6 });
-  const headsLabel = new Text({
-    text: "HEADS",
-    style: new TextStyle({
-      fill: "#2b1d0e",
-      fontSize: 18,
-      fontWeight: "700",
-      fontFamily,
-    }),
-  });
-  headsLabel.anchor.set(0.5);
-  coinFaceHeads.addChild(headsLabel);
-
-  const coinFaceTails = new Graphics()
-    .moveTo(0, -70)
-    .lineTo(60, 0)
-    .lineTo(0, 70)
-    .lineTo(-60, 0)
-    .closePath()
-    .fill({ color: 0x42a5f5 })
-    .stroke({ color: 0xbbdefb, width: 6 });
-  const tailsLabel = new Text({
-    text: "TAILS",
-    style: new TextStyle({
-      fill: "#0b1f35",
-      fontSize: 18,
-      fontWeight: "700",
-      fontFamily,
-    }),
-  });
-  tailsLabel.anchor.set(0.5);
-  coinFaceTails.addChild(tailsLabel);
-
-  coinContainer.addChild(coinFaceHeads, coinFaceTails);
-  coinFaceTails.visible = false;
 
   const state = {
     roundActive: false,
@@ -152,11 +131,32 @@ export async function createGame(mount, opts = {}) {
   function layout() {
     const { width, height } = measureRootSize(root, initialSize);
     app.renderer.resize(width, height);
-    statusText.position.set(width / 2, height / 2 + 100);
-    statsText.position.set(width / 2, 16);
-    coinContainer.position.set(width / 2, height / 2 + 10);
-    historyLabel.position.set(12, height - 24);
-    historyText.position.set(historyLabel.x + historyLabel.width + 8, height - 24);
+
+    const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 12);
+    const coinScale = Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2);
+
+    coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
+    coinContainer.scale.set(coinScale);
+
+    statsText.position.set(18, 14);
+    statusText.position.set(18, coinAreaHeight - 10);
+
+    const barWidth = width - 36;
+    historyBar
+      .clear()
+      .roundRect(18, height - HISTORY_BAR_HEIGHT + 8, barWidth, HISTORY_BAR_HEIGHT - 20, 12)
+      .fill({ color: COLORS.historyFrame });
+
+    historyLabel.position.set(32, height - HISTORY_BAR_HEIGHT / 2 + 2);
+
+    const slotWidth = 32;
+    const slotGap = 8;
+    const startX = historyLabel.x + historyLabel.width + 12;
+    const centerY = historyLabel.y;
+    historySlots.forEach((slot, index) => {
+      const x = startX + index * (slotWidth + slotGap);
+      slot.position.set(x, centerY - 14);
+    });
   }
 
   function updateStatus(message) {
@@ -183,19 +183,51 @@ export async function createGame(mount, opts = {}) {
     state.history = [];
     updateHistory([]);
     updateStatus("Waiting for bet");
+    drawCoinFace("tails");
+  }
+
+  function drawCoinFace(result) {
+    const isHeads = result === "heads";
+    const primary = isHeads ? COLORS.headsPrimary : COLORS.tailsPrimary;
+    const highlight = isHeads ? COLORS.headsHighlight : COLORS.tailsHighlight;
+    const shadow = isHeads ? COLORS.headsShadow : COLORS.tailsShadow;
+
+    coinBase
+      .clear()
+      .circle(0, 0, COIN_BASE_RADIUS)
+      .fill({ color: primary })
+      .stroke({ color: highlight, width: 16, join: "round" })
+      .circle(0, 0, COIN_BASE_RADIUS * 0.82)
+      .stroke({ color: shadow, width: 12, join: "round" });
+
+    coinDiamond
+      .clear()
+      .moveTo(0, -COIN_BASE_RADIUS * 0.55)
+      .lineTo(COIN_BASE_RADIUS * 0.75, 0)
+      .lineTo(0, COIN_BASE_RADIUS * 0.55)
+      .lineTo(-COIN_BASE_RADIUS * 0.75, 0)
+      .closePath()
+      .fill({ color: shadow })
+      .stroke({ color: highlight, width: 6, join: "round" });
+
+    coinHighlight
+      .clear()
+      .circle(-COIN_BASE_RADIUS * 0.28, COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.09)
+      .fill({ color: highlight, alpha: 0.65 })
+      .circle(COIN_BASE_RADIUS * 0.22, -COIN_BASE_RADIUS * 0.24, COIN_BASE_RADIUS * 0.11)
+      .fill({ color: highlight, alpha: 0.85 });
+
+    coinContainer.rotation = 0;
+    coinContainer.scale.y = Math.abs(coinContainer.scale.y || 1);
   }
 
   function setFace(result) {
-    const isHeads = result === "heads";
-    coinFaceHeads.visible = isHeads;
-    coinFaceTails.visible = !isHeads;
-    coinContainer.rotation = 0;
-    coinContainer.scale.set(1);
+    drawCoinFace(result);
   }
 
   function playFlip(result, { instant = false } = {}) {
     if (!state.showAnimations || instant) {
-      setFace(result);
+      drawCoinFace(result);
       return Promise.resolve();
     }
 
@@ -207,7 +239,7 @@ export async function createGame(mount, opts = {}) {
         coinContainer.scale.y = Math.cos(tick * 0.3);
         if (tick >= COIN_ANIMATION_DURATION) {
           app.ticker.remove(spin);
-          setFace(result);
+          drawCoinFace(result);
           resolve();
         }
       };
@@ -217,12 +249,47 @@ export async function createGame(mount, opts = {}) {
   }
 
   function updateStats({ balance = 0, streak = 0, multiplier = 1 } = {}) {
-    statsText.text = `Balance: $${balance.toFixed(2)}  •  Streak: ${streak}  •  Multiplier: ${multiplier.toFixed(2)}×`;
+    statsText.text = `Balance ${balance.toFixed(2)}  •  Streak ${streak}  •  ${multiplier.toFixed(2)}×`;
+  }
+
+  function drawHistorySlot(slot, value) {
+    const width = 32;
+    const height = 28;
+    slot
+      .removeChildren()
+      .clear()
+      .roundRect(0, 0, width, height, 8)
+      .fill({ color: COLORS.historyEmpty });
+
+    if (!value) return;
+
+    const isHeads = value.toUpperCase() === "H";
+    const primary = isHeads ? COLORS.headsPrimary : COLORS.tailsPrimary;
+    const accent = isHeads ? COLORS.headsShadow : COLORS.tailsShadow;
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    if (isHeads) {
+      slot.circle(centerX, centerY, height * 0.38).fill({ color: primary });
+      slot.circle(centerX, centerY, height * 0.22).fill({ color: accent });
+    } else {
+      slot
+        .moveTo(centerX, centerY - height * 0.44)
+        .lineTo(centerX + height * 0.36, centerY)
+        .lineTo(centerX, centerY + height * 0.44)
+        .lineTo(centerX - height * 0.36, centerY)
+        .closePath()
+        .fill({ color: primary })
+        .stroke({ color: accent, width: 2, join: "round" });
+    }
   }
 
   function updateHistory(history = []) {
     state.history = history.slice(-HISTORY_SIZE);
-    historyText.text = state.history.map((entry) => entry.toUpperCase()).join("  ");
+    for (let i = 0; i < HISTORY_SIZE; i += 1) {
+      drawHistorySlot(historySlots[i], state.history[i]);
+    }
   }
 
   function setAnimationsEnabled(enabled) {
