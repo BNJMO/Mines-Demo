@@ -44,6 +44,7 @@ export class ControlPanel extends EventTarget {
       initialMines: options.initialMines ?? 1,
       maxMines: options.maxMines,
       totalTiles: options.totalTiles,
+      minesChoices: options.minesChoices,
     };
 
     this.host = resolveMount(mount);
@@ -66,27 +67,41 @@ export class ControlPanel extends EventTarget {
 
     this.betTooltipTimeout = null;
 
-    const totalTilesOption = Number(this.options.totalTiles);
-    const normalizedTotalTiles =
-      Number.isFinite(totalTilesOption) && totalTilesOption > 0
-        ? Math.floor(totalTilesOption)
-        : NaN;
-    this.totalTiles = normalizedTotalTiles >= 2 ? normalizedTotalTiles : 2;
+    this.minesChoices = Array.isArray(this.options.minesChoices)
+      ? this.options.minesChoices.filter((choice) => choice && choice.value)
+      : null;
 
-    const maxMinesOption = Number(this.options.maxMines);
-    const fallbackMax = this.totalTiles - 1;
-    const normalizedMaxMines =
-      Number.isFinite(maxMinesOption) && maxMinesOption > 0
-        ? Math.floor(maxMinesOption)
-        : fallbackMax;
-    this.maxMines = Math.max(
-      1,
-      Math.min(normalizedMaxMines, this.totalTiles - 1)
-    );
-    this.currentMines = Math.max(
-      1,
-      Math.min(Math.floor(Number(this.options.initialMines) || 1), this.maxMines)
-    );
+    if (this.minesChoices?.length) {
+      this.totalTiles = this.minesChoices.length;
+      this.maxMines = this.minesChoices.length;
+      this.currentMines =
+        this.options.initialMines ?? this.minesChoices[0]?.value ?? 1;
+    } else {
+      const totalTilesOption = Number(this.options.totalTiles);
+      const normalizedTotalTiles =
+        Number.isFinite(totalTilesOption) && totalTilesOption > 0
+          ? Math.floor(totalTilesOption)
+          : NaN;
+      this.totalTiles = normalizedTotalTiles >= 2 ? normalizedTotalTiles : 2;
+
+      const maxMinesOption = Number(this.options.maxMines);
+      const fallbackMax = this.totalTiles - 1;
+      const normalizedMaxMines =
+        Number.isFinite(maxMinesOption) && maxMinesOption > 0
+          ? Math.floor(maxMinesOption)
+          : fallbackMax;
+      this.maxMines = Math.max(
+        1,
+        Math.min(normalizedMaxMines, this.totalTiles - 1)
+      );
+      this.currentMines = Math.max(
+        1,
+        Math.min(
+          Math.floor(Number(this.options.initialMines) || 1),
+          this.maxMines
+        )
+      );
+    }
 
     this.container = document.createElement("div");
     this.container.className = "control-panel";
@@ -256,10 +271,10 @@ export class ControlPanel extends EventTarget {
     this.minesSelect.className = "control-select";
     this.minesSelect.setAttribute("aria-label", this.options.minesLabel);
     this.minesSelect.addEventListener("change", () => {
-      const value = Math.floor(Number(this.minesSelect.value) || 1);
-      this.currentMines = Math.max(1, Math.min(value, this.maxMines));
-      this.updateGemsValue();
-      this.dispatchMinesChange();
+      const value = this.minesChoices?.length
+        ? this.minesSelect.value
+        : Math.floor(Number(this.minesSelect.value) || 1);
+      this.setMinesValue(value);
     });
 
     this.minesSelectWrapper.appendChild(this.minesSelect);
@@ -648,6 +663,29 @@ export class ControlPanel extends EventTarget {
 
   refreshMinesOptions({ emit = true } = {}) {
     if (!this.minesSelect) return;
+
+    if (this.minesChoices?.length) {
+      const selectedValue =
+        this.currentMines ?? this.minesChoices[0]?.value ?? "";
+      this.minesSelect.innerHTML = "";
+      this.minesChoices.forEach((choice) => {
+        const option = document.createElement("option");
+        option.value = String(choice.value);
+        option.textContent = choice.label ?? String(choice.value);
+        if (String(choice.value) === String(selectedValue)) {
+          option.selected = true;
+        }
+        this.minesSelect.appendChild(option);
+      });
+
+      this.currentMines = selectedValue;
+      this.updateGemsValue();
+      if (emit) {
+        this.dispatchMinesChange();
+      }
+      return;
+    }
+
     const selected = Math.max(1, Math.min(this.currentMines, this.maxMines));
 
     this.minesSelect.innerHTML = "";
@@ -669,8 +707,29 @@ export class ControlPanel extends EventTarget {
   }
 
   setMinesValue(value, { emit = true } = {}) {
+    if (this.minesChoices?.length) {
+      const fallback = this.minesChoices[0]?.value ?? "";
+      const normalized =
+        this.minesChoices.find(
+          (choice) => String(choice.value) === String(value)
+        )?.value ?? fallback;
+
+      this.currentMines = normalized;
+      if (this.minesSelect) {
+        this.minesSelect.value = String(normalized);
+      }
+      this.updateGemsValue();
+      if (emit) {
+        this.dispatchMinesChange();
+      }
+      return;
+    }
+
     const numeric = Math.floor(Number(value));
-    const clamped = Math.max(1, Math.min(Number.isFinite(numeric) ? numeric : 1, this.maxMines));
+    const clamped = Math.max(
+      1,
+      Math.min(Number.isFinite(numeric) ? numeric : 1, this.maxMines)
+    );
     this.currentMines = clamped;
     if (this.minesSelect) {
       this.minesSelect.value = String(clamped);
@@ -682,6 +741,10 @@ export class ControlPanel extends EventTarget {
   }
 
   setMaxMines(value, { emit = true } = {}) {
+    if (this.minesChoices?.length) {
+      this.refreshMinesOptions({ emit });
+      return;
+    }
     const numeric = Math.floor(Number(value));
     const normalized = Number.isFinite(numeric) ? numeric : this.totalTiles - 1;
     this.maxMines = Math.max(1, Math.min(normalized, this.totalTiles - 1));
@@ -689,6 +752,10 @@ export class ControlPanel extends EventTarget {
   }
 
   setTotalTiles(value, { emit = true } = {}) {
+    if (this.minesChoices?.length) {
+      this.refreshMinesOptions({ emit });
+      return;
+    }
     const numeric = Math.floor(Number(value));
     const normalized = Math.max(2, Number.isFinite(numeric) ? numeric : this.totalTiles);
     this.totalTiles = normalized;
@@ -701,14 +768,20 @@ export class ControlPanel extends EventTarget {
   }
 
   getMaxMines() {
-    return this.maxMines;
+    return this.minesChoices?.length ?? this.maxMines;
   }
 
   getTotalTiles() {
-    return this.totalTiles;
+    return this.minesChoices?.length ?? this.totalTiles;
   }
 
   getGemsValue() {
+    if (this.minesChoices?.length) {
+      const match = this.minesChoices.find(
+        (choice) => String(choice.value) === String(this.currentMines)
+      );
+      return match?.label ?? match?.value ?? "";
+    }
     return Math.max(0, this.totalTiles - this.currentMines);
   }
 
@@ -724,6 +797,7 @@ export class ControlPanel extends EventTarget {
           value: this.getMinesValue(),
           totalTiles: this.getTotalTiles(),
           gems: this.getGemsValue(),
+          label: this.getGemsValue(),
         },
       })
     );

@@ -6,6 +6,7 @@ const MULTIPLIER_GROWTH = 1.18;
 const MAX_MULTIPLIER_CAP = 1027604.48;
 const MIN_BET = 0.01;
 const MAX_BET = 100000;
+const DEFAULT_SIDE = "heads";
 
 let game;
 let controlPanel;
@@ -24,6 +25,7 @@ const state = {
   currentBet: 0,
   currentStreak: 0,
   currentMultiplier: 1,
+  chosenSide: DEFAULT_SIDE,
   roundActive: false,
   awaitingDecision: false,
   autoplayActive: false,
@@ -61,15 +63,24 @@ function updateStatus(message) {
   console.debug("[Flip]", message);
 }
 
-function resetRoundState() {
+function resetRoundState({ resetHistory = false } = {}) {
   state.roundActive = false;
   state.awaitingDecision = false;
   state.currentStreak = 0;
   state.currentMultiplier = 1;
   controlPanel?.setBetButtonMode?.("bet");
   controlPanel?.setRandomPickState?.("clickable");
+  if (resetHistory) {
+    state.history = [];
+    game?.updateHistory?.(state.history);
+  }
   updateDisplays();
-  game?.reset?.();
+}
+
+function setChosenSide(side) {
+  state.chosenSide = side === "tails" ? "tails" : DEFAULT_SIDE;
+  updateStatus(`Selected side: ${state.chosenSide}`);
+  controlPanel?.updateGemsValue?.();
 }
 
 function calculateMultiplier(streak) {
@@ -99,17 +110,21 @@ function deriveOutcome() {
 
 async function resolveFlip({ instant = false } = {}) {
   const { result, proof } = deriveOutcome();
-  updateStatus(`Flipping coin (nonce ${proof.nonce})...`);
+  updateStatus(
+    `Flipping for ${state.chosenSide.toUpperCase()} (nonce ${proof.nonce})...`
+  );
   await game?.playFlip?.(result, { instant });
   recordHistory(result);
-  const won = result === "heads";
+  const won = result === state.chosenSide;
   if (won) {
     state.currentStreak += 1;
     state.currentMultiplier = calculateMultiplier(state.currentStreak);
     state.awaitingDecision = true;
     controlPanel?.setBetButtonMode?.("cashout");
     controlPanel?.setRandomPickState?.("clickable");
-    updateStatus(`Win! Streak ${state.currentStreak} @ ${state.currentMultiplier.toFixed(2)}×`);
+    updateStatus(
+      `Win! Landed on ${result.toUpperCase()} — streak ${state.currentStreak} at ${state.currentMultiplier.toFixed(2)}×`
+    );
   } else {
     state.currentStreak = 0;
     state.currentMultiplier = 1;
@@ -117,8 +132,8 @@ async function resolveFlip({ instant = false } = {}) {
     state.awaitingDecision = false;
     controlPanel?.setBetButtonMode?.("bet");
     controlPanel?.setRandomPickState?.("clickable");
-    updateStatus("Loss - round over");
-    game?.completeBet?.({ resultText: "You lost" });
+    updateStatus(`Missed: landed on ${result.toUpperCase()}`);
+    game?.completeBet?.({ resultText: "Round lost" });
   }
 
   updateDisplays();
@@ -168,6 +183,9 @@ async function startRound() {
   controlPanel?.setBetButtonMode?.("cashout");
   controlPanel?.setRandomPickState?.("non-clickable");
   game?.startBet?.({ amount: bet });
+  updateStatus(
+    `Betting ${formatCurrency(bet)} on ${state.chosenSide.toUpperCase()}`
+  );
   updateDisplays();
   await resolveFlip({ instant: !state.showAnimations });
 }
@@ -308,6 +326,10 @@ function bindControlPanelEvents() {
     state.showAnimations = enabled;
     game?.setAnimationsEnabled?.(enabled);
   });
+  controlPanel.addEventListener("mineschanged", (event) => {
+    const side = event.detail?.value;
+    setChosenSide(side);
+  });
   controlPanel.addEventListener("betvaluechange", (event) => {
     const betAmount = event.detail?.numericValue ?? event.detail?.value ?? 0;
     if (!state.roundActive) {
@@ -320,9 +342,14 @@ function bindControlPanelEvents() {
 (async () => {
   controlPanel = new ControlPanel("#control-panel", {
     gameName: "Flip",
-    minesLabel: "Flip Choice",
-    gemsLabel: "Recent Results",
-    totalTiles: 3,
+    minesLabel: "Choose Side",
+    gemsLabel: "Your Pick",
+    minesChoices: [
+      { value: "heads", label: "Heads" },
+      { value: "tails", label: "Tails" },
+    ],
+    initialMines: DEFAULT_SIDE,
+    totalTiles: 2,
     maxMines: 2,
   });
   if (controlPanel?.randomPickButton) {
@@ -337,5 +364,8 @@ function bindControlPanelEvents() {
   game?.setAnimationsEnabled?.(controlPanel.getAnimationsEnabled?.());
   state.showAnimations = Boolean(controlPanel.getAnimationsEnabled?.());
 
-  resetRoundState();
+  setChosenSide(controlPanel?.getMinesValue?.() ?? DEFAULT_SIDE);
+  resetRoundState({ resetHistory: true });
+  game?.updateStatus?.("Choose heads or tails and place your bet.");
+  game?.setFace?.(state.chosenSide);
 })();

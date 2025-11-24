@@ -82,7 +82,7 @@ export async function createGame(mount, opts = {}) {
   stage.addChild(statsText);
 
   const statusText = new Text({
-    text: "Waiting for bet",
+    text: "Pick a side and place your bet",
     style: new TextStyle({
       fill: "#c5d5e2",
       fontSize: 14,
@@ -185,7 +185,7 @@ export async function createGame(mount, opts = {}) {
     state.result = null;
     state.history = [];
     updateHistory([]);
-    updateStatus("Waiting for bet");
+    updateStatus("Choose a side to start flipping");
     drawCoinFace("tails");
   }
 
