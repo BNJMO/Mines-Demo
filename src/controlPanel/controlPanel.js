@@ -35,8 +35,8 @@ export class ControlPanel extends EventTarget {
       initialProfitValue: options.initialProfitValue ?? "0.00000000",
       initialMode: options.initialMode ?? "manual",
       gameName: options.gameName ?? "Game Name",
-      minesLabel: options.minesLabel ?? "Mines",
-      gemsLabel: options.gemsLabel ?? "Gems",
+      minesLabel: options.minesLabel ?? "Options Input",
+      gemsLabel: options.gemsLabel ?? "Options Display",
       animationsLabel: options.animationsLabel ?? "Animations",
       showServerLabel: options.showServerLabel ?? "Show Server",
       initialAnimationsEnabled:
