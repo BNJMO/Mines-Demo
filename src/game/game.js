@@ -1,4 +1,5 @@
-import { Application, Container, Text, TextStyle } from "pixi.js";
+import { Application, Container } from "pixi.js";
+import { FlipGame, createFlipAppForMount } from "../games/flip/FlipGame.js";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 
@@ -17,27 +18,9 @@ function measureRootSize(root, fallbackSize) {
   return { width, height };
 }
 
-export async function createGame(mount, opts = {}) {
-  const root = resolveRoot(mount);
-  const initialSize = Math.max(1, opts.size ?? 400);
-  const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
-  const fontFamily =
-    opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
-
-  root.style.position = root.style.position || "relative";
-  root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
-  if (!root.style.width && !root.style.height) {
-    root.style.width = "100%";
-  }
-  if (!root.style.maxWidth) {
-    root.style.maxWidth = "100%";
-  }
-
+async function initPixiApp(root, initialSize, backgroundColor) {
   const app = new Application();
-  const { width: startWidth, height: startHeight } = measureRootSize(
-    root,
-    initialSize
-  );
+  const { width: startWidth, height: startHeight } = measureRootSize(root, initialSize);
 
   await app.init({
     background: backgroundColor,
@@ -49,82 +32,67 @@ export async function createGame(mount, opts = {}) {
 
   root.innerHTML = "";
   root.appendChild(app.canvas);
+  return app;
+}
 
-  const stage = new Container();
-  app.stage.addChild(stage);
+export async function createGame(mount, opts = {}) {
+  const root = resolveRoot(mount);
+  const controlPanelRoot = resolveRoot(opts.controlPanelMount ?? "#control-panel");
+  const initialSize = Math.max(1, opts.size ?? 400);
+  const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
 
-  const statusText = new Text({
-    text: "Waiting for bet",
-    style: new TextStyle({
-      fill: "#ffffff",
-      fontSize: 20,
-      fontFamily,
-    }),
+  root.style.position = root.style.position || "relative";
+  root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
+  if (!root.style.width && !root.style.height) {
+    root.style.width = "100%";
+  }
+  if (!root.style.maxWidth) {
+    root.style.maxWidth = "100%";
+  }
+
+  const app = await initPixiApp(root, initialSize, backgroundColor);
+  const controlPanelApp = await createFlipAppForMount(controlPanelRoot, {
+    background: 0x0a1a26,
   });
-  statusText.anchor.set(0.5);
-  stage.addChild(statusText);
 
-  const state = {
-    roundActive: false,
-    betAmount: 0,
-    result: null,
-  };
+  const flipGame = new FlipGame({
+    app,
+    controlPanelContainer: controlPanelApp.stage,
+    networkRNG: opts.networkRNG,
+  });
+  await flipGame.init();
 
-  function layout() {
-    const { width, height } = measureRootSize(root, initialSize);
-    app.renderer.resize(width, height);
-    statusText.position.set(width / 2, height / 2);
-  }
-
-  function updateStatus(message) {
-    statusText.text = message;
-  }
-
-  function startBet({ amount = 0 } = {}) {
-    state.roundActive = true;
-    state.betAmount = Number(amount) || 0;
-    state.result = null;
-    updateStatus(`Bet placed: ${state.betAmount}`);
-  }
-
-  function completeBet({ resultText = "Round complete" } = {}) {
-    state.roundActive = false;
-    state.result = resultText;
-    updateStatus(resultText);
-  }
-
-  function reset() {
-    state.roundActive = false;
-    state.betAmount = 0;
-    state.result = null;
-    updateStatus("Waiting for bet");
-  }
+  const stage = app.stage ?? new Container();
 
   function setAnimationsEnabled(enabled) {
     app.ticker.stop();
+    controlPanelApp.ticker.stop();
     if (enabled !== false) {
       app.ticker.start();
+      controlPanelApp.ticker.start();
     }
   }
 
   function destroy() {
-    window.removeEventListener("resize", layout);
+    flipGame.destroy();
     app.destroy(true);
+    controlPanelApp.destroy(true);
     if (app.canvas?.parentNode === root) {
       root.removeChild(app.canvas);
     }
+    if (controlPanelApp.canvas?.parentNode === controlPanelRoot) {
+      controlPanelRoot.removeChild(controlPanelApp.canvas);
+    }
   }
 
-  window.addEventListener("resize", layout);
-  layout();
+  window.app = app;
 
   return {
     app,
-    reset,
+    controlPanelApp,
+    flipGame,
     destroy,
-    startBet,
-    completeBet,
     setAnimationsEnabled,
-    getState: () => ({ ...state }),
+    getState: () => ({ ...flipGame.state }),
   };
 }

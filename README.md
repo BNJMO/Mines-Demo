@@ -178,3 +178,11 @@ MIT License - Feel free to use this project for learning and commercial purposes
 
 **Enjoy the game! 💎💣**
 
+
+## 🎲 Flip (Heads or Tails)
+
+A Pixi.js-powered flip scene lives under `src/games/flip`. It renders the gameplay area and control panel directly on canvas, supports manual and autoplay, and includes a provably-fair hook.
+
+- Keyboard: `Space` flips, `←/→` select heads or tails.
+- Autoplay: configure stop rules inside the Pixi UI.
+- Server RNG: pass a `networkRNG` callback to `createGame` that returns `{ outcome: 'heads'|'tails', salt, proof }`.
