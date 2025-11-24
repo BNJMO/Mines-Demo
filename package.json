@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "serve": "node server.js",
-    "start": "npm run serve"
+    "start": "npm run serve",
+    "test": "node tests/flip.test.js",
+    "simulate:flip": "node scripts/simulateFlipStats.js"
   },
   "dependencies": {
     "pixi.js": "^8.5.2",
