@@ -2,6 +2,8 @@ import { Stepper } from "../stepper/stepper.js";
 import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.svg";
 import infinityIconUrl from "../../assets/sprites/controlPanel/Infinity.svg";
 import percentageIconUrl from "../../assets/sprites/controlPanel/Percentage.svg";
+import headsIconUrl from "../../assets/sprites/Heads.svg";
+import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 function resolveMount(mount) {
   if (!mount) {
@@ -263,7 +265,59 @@ export class ControlPanel extends EventTarget {
     this.scrollContainer.appendChild(row);
   }
 
+  getSideIcon(value) {
+    if (String(value).toLowerCase() === "heads") return headsIconUrl;
+    if (String(value).toLowerCase() === "tails") return tailsIconUrl;
+    return null;
+  }
+
+  createSideButton(choice) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "control-side-btn";
+    button.dataset.value = String(choice.value);
+    button.setAttribute("aria-pressed", "false");
+
+    const iconSrc = choice.icon ?? this.getSideIcon(choice.value);
+    if (iconSrc) {
+      const icon = document.createElement("img");
+      icon.src = iconSrc;
+      icon.alt = "";
+      icon.className = "control-side-btn-icon";
+      button.appendChild(icon);
+    }
+
+    const label = document.createElement("span");
+    label.className = "control-side-btn-label";
+    label.textContent = choice.label ?? String(choice.value);
+    button.appendChild(label);
+
+    button.addEventListener("click", () => {
+      this.setMinesValue(choice.value);
+    });
+
+    return button;
+  }
+
   buildMinesSelect() {
+    if (this.minesChoices?.length) {
+      this.minesSelectWrapper = document.createElement("div");
+      this.minesSelectWrapper.className = "control-side-selector";
+
+      this.sideButtons = new Map();
+
+      this.minesChoices.forEach((choice) => {
+        const button = this.createSideButton(choice);
+        this.sideButtons.set(String(choice.value), button);
+        this.minesSelectWrapper.appendChild(button);
+      });
+
+      this.buildRandomPickButton(this.minesSelectWrapper);
+      this.scrollContainer.appendChild(this.minesSelectWrapper);
+      this.setMinesSelectState(this.minesSelectState);
+      return;
+    }
+
     this.minesSelectWrapper = document.createElement("div");
     this.minesSelectWrapper.className = "control-select-field";
 
@@ -319,7 +373,9 @@ export class ControlPanel extends EventTarget {
     this.scrollContainer.appendChild(this.manualSection);
 
     this.buildBetButton();
-    this.buildRandomPickButton();
+    if (!this.randomPickButton) {
+      this.buildRandomPickButton();
+    }
     this.buildProfitOnWinDisplay();
     this.buildProfitDisplay();
 
@@ -647,38 +703,28 @@ export class ControlPanel extends EventTarget {
     this.setBetButtonState(this.betButtonState);
   }
 
-  buildRandomPickButton() {
+  buildRandomPickButton(parent = this.manualSection ?? this.scrollContainer) {
     this.randomPickButton = document.createElement("button");
     this.randomPickButton.type = "button";
-    this.randomPickButton.className = "control-bet-btn control-random-btn";
+    this.randomPickButton.className = "control-side-btn control-random-btn";
     this.randomPickButton.textContent = "Random Pick";
     this.randomPickButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("randompick"));
     });
-    const parent = this.manualSection ?? this.scrollContainer;
+
     parent.appendChild(this.randomPickButton);
 
     this.setRandomPickState(this.randomPickButtonState);
   }
 
   refreshMinesOptions({ emit = true } = {}) {
-    if (!this.minesSelect) return;
+    if (!this.minesSelect && !this.sideButtons?.size) return;
 
     if (this.minesChoices?.length) {
       const selectedValue =
         this.currentMines ?? this.minesChoices[0]?.value ?? "";
-      this.minesSelect.innerHTML = "";
-      this.minesChoices.forEach((choice) => {
-        const option = document.createElement("option");
-        option.value = String(choice.value);
-        option.textContent = choice.label ?? String(choice.value);
-        if (String(choice.value) === String(selectedValue)) {
-          option.selected = true;
-        }
-        this.minesSelect.appendChild(option);
-      });
-
       this.currentMines = selectedValue;
+      this.updateSideButtonsSelection();
       this.updateGemsValue();
       if (emit) {
         this.dispatchMinesChange();
@@ -715,6 +761,7 @@ export class ControlPanel extends EventTarget {
         )?.value ?? fallback;
 
       this.currentMines = normalized;
+      this.updateSideButtonsSelection();
       if (this.minesSelect) {
         this.minesSelect.value = String(normalized);
       }
@@ -783,6 +830,15 @@ export class ControlPanel extends EventTarget {
       return match?.label ?? match?.value ?? "";
     }
     return Math.max(0, this.totalTiles - this.currentMines);
+  }
+
+  updateSideButtonsSelection() {
+    if (!this.sideButtons?.size) return;
+    this.sideButtons.forEach((button, value) => {
+      const isActive = String(value) === String(this.currentMines);
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
   }
 
   updateGemsValue() {
@@ -1401,16 +1457,25 @@ export class ControlPanel extends EventTarget {
   }
 
   setMinesSelectState(state) {
-    if (!this.minesSelect || !this.minesSelectWrapper) return;
     const normalized =
       state === "clickable" || state === true || state === "enabled"
         ? "clickable"
         : "non-clickable";
     this.minesSelectState = normalized;
     const isClickable = normalized === "clickable";
-    this.minesSelect.disabled = !isClickable;
-    this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
-    this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
+    if (this.minesSelect && this.minesSelectWrapper) {
+      this.minesSelect.disabled = !isClickable;
+      this.minesSelect.setAttribute("aria-disabled", String(!isClickable));
+      this.minesSelectWrapper.classList.toggle("is-non-clickable", !isClickable);
+    }
+
+    if (this.sideButtons?.size) {
+      this.sideButtons.forEach((button) => {
+        button.disabled = !isClickable;
+        button.classList.toggle("is-non-clickable", !isClickable);
+      });
+      this.minesSelectWrapper?.classList.toggle("is-non-clickable", !isClickable);
+    }
   }
 
   setAutoStartButtonMode(mode) {

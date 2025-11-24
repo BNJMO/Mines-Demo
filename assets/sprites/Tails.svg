@@ -1,0 +1,17 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tailsGradient" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3C5CFF" />
+      <stop offset="1" stop-color="#5D7AFF" />
+    </linearGradient>
+    <filter id="tailsShadow" x="4" y="4" width="56" height="56" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#14264F" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <g filter="url(#tailsShadow)">
+    <circle cx="32" cy="32" r="24" fill="url(#tailsGradient)" stroke="#14264F" stroke-width="3" />
+  </g>
+  <text x="32" y="38" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="700" font-size="22" fill="#E7ECFF">
+    T
+  </text>
+</svg>

@@ -39,6 +39,10 @@ export async function createGame(mount, opts = {}) {
   const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
+  const coinScaleFactor =
+    Number.isFinite(opts.coinSize) && opts.coinSize > 0
+      ? opts.coinSize
+      : COIN_SCALE_FACTOR;
 
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
@@ -136,7 +140,7 @@ export async function createGame(mount, opts = {}) {
     const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 12);
     const coinScale =
       (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
-      COIN_SCALE_FACTOR;
+      coinScaleFactor;
 
     coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
     coinContainer.scale.set(coinScale);
