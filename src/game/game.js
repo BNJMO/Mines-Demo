@@ -242,18 +242,27 @@ export async function createGame(mount, opts = {}) {
 
     return new Promise((resolve) => {
       let tick = 0;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        app.ticker.remove(spin);
+        drawCoinFace(result);
+        resolve();
+      };
+
       const spin = (delta) => {
         tick += delta;
         coinContainer.rotation += 0.25 * delta;
         coinContainer.scale.y = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        if (tick >= COIN_ANIMATION_DURATION) {
-          app.ticker.remove(spin);
-          drawCoinFace(result);
-          resolve();
-        }
+        if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
       app.ticker.add(spin);
+
+      // Fail-safe in case the ticker stalls; ensures the round completes.
+      setTimeout(finish, (COIN_ANIMATION_DURATION / 60) * 1000 + 200);
     });
   }
 
