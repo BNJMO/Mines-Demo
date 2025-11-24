@@ -319,9 +319,11 @@ function bindControlPanelEvents() {
 
 (async () => {
   controlPanel = new ControlPanel("#control-panel", {
-    gameName: "Flip", 
-    minesLabel: "Flip Choice", 
-    gemsLabel: "Recent Results", 
+    gameName: "Flip",
+    minesLabel: "Flip Choice",
+    gemsLabel: "Recent Results",
+    totalTiles: 3,
+    maxMines: 2,
   });
   if (controlPanel?.randomPickButton) {
     controlPanel.randomPickButton.textContent = "Flip Again";

@@ -4,6 +4,7 @@ const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_BASE_RADIUS = 130;
+const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 64;
 
 const COLORS = {
@@ -133,7 +134,9 @@ export async function createGame(mount, opts = {}) {
     app.renderer.resize(width, height);
 
     const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 12);
-    const coinScale = Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2);
+    const coinScale =
+      (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
+      COIN_SCALE_FACTOR;
 
     coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
     coinContainer.scale.set(coinScale);
@@ -236,7 +239,7 @@ export async function createGame(mount, opts = {}) {
       const spin = (delta) => {
         tick += delta;
         coinContainer.rotation += 0.25 * delta;
-        coinContainer.scale.y = Math.cos(tick * 0.3);
+        coinContainer.scale.y = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
         if (tick >= COIN_ANIMATION_DURATION) {
           app.ticker.remove(spin);
           drawCoinFace(result);
