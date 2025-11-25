@@ -1,9 +1,9 @@
 import {
   Application,
+  Assets,
   Container,
   Graphics,
   Sprite,
-  Texture,
   Text,
   TextStyle,
 } from "pixi.js";
@@ -100,9 +100,14 @@ export async function createGame(mount, opts = {}) {
   const coinContainer = new Container();
   stage.addChild(coinContainer);
 
+  const [headsTexture, tailsTexture] = await Promise.all([
+    Assets.load(headsIconUrl),
+    Assets.load(tailsIconUrl),
+  ]);
+
   const coinTextures = {
-    heads: Texture.from(headsIconUrl),
-    tails: Texture.from(tailsIconUrl),
+    heads: headsTexture,
+    tails: tailsTexture,
   };
 
   const coinSprite = new Sprite({
