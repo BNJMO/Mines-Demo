@@ -373,8 +373,8 @@ function bindControlPanelEvents() {
 (async () => {
   controlPanel = new ControlPanel("#control-panel", {
     gameName: "Flip",
-    minesLabel: "Choose Side",
-    gemsLabel: "Your Pick",
+    minesLabel: "",
+    gemsLabel: "",
     minesChoices: [
       { value: "heads", label: "Heads" },
       { value: "tails", label: "Tails" },

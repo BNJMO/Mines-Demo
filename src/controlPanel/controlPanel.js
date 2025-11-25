@@ -253,6 +253,8 @@ export class ControlPanel extends EventTarget {
   }
 
   buildMinesLabel(parent = this.scrollContainer) {
+    if (!this.options.minesLabel?.trim()) return;
+
     const row = document.createElement("div");
     row.className = "control-row";
 
@@ -342,6 +344,8 @@ export class ControlPanel extends EventTarget {
   }
 
   buildGemsLabel() {
+    if (!this.options.gemsLabel?.trim()) return;
+
     const row = document.createElement("div");
     row.className = "control-row";
 
