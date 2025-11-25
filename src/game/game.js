@@ -1,4 +1,14 @@
-import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
+import {
+  Application,
+  Container,
+  Graphics,
+  Sprite,
+  Texture,
+  Text,
+  TextStyle,
+} from "pixi.js";
+import headsIconUrl from "../../assets/sprites/Heads.svg";
+import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
@@ -90,10 +100,18 @@ export async function createGame(mount, opts = {}) {
   const coinContainer = new Container();
   stage.addChild(coinContainer);
 
-  const coinBase = new Graphics();
-  const coinDiamond = new Graphics();
-  const coinHighlight = new Graphics();
-  coinContainer.addChild(coinBase, coinDiamond, coinHighlight);
+  const coinTextures = {
+    heads: Texture.from(headsIconUrl),
+    tails: Texture.from(tailsIconUrl),
+  };
+
+  const coinSprite = new Sprite({
+    texture: coinTextures.heads,
+    width: COIN_BASE_RADIUS * 2,
+    height: COIN_BASE_RADIUS * 2,
+  });
+  coinSprite.anchor.set(0.5);
+  coinContainer.addChild(coinSprite);
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
@@ -180,37 +198,9 @@ export async function createGame(mount, opts = {}) {
 
   function drawCoinFace(result) {
     const isHeads = result === "heads";
-    const outerColor = isHeads ? COLORS.headsRing : COLORS.tailsFill;
-    const cutoutColor = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
-
-    coinBase
-      .clear()
-      .circle(0, 0, COIN_BASE_RADIUS)
-      .fill({ color: outerColor })
-      .stroke({ color: outerColor, width: 6, join: "round" });
-
-    coinDiamond.clear();
-    if (isHeads) {
-      coinDiamond
-        .circle(0, 0, COIN_BASE_RADIUS * 0.45)
-        .fill({ color: cutoutColor });
-    } else {
-      coinDiamond
-        .moveTo(0, -COIN_BASE_RADIUS * 0.6)
-        .lineTo(COIN_BASE_RADIUS * 0.72, 0)
-        .lineTo(0, COIN_BASE_RADIUS * 0.6)
-        .lineTo(-COIN_BASE_RADIUS * 0.72, 0)
-        .closePath()
-        .fill({ color: cutoutColor })
-        .stroke({ color: COLORS.tailsStroke, width: 6, join: "round" });
-    }
-
-    coinHighlight
-      .clear()
-      .circle(-COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.26, COIN_BASE_RADIUS * 0.08)
-      .fill({ color: 0xffffff, alpha: 0.06 })
-      .circle(COIN_BASE_RADIUS * 0.24, -COIN_BASE_RADIUS * 0.18, COIN_BASE_RADIUS * 0.1)
-      .fill({ color: 0xffffff, alpha: 0.08 });
+    coinSprite.texture = isHeads ? coinTextures.heads : coinTextures.tails;
+    coinSprite.width = COIN_BASE_RADIUS * 2;
+    coinSprite.height = COIN_BASE_RADIUS * 2;
 
     coinContainer.rotation = 0;
     coinContainer.scale.y = coinContainer.scale.x;
