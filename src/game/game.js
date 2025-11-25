@@ -232,6 +232,7 @@ export async function createGame(mount, opts = {}) {
 
     const baseScaleX = coinContainer.scale.x;
     const baseScaleY = coinContainer.scale.y;
+    const baseY = coinContainer.position.y;
     const startFace = currentFace;
     const targetFace = result === "heads" ? "heads" : "tails";
     const totalHalfTurns = startFace === targetFace ? 2 : 3;
@@ -248,6 +249,8 @@ export async function createGame(mount, opts = {}) {
         finished = true;
         app.ticker.remove(spin);
         coinContainer.scale.set(baseScaleX, baseScaleY);
+        coinContainer.position.y = baseY;
+        coinContainer.rotation = 0;
         drawCoinFace(targetFace);
         resolve();
       };
@@ -256,12 +259,17 @@ export async function createGame(mount, opts = {}) {
         tick += delta;
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
         const angle = totalRotation * progress;
+        const eased = Math.sin(progress * Math.PI);
 
-        const squash = 0.82 + 0.18 * Math.sin(progress * Math.PI);
+        const squash = 0.82 + 0.18 * eased;
         const flipScale = Math.max(0.08, Math.abs(Math.cos(angle)));
+        const lift = eased * COIN_BASE_RADIUS * 0.18 * baseScaleY;
+        const wobble = Math.sin(angle * 0.5) * 0.25;
 
         coinContainer.scale.x = baseScaleX * flipScale;
         coinContainer.scale.y = baseScaleY * squash;
+        coinContainer.position.y = baseY - lift;
+        coinContainer.rotation = wobble;
 
         const showStartFace = Math.floor(angle / Math.PI) % 2 === 0;
         const faceToShow = showStartFace ? startFace : getOppositeFace(startFace);
