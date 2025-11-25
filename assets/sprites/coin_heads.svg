@@ -1,29 +1,7 @@
-<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="coinHeadFill" cx="50%" cy="45%" r="60%">
-      <stop offset="0%" stop-color="#FFE7A3" />
-      <stop offset="55%" stop-color="#F7C150" />
-      <stop offset="100%" stop-color="#D6881D" />
-    </radialGradient>
-    <linearGradient id="coinHeadRim" x1="0%" x2="0%" y1="0%" y2="100%">
-      <stop offset="0%" stop-color="#FBE29C" />
-      <stop offset="100%" stop-color="#B25B0F" />
-    </linearGradient>
-    <filter id="coinHeadShadow" x="-12%" y="-12%" width="124%" height="124%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0A0E14" flood-opacity="0.35" />
-    </filter>
-  </defs>
-  <g filter="url(#coinHeadShadow)">
-    <circle cx="120" cy="120" r="102" fill="url(#coinHeadFill)" />
-    <circle cx="120" cy="120" r="102" stroke="url(#coinHeadRim)" stroke-width="18" />
-    <circle cx="120" cy="120" r="70" fill="#0F1A2F" opacity="0.14" />
-    <circle cx="120" cy="120" r="63" fill="#0F1A2F" opacity="0.18" />
-    <path d="M87 168C87 145 107 128 120 128C133 128 153 145 153 168" stroke="#2E3A52" stroke-width="10" stroke-linecap="round" />
-    <circle cx="96" cy="108" r="12" fill="#F7F2E9" />
-    <circle cx="144" cy="108" r="12" fill="#F7F2E9" />
-    <circle cx="93" cy="107" r="6" fill="#0F1A2F" />
-    <circle cx="141" cy="107" r="6" fill="#0F1A2F" />
-    <path d="M100 86C108 76 132 76 140 86" stroke="#C37B16" stroke-width="10" stroke-linecap="round" />
-    <path d="M120 60C85 60 60 85 60 120C60 155 85 180 120 180C155 180 180 155 180 120C180 85 155 60 120 60ZM120 198C74.2944 198 38 161.706 38 116C38 70.2944 74.2944 34 120 34C165.706 34 202 70.2944 202 116C202 161.706 165.706 198 120 198Z" fill="#F7C150" opacity="0.6" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="100%" height="100%" fill="#0e2a33"/>
+  <!-- outer orange ring -->
+  <circle cx="128" cy="128" r="96" fill="#ff9b00"/>
+  <!-- inner hole matching background -->
+  <circle cx="128" cy="128" r="44" fill="#0e2a33"/>
 </svg>
