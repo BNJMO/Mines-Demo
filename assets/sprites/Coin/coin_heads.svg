@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="100%" height="100%" fill="#0e2a33"/>
+  <!-- outer orange ring -->
+  <circle cx="128" cy="128" r="96" fill="#ff9b00"/>
+  <!-- inner hole matching background -->
+  <circle cx="128" cy="128" r="44" fill="#0e2a33"/>
+</svg>
