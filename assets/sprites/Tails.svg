@@ -1,0 +1,11 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="tailsShadow" x="2" y="2" width="60" height="60" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f2032" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <g filter="url(#tailsShadow)">
+    <circle cx="32" cy="32" r="26" fill="#536AFF" />
+  </g>
+  <path d="M32 12 L48 32 L32 52 L16 32 Z" fill="#0C1F2B" />
+</svg>

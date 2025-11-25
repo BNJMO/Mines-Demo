@@ -238,6 +238,67 @@
   background: #091b26;
 }
 
+.control-side-selector {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.control-side-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 10px;
+  background: #091b26;
+  border-radius: 8px;
+  border: 3px solid #223845;
+  color: #f1f5ff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: var(--control-elevation-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.control-side-btn:hover {
+  background: #0f2734;
+  border-color: #325b73;
+  transform: translateY(-1px);
+  box-shadow: var(--control-elevation-shadow-hover);
+}
+
+.control-side-btn.is-active {
+  background: linear-gradient(135deg, #eaff00 0%, #eaff00 100%);
+  border-color: #eaff00;
+  color: #091b26;
+  box-shadow: var(--control-elevation-shadow-strong),
+    0 12px 24px rgba(234, 255, 0, 0.25);
+}
+
+.control-side-btn.is-non-clickable,
+.control-side-btn:disabled {
+  background: #0d1b24;
+  border-color: #0d1b24;
+  color: #4c5d68;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.control-side-btn-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.control-side-btn-label {
+  line-height: 1;
+}
+
 .control-bet-input-field {
   position: relative;
   display: flex;
@@ -382,6 +443,16 @@
 .control-random-btn.is-non-clickable:hover,
 .control-random-btn:disabled:hover {
   background: #101d26;
+}
+
+.control-side-selector .control-random-btn {
+  justify-content: center;
+}
+
+@media (max-width: 540px) {
+  .control-side-selector {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
 }
 
 .control-profit-box {

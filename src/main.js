@@ -8,6 +8,10 @@ const MIN_BET = 0.01;
 const MAX_BET = 100000;
 const DEFAULT_SIDE = "heads";
 
+const GAME_CONFIG = {
+  coinSize: 0.425,
+};
+
 let game;
 let controlPanel;
 
@@ -81,6 +85,7 @@ function setChosenSide(side) {
   state.chosenSide = side === "tails" ? "tails" : DEFAULT_SIDE;
   updateStatus(`Selected side: ${state.chosenSide}`);
   controlPanel?.updateGemsValue?.();
+  game?.setFace?.(state.chosenSide);
 }
 
 function calculateMultiplier(streak) {
@@ -302,11 +307,8 @@ function handleBetButtonClick() {
 
 function handleRandomPickClick() {
   if (state.autoplayActive) return;
-  if (state.awaitingDecision) {
-    continueStreak();
-    return;
-  }
-  startRound();
+  const side = Math.random() < 0.5 ? "heads" : "tails";
+  controlPanel?.setMinesValue?.(side);
 }
 
 function handleStartAutobetClick() {
@@ -352,15 +354,12 @@ function bindControlPanelEvents() {
     totalTiles: 2,
     maxMines: 2,
   });
-  if (controlPanel?.randomPickButton) {
-    controlPanel.randomPickButton.textContent = "Flip Again";
-  }
 
   bindControlPanelEvents();
   state.currentBet = controlPanel.getBetValue?.() ?? MIN_BET;
   updateDisplays();
 
-  game = await createGame("#game", {});
+  game = await createGame("#game", { coinSize: GAME_CONFIG.coinSize });
   game?.setAnimationsEnabled?.(controlPanel.getAnimationsEnabled?.());
   state.showAnimations = Boolean(controlPanel.getAnimationsEnabled?.());
 

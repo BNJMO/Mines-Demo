@@ -4,18 +4,18 @@ const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_BASE_RADIUS = 130;
-const COIN_SCALE_FACTOR = 0.85;
+const COIN_SCALE_FACTOR = 0.425;
 const HISTORY_BAR_HEIGHT = 64;
 
 const COLORS = {
-  headsPrimary: 0xfda83c,
-  headsHighlight: 0xffc666,
-  headsShadow: 0x8a5112,
-  tailsPrimary: 0x3c5cff,
-  tailsHighlight: 0x5d7aff,
-  tailsShadow: 0x14264f,
+  headsRing: 0xf6a400,
+  headsCenter: 0x0c1f2b,
+  tailsFill: 0x536aff,
+  tailsHole: 0x0c1f2b,
+  tailsStroke: 0x2f46b5,
   historyFrame: 0x0f2734,
   historyEmpty: 0x153243,
+  historyBorder: 0x224558,
 };
 
 function resolveRoot(mount) {
@@ -39,6 +39,10 @@ export async function createGame(mount, opts = {}) {
   const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
+  const coinScaleFactor =
+    Number.isFinite(opts.coinSize) && opts.coinSize > 0
+      ? opts.coinSize
+      : COIN_SCALE_FACTOR;
 
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
@@ -136,7 +140,7 @@ export async function createGame(mount, opts = {}) {
     const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 12);
     const coinScale =
       (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
-      COIN_SCALE_FACTOR;
+      coinScaleFactor;
 
     coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
     coinContainer.scale.set(coinScale);
@@ -191,37 +195,40 @@ export async function createGame(mount, opts = {}) {
 
   function drawCoinFace(result) {
     const isHeads = result === "heads";
-    const primary = isHeads ? COLORS.headsPrimary : COLORS.tailsPrimary;
-    const highlight = isHeads ? COLORS.headsHighlight : COLORS.tailsHighlight;
-    const shadow = isHeads ? COLORS.headsShadow : COLORS.tailsShadow;
+    const outerColor = isHeads ? COLORS.headsRing : COLORS.tailsFill;
+    const cutoutColor = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
 
     coinBase
       .clear()
       .circle(0, 0, COIN_BASE_RADIUS)
-      .fill({ color: primary })
-      .stroke({ color: highlight, width: 16, join: "round" })
-      .circle(0, 0, COIN_BASE_RADIUS * 0.82)
-      .stroke({ color: shadow, width: 12, join: "round" });
+      .fill({ color: outerColor })
+      .stroke({ color: outerColor, width: 6, join: "round" });
 
-    coinDiamond
-      .clear()
-      .moveTo(0, -COIN_BASE_RADIUS * 0.55)
-      .lineTo(COIN_BASE_RADIUS * 0.75, 0)
-      .lineTo(0, COIN_BASE_RADIUS * 0.55)
-      .lineTo(-COIN_BASE_RADIUS * 0.75, 0)
-      .closePath()
-      .fill({ color: shadow })
-      .stroke({ color: highlight, width: 6, join: "round" });
+    coinDiamond.clear();
+    if (isHeads) {
+      coinDiamond
+        .circle(0, 0, COIN_BASE_RADIUS * 0.45)
+        .fill({ color: cutoutColor });
+    } else {
+      coinDiamond
+        .moveTo(0, -COIN_BASE_RADIUS * 0.6)
+        .lineTo(COIN_BASE_RADIUS * 0.72, 0)
+        .lineTo(0, COIN_BASE_RADIUS * 0.6)
+        .lineTo(-COIN_BASE_RADIUS * 0.72, 0)
+        .closePath()
+        .fill({ color: cutoutColor })
+        .stroke({ color: COLORS.tailsStroke, width: 6, join: "round" });
+    }
 
     coinHighlight
       .clear()
-      .circle(-COIN_BASE_RADIUS * 0.28, COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.09)
-      .fill({ color: highlight, alpha: 0.65 })
-      .circle(COIN_BASE_RADIUS * 0.22, -COIN_BASE_RADIUS * 0.24, COIN_BASE_RADIUS * 0.11)
-      .fill({ color: highlight, alpha: 0.85 });
+      .circle(-COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.26, COIN_BASE_RADIUS * 0.08)
+      .fill({ color: 0xffffff, alpha: 0.06 })
+      .circle(COIN_BASE_RADIUS * 0.24, -COIN_BASE_RADIUS * 0.18, COIN_BASE_RADIUS * 0.1)
+      .fill({ color: 0xffffff, alpha: 0.08 });
 
     coinContainer.rotation = 0;
-    coinContainer.scale.y = Math.abs(coinContainer.scale.y || 1);
+    coinContainer.scale.y = coinContainer.scale.x;
   }
 
   function setFace(result) {
@@ -240,6 +247,9 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
+    const baseScaleX = coinContainer.scale.x;
+    const baseScaleY = coinContainer.scale.y;
+
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
@@ -255,7 +265,8 @@ export async function createGame(mount, opts = {}) {
       const spin = (delta) => {
         tick += delta;
         coinContainer.rotation += 0.25 * delta;
-        coinContainer.scale.y = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
+        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
+        coinContainer.scale.y = squash * baseScaleY;
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
@@ -278,29 +289,32 @@ export async function createGame(mount, opts = {}) {
     slot
       .clear()
       .roundRect(0, 0, width, height, 8)
-      .fill({ color: COLORS.historyEmpty });
+      .fill({ color: COLORS.historyEmpty })
+      .stroke({ color: COLORS.historyBorder, width: 2 });
 
     if (!value) return;
 
     const isHeads = value.toUpperCase() === "H";
-    const primary = isHeads ? COLORS.headsPrimary : COLORS.tailsPrimary;
-    const accent = isHeads ? COLORS.headsShadow : COLORS.tailsShadow;
+    const primary = isHeads ? COLORS.headsRing : COLORS.tailsFill;
+    const cutout = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
 
     const centerX = width / 2;
     const centerY = height / 2;
 
     if (isHeads) {
-      slot.circle(centerX, centerY, height * 0.38).fill({ color: primary });
-      slot.circle(centerX, centerY, height * 0.22).fill({ color: accent });
+      slot.circle(centerX, centerY, height * 0.42).fill({ color: primary });
+      slot.circle(centerX, centerY, height * 0.24).fill({ color: cutout });
     } else {
       slot
-        .moveTo(centerX, centerY - height * 0.44)
-        .lineTo(centerX + height * 0.36, centerY)
-        .lineTo(centerX, centerY + height * 0.44)
-        .lineTo(centerX - height * 0.36, centerY)
-        .closePath()
+        .circle(centerX, centerY, height * 0.42)
         .fill({ color: primary })
-        .stroke({ color: accent, width: 2, join: "round" });
+        .moveTo(centerX, centerY - height * 0.5)
+        .lineTo(centerX + height * 0.4, centerY)
+        .lineTo(centerX, centerY + height * 0.5)
+        .lineTo(centerX - height * 0.4, centerY)
+        .closePath()
+        .fill({ color: cutout })
+        .stroke({ color: COLORS.tailsStroke, width: 2, join: "round" });
     }
   }
 
