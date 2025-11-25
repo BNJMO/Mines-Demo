@@ -40,6 +40,7 @@ class Coin {
     this.baseScale = 1;
 
     this.container = new Container();
+    this.rim = new Graphics();
     this.front = new Sprite({
       texture: textures.heads,
       width: baseRadius * 2,
@@ -54,7 +55,21 @@ class Coin {
     this.back.anchor.set(0.5);
     this.back.scale.x = -1; // mirror so the back reads correctly when flipped
 
-    this.container.addChild(this.front, this.back);
+    const rimThickness = Math.max(8, baseRadius * 0.12);
+    this.rim
+      .roundRect(
+        -baseRadius,
+        -rimThickness / 2,
+        baseRadius * 2,
+        rimThickness,
+        rimThickness / 2
+      )
+      .fill({ color: 0xf7d48f })
+      .stroke({ color: 0xc29a52, width: 4 });
+    this.rim.alpha = 0;
+    this.rim.pivot.set(0, 0);
+
+    this.container.addChild(this.rim, this.front, this.back);
   }
 
   get view() {
@@ -78,7 +93,7 @@ class Coin {
 
   applyPose({ angle = 0, squash = 1, wobble = 0, roll = 0 } = {}) {
     const cos = Math.cos(angle);
-    const depth = Math.max(0.14, Math.abs(cos));
+    const depth = Math.max(0.32, Math.abs(cos));
     const wobbleScale = 1 + wobble;
     const xScale = this.baseScale * depth * squash * wobbleScale;
     const yScale = this.baseScale * squash * wobbleScale;
@@ -91,6 +106,14 @@ class Coin {
     const frontFacing = cos >= 0;
     this.front.visible = frontFacing;
     this.back.visible = !frontFacing;
+
+    const rimShow = 1 - Math.min(1, Math.abs(cos) / 0.85);
+    const rimScaleX = this.baseScale * (0.3 + Math.abs(Math.sin(angle)) * 0.5);
+    const rimScaleY = this.baseScale * squash * (0.5 + rimShow * 0.5);
+    this.rim.visible = rimShow > 0.02;
+    this.rim.alpha = rimShow * 0.9;
+    this.rim.scale.set(rimScaleX, rimScaleY);
+    this.rim.rotation = 0;
   }
 
   setFace(face) {
