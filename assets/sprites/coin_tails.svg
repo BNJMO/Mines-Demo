@@ -1,26 +1,9 @@
-<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="coinTailFill" cx="45%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#EAF0FF" />
-      <stop offset="48%" stop-color="#6B8BFF" />
-      <stop offset="100%" stop-color="#1E3A8A" />
-    </radialGradient>
-    <linearGradient id="coinTailRim" x1="0%" x2="0%" y1="0%" y2="100%">
-      <stop offset="0%" stop-color="#90A9FF" />
-      <stop offset="100%" stop-color="#203272" />
-    </linearGradient>
-    <filter id="coinTailShadow" x="-12%" y="-12%" width="124%" height="124%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#050B14" flood-opacity="0.38" />
-    </filter>
-  </defs>
-  <g filter="url(#coinTailShadow)">
-    <circle cx="120" cy="120" r="102" fill="url(#coinTailFill)" />
-    <circle cx="120" cy="120" r="102" stroke="url(#coinTailRim)" stroke-width="18" />
-    <circle cx="120" cy="120" r="73" fill="#0B1A33" opacity="0.2" />
-    <path d="M74 120L120 66L166 120L120 174L74 120Z" fill="#0F1F3B" opacity="0.86" />
-    <path d="M120 70L162 120L120 170L78 120L120 70Z" stroke="#9BB2FF" stroke-width="10" stroke-linejoin="round" />
-    <path d="M120 100C136 112 136 128 120 140C104 128 104 112 120 100Z" fill="#E4ECFF" opacity="0.9" />
-    <path d="M107 133C107 120 116 112 120 112C124 112 133 120 133 133" stroke="#293A66" stroke-width="8" stroke-linecap="round" />
-    <path d="M120 60C85 60 60 85 60 120C60 155 85 180 120 180C155 180 180 155 180 120C180 85 155 60 120 60ZM120 198C74.2944 198 38 161.706 38 116C38 70.2944 74.2944 34 120 34C165.706 34 202 70.2944 202 116C202 161.706 165.706 198 120 198Z" fill="#87A0FF" opacity="0.6" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="100%" height="100%" fill="#0e2a33"/>
+  <!-- outer blue ring -->
+  <circle cx="128" cy="128" r="96" fill="#6f7eff"/>
+  <!-- diamond cutout: rotated square filled with background color to create hole -->
+  <g transform="translate(128,128) rotate(45)">
+    <rect x="-48" y="-48" width="96" height="96" fill="#0e2a33"/>
   </g>
 </svg>
