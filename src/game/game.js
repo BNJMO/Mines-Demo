@@ -291,30 +291,38 @@ export async function createGame(mount, opts = {}) {
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
         const angle = totalRotation * progress;
         const eased = Math.sin(progress * Math.PI);
-        const wobble = Math.sin(angle * 0.75) * 0.42 * eased;
+        const wobble = Math.sin(angle * 0.85) * 0.38 * eased;
         const yRotation = angle;
         const cosY = Math.cos(yRotation);
         const sinY = Math.sin(yRotation);
-        const edgeVisible = Math.max(0.08, Math.abs(cosY));
         const faceToShow = cosY >= 0 ? startFace : getOppositeFace(startFace);
-        const lift = eased * COIN_BASE_RADIUS * 0.5;
+        const lift = eased * COIN_BASE_RADIUS * 0.7;
         const perspectiveDepth = Math.max(
-          12,
+          24,
           CAMERA_DISTANCE - sinY * COIN_DEPTH
         );
         const perspectiveScale = CAMERA_DISTANCE / perspectiveDepth;
-        const squash = 0.78 + 0.22 * Math.cos(yRotation * 2);
+        const thickness = 0.35 + 0.65 * Math.abs(cosY);
+        const squash = 0.85 + 0.15 * Math.cos(yRotation * 2);
 
-        coinBody.scale.x = baseScaleX * edgeVisible * perspectiveScale;
+        coinBody.scale.x = baseScaleX * thickness * perspectiveScale;
         coinBody.scale.y = baseScaleY * squash * perspectiveScale;
-        coinBody.skew.y = sinY * 0.6;
+        coinBody.skew.y = sinY * 0.35;
         coinContainer.position.y = baseY - lift * perspectiveScale;
-        coinBody.rotation = wobble + sinY * 0.08;
-        coinRim.alpha = 0.7 + 0.3 * Math.max(0, cosY);
-        coinFront.alpha = 0.85 + 0.15 * Math.max(0, cosY);
-        coinBack.alpha = 0.85 + 0.15 * Math.max(0, -cosY);
+        coinBody.rotation = wobble + sinY * 0.12;
 
-        updateCoinVisibility(faceToShow);
+        // Keep both faces present so the coin never disappears when the width
+        // narrows during the spin, and mirror the hidden side so the artwork
+        // stays oriented when it flips toward the camera.
+        coinFront.visible = true;
+        coinBack.visible = true;
+        coinFront.scale.x = cosY >= 0 ? 1 : -1;
+        coinBack.scale.x = cosY <= 0 ? -1 : 1;
+        coinFront.alpha = 0.65 + 0.35 * Math.max(0, cosY);
+        coinBack.alpha = 0.65 + 0.35 * Math.max(0, -cosY);
+        coinRim.alpha = 0.55 + 0.45 * thickness;
+
+        currentFace = faceToShow;
 
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
