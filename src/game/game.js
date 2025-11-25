@@ -15,6 +15,8 @@ const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 64; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
+const COIN_DEPTH = 36;
+const CAMERA_DISTANCE = 320;
 const HISTORY_BAR_HEIGHT = 54;
 const HISTORY_SLOT_WIDTH = 32;
 const HISTORY_SLOT_HEIGHT = 28;
@@ -275,6 +277,9 @@ export async function createGame(mount, opts = {}) {
         app.ticker.remove(spin);
         coinBody.scale.set(baseScaleX, baseScaleY);
         coinBody.skew.set(0, 0);
+        coinFront.alpha = 1;
+        coinBack.alpha = 1;
+        coinRim.alpha = 1;
         coinContainer.position.y = baseY;
         coinBody.rotation = 0;
         drawCoinFace(targetFace);
@@ -286,21 +291,29 @@ export async function createGame(mount, opts = {}) {
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
         const angle = totalRotation * progress;
         const eased = Math.sin(progress * Math.PI);
-        const wobble = Math.sin(angle * 0.65) * 0.45;
-        const tilt = Math.sin(angle * 0.85) * 0.35;
+        const wobble = Math.sin(angle * 0.75) * 0.42 * eased;
+        const yRotation = angle;
+        const cosY = Math.cos(yRotation);
+        const sinY = Math.sin(yRotation);
+        const edgeVisible = Math.max(0.08, Math.abs(cosY));
+        const faceToShow = cosY >= 0 ? startFace : getOppositeFace(startFace);
+        const lift = eased * COIN_BASE_RADIUS * 0.5;
+        const perspectiveDepth = Math.max(
+          12,
+          CAMERA_DISTANCE - sinY * COIN_DEPTH
+        );
+        const perspectiveScale = CAMERA_DISTANCE / perspectiveDepth;
+        const squash = 0.78 + 0.22 * Math.cos(yRotation * 2);
 
-        const edgeSquash = 0.62 + 0.38 * eased;
-        const flipScale = Math.cos(angle);
-        const lift = eased * COIN_BASE_RADIUS * 0.36;
+        coinBody.scale.x = baseScaleX * edgeVisible * perspectiveScale;
+        coinBody.scale.y = baseScaleY * squash * perspectiveScale;
+        coinBody.skew.y = sinY * 0.6;
+        coinContainer.position.y = baseY - lift * perspectiveScale;
+        coinBody.rotation = wobble + sinY * 0.08;
+        coinRim.alpha = 0.7 + 0.3 * Math.max(0, cosY);
+        coinFront.alpha = 0.85 + 0.15 * Math.max(0, cosY);
+        coinBack.alpha = 0.85 + 0.15 * Math.max(0, -cosY);
 
-        coinBody.scale.x = baseScaleX * flipScale;
-        coinBody.scale.y = baseScaleY * edgeSquash;
-        coinBody.skew.y = tilt;
-        coinContainer.position.y = baseY - lift;
-        coinBody.rotation = wobble;
-
-        const showStartFace = flipScale >= 0;
-        const faceToShow = showStartFace ? startFace : getOppositeFace(startFace);
         updateCoinVisibility(faceToShow);
 
         if (tick >= COIN_ANIMATION_DURATION) finish();
