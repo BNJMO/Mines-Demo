@@ -1,4 +1,14 @@
-import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
+import {
+  Application,
+  Assets,
+  Container,
+  Graphics,
+  Sprite,
+  Text,
+  TextStyle,
+} from "pixi.js";
+import headsIconUrl from "../../assets/sprites/Heads.svg";
+import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
@@ -19,6 +29,51 @@ const COLORS = {
   historyEmpty: 0x153243,
   historyBorder: 0x224558,
 };
+
+class Coin {
+  constructor({ textures, baseRadius }) {
+    this.textures = textures;
+    this.baseRadius = baseRadius;
+    this.currentFace = "heads";
+
+    this.container = new Container();
+    this.sprite = new Sprite({
+      texture: textures.heads,
+      width: baseRadius * 2,
+      height: baseRadius * 2,
+    });
+    this.sprite.anchor.set(0.5);
+    this.container.addChild(this.sprite);
+  }
+
+  get view() {
+    return this.container;
+  }
+
+  setPosition(x, y) {
+    this.container.position.set(x, y);
+  }
+
+  setScale(scale) {
+    this.container.scale.set(scale);
+  }
+
+  getScale() {
+    return { x: this.container.scale.x, y: this.container.scale.y };
+  }
+
+  setFace(face) {
+    const isHeads = face === "heads";
+    this.currentFace = isHeads ? "heads" : "tails";
+    this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
+    this.sprite.width = this.baseRadius * 2;
+    this.sprite.height = this.baseRadius * 2;
+  }
+
+  getFace() {
+    return this.currentFace;
+  }
+}
 
 function resolveRoot(mount) {
   const root = typeof mount === "string" ? document.querySelector(mount) : mount;
@@ -87,13 +142,18 @@ export async function createGame(mount, opts = {}) {
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
 
-  const coinContainer = new Container();
-  stage.addChild(coinContainer);
+  const [headsTexture, tailsTexture] = await Promise.all([
+    Assets.load(headsIconUrl),
+    Assets.load(tailsIconUrl),
+  ]);
 
-  const coinBase = new Graphics();
-  const coinDiamond = new Graphics();
-  const coinHighlight = new Graphics();
-  coinContainer.addChild(coinBase, coinDiamond, coinHighlight);
+  const coinTextures = {
+    heads: headsTexture,
+    tails: tailsTexture,
+  };
+
+  const coin = new Coin({ textures: coinTextures, baseRadius: COIN_BASE_RADIUS });
+  stage.addChild(coin.view);
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
@@ -121,8 +181,8 @@ export async function createGame(mount, opts = {}) {
       (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
       coinScaleFactor;
 
-    coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
-    coinContainer.scale.set(coinScale);
+    coin.setPosition(width / 2, coinAreaHeight / 2 + 8);
+    coin.setScale(coinScale);
 
     statusText.position.set(18, coinAreaHeight - 12);
 
@@ -179,41 +239,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawCoinFace(result) {
-    const isHeads = result === "heads";
-    const outerColor = isHeads ? COLORS.headsRing : COLORS.tailsFill;
-    const cutoutColor = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
-
-    coinBase
-      .clear()
-      .circle(0, 0, COIN_BASE_RADIUS)
-      .fill({ color: outerColor })
-      .stroke({ color: outerColor, width: 6, join: "round" });
-
-    coinDiamond.clear();
-    if (isHeads) {
-      coinDiamond
-        .circle(0, 0, COIN_BASE_RADIUS * 0.45)
-        .fill({ color: cutoutColor });
-    } else {
-      coinDiamond
-        .moveTo(0, -COIN_BASE_RADIUS * 0.6)
-        .lineTo(COIN_BASE_RADIUS * 0.72, 0)
-        .lineTo(0, COIN_BASE_RADIUS * 0.6)
-        .lineTo(-COIN_BASE_RADIUS * 0.72, 0)
-        .closePath()
-        .fill({ color: cutoutColor })
-        .stroke({ color: COLORS.tailsStroke, width: 6, join: "round" });
-    }
-
-    coinHighlight
-      .clear()
-      .circle(-COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.26, COIN_BASE_RADIUS * 0.08)
-      .fill({ color: 0xffffff, alpha: 0.06 })
-      .circle(COIN_BASE_RADIUS * 0.24, -COIN_BASE_RADIUS * 0.18, COIN_BASE_RADIUS * 0.1)
-      .fill({ color: 0xffffff, alpha: 0.08 });
-
-    coinContainer.rotation = 0;
-    coinContainer.scale.y = coinContainer.scale.x;
+    coin.setFace(result);
   }
 
   function setFace(result) {
@@ -223,6 +249,9 @@ export async function createGame(mount, opts = {}) {
   function playFlip(result, { instant = false } = {}) {
     if (!state.showAnimations || instant) {
       drawCoinFace(result);
+      const { x: baseScale } = coin.getScale();
+      coin.setScale(baseScale);
+      coin.view.rotation = 0;
       return Promise.resolve();
     }
 
@@ -232,27 +261,43 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const baseScaleX = coinContainer.scale.x;
-    const baseScaleY = coinContainer.scale.y;
+    const baseScale = coin.getScale();
+    const targetFace = result === "heads" ? "heads" : "tails";
+    const oppositeFace = targetFace === "heads" ? "tails" : "heads";
 
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let lastShowingFront = null;
 
       const finish = () => {
         if (finished) return;
         finished = true;
         app.ticker.remove(spin);
         drawCoinFace(result);
+        coin.view.rotation = 0;
+        coin.view.scale.set(baseScale.x, baseScale.y);
         resolve();
       };
 
       const spin = (delta) => {
         tick += delta;
-        coinContainer.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coinContainer.scale.y = squash * baseScaleY;
-        if (tick >= COIN_ANIMATION_DURATION) finish();
+        const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
+        const angle = progress * Math.PI * 10; // multiple half-rotations
+        const faceCos = Math.cos(angle);
+        const showingFront = faceCos >= 0;
+
+        if (showingFront !== lastShowingFront) {
+          coin.setFace(showingFront ? targetFace : oppositeFace);
+          lastShowingFront = showingFront;
+        }
+
+        const squash = Math.max(0.25, Math.abs(faceCos));
+        coin.view.scale.x = baseScale.x;
+        coin.view.scale.y = squash * baseScale.y;
+        coin.view.rotation = progress * Math.PI * 2;
+
+        if (progress >= 1) finish();
       };
 
       app.ticker.add(spin);
