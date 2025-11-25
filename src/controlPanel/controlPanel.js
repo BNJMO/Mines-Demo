@@ -117,8 +117,6 @@ export class ControlPanel extends EventTarget {
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
-    this.buildGemsLabel();
-    this.buildGemsDisplay();
     this.buildModeSections();
     this.buildFooter();
 
@@ -341,31 +339,6 @@ export class ControlPanel extends EventTarget {
     (parent ?? this.scrollContainer).appendChild(this.minesSelectWrapper);
 
     this.setMinesSelectState(this.minesSelectState);
-  }
-
-  buildGemsLabel() {
-    if (!this.options.gemsLabel?.trim()) return;
-
-    const row = document.createElement("div");
-    row.className = "control-row";
-
-    const label = document.createElement("span");
-    label.className = "control-row-label";
-    label.textContent = this.options.gemsLabel;
-    row.appendChild(label);
-
-    this.scrollContainer.appendChild(row);
-  }
-
-  buildGemsDisplay() {
-    this.gemsBox = document.createElement("div");
-    this.gemsBox.className = "control-gems-box";
-
-    this.gemsValue = document.createElement("span");
-    this.gemsValue.className = "control-gems-value";
-    this.gemsBox.appendChild(this.gemsValue);
-
-    this.scrollContainer.appendChild(this.gemsBox);
   }
 
   buildModeSections() {
@@ -707,6 +680,19 @@ export class ControlPanel extends EventTarget {
     this.setBetButtonState(this.betButtonState);
   }
 
+  buildSelectionLabel(parent = this.scrollContainer) {
+    this.selectionLabelRow = document.createElement("div");
+    this.selectionLabelRow.className = "control-selection-row";
+
+    this.selectionLabel = document.createElement("span");
+    this.selectionLabel.className = "control-selection-label";
+    this.selectionLabelRow.appendChild(this.selectionLabel);
+
+    (parent ?? this.scrollContainer).appendChild(this.selectionLabelRow);
+
+    this.updateSelectionLabel();
+  }
+
   buildRandomPickButton(parent = this.manualSection ?? this.scrollContainer) {
     const randomPickButton = document.createElement("button");
     randomPickButton.type = "button";
@@ -733,6 +719,7 @@ export class ControlPanel extends EventTarget {
       this.currentMines = selectedValue;
       this.updateSideButtonsSelection();
       this.updateGemsValue();
+      this.updateSelectionLabel();
       if (emit) {
         this.dispatchMinesChange();
       }
@@ -754,6 +741,7 @@ export class ControlPanel extends EventTarget {
 
     this.currentMines = selected;
     this.updateGemsValue();
+    this.updateSelectionLabel();
     if (emit) {
       this.dispatchMinesChange();
     }
@@ -773,6 +761,7 @@ export class ControlPanel extends EventTarget {
         this.minesSelect.value = String(normalized);
       }
       this.updateGemsValue();
+      this.updateSelectionLabel();
       if (emit) {
         this.dispatchMinesChange();
       }
@@ -789,6 +778,7 @@ export class ControlPanel extends EventTarget {
       this.minesSelect.value = String(clamped);
     }
     this.updateGemsValue();
+    this.updateSelectionLabel();
     if (emit) {
       this.dispatchMinesChange();
     }
@@ -846,6 +836,12 @@ export class ControlPanel extends EventTarget {
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
     });
+  }
+
+  updateSelectionLabel() {
+    if (!this.selectionLabel) return;
+    const displayValue = this.getGemsValue() || this.getMinesValue() || "";
+    this.selectionLabel.textContent = String(displayValue);
   }
 
   updateGemsValue() {
