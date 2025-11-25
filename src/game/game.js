@@ -35,15 +35,26 @@ class Coin {
     this.textures = textures;
     this.baseRadius = baseRadius;
     this.currentFace = "heads";
+    this.spinAngle = 0;
+    this.roll = 0;
+    this.baseScale = 1;
 
     this.container = new Container();
-    this.sprite = new Sprite({
+    this.front = new Sprite({
       texture: textures.heads,
       width: baseRadius * 2,
       height: baseRadius * 2,
     });
-    this.sprite.anchor.set(0.5);
-    this.container.addChild(this.sprite);
+    this.back = new Sprite({
+      texture: textures.tails,
+      width: baseRadius * 2,
+      height: baseRadius * 2,
+    });
+    this.front.anchor.set(0.5);
+    this.back.anchor.set(0.5);
+    this.back.scale.x = -1; // mirror so the back reads correctly when flipped
+
+    this.container.addChild(this.front, this.back);
   }
 
   get view() {
@@ -55,19 +66,38 @@ class Coin {
   }
 
   setScale(scale) {
-    this.container.scale.set(scale);
+    const x = typeof scale === "number" ? scale : scale?.x ?? 1;
+    const y = typeof scale === "number" ? scale : scale?.y ?? x;
+    this.baseScale = Math.max(0.0001, Math.min(x, y));
+    this.applyPose({ angle: this.spinAngle, squash: 1, wobble: 0, roll: this.roll });
   }
 
   getScale() {
-    return { x: this.container.scale.x, y: this.container.scale.y };
+    return { x: this.baseScale, y: this.baseScale };
+  }
+
+  applyPose({ angle = 0, squash = 1, wobble = 0, roll = 0 } = {}) {
+    const cos = Math.cos(angle);
+    const depth = Math.max(0.14, Math.abs(cos));
+    const wobbleScale = 1 + wobble;
+    const xScale = this.baseScale * depth * squash * wobbleScale;
+    const yScale = this.baseScale * squash * wobbleScale;
+
+    this.spinAngle = angle;
+    this.roll = roll;
+    this.container.scale.set(xScale, yScale);
+    this.container.rotation = roll;
+
+    const frontFacing = cos >= 0;
+    this.front.visible = frontFacing;
+    this.back.visible = !frontFacing;
   }
 
   setFace(face) {
     const isHeads = face === "heads";
     this.currentFace = isHeads ? "heads" : "tails";
-    this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
-    this.sprite.width = this.baseRadius * 2;
-    this.sprite.height = this.baseRadius * 2;
+    const angle = isHeads ? 0 : Math.PI;
+    this.applyPose({ angle, squash: 1, wobble: 0, roll: 0 });
   }
 
   getFace() {
@@ -263,7 +293,8 @@ export async function createGame(mount, opts = {}) {
 
     const baseScale = coin.getScale();
     const targetFace = result === "heads" ? "heads" : "tails";
-    const oppositeFace = targetFace === "heads" ? "tails" : "heads";
+    const startAngle = coin.getFace() === "heads" ? 0 : Math.PI;
+    const targetDelta = targetFace === coin.getFace() ? 0 : Math.PI;
     const totalTurns = 6; // multiple full turns to mimic a lively spin
     const wobbleFrequency = 5; // subtle drift to simulate perspective wobble
     const wobbleAmplitude = 0.12;
@@ -271,7 +302,7 @@ export async function createGame(mount, opts = {}) {
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
-      let lastShowingFront = null;
+      const angleRange = Math.PI * 2 * totalTurns + targetDelta;
 
       const finish = () => {
         if (finished) return;
@@ -287,24 +318,16 @@ export async function createGame(mount, opts = {}) {
         tick += delta;
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
         const eased = 1 - Math.pow(1 - progress, 3); // ease-out for natural decel
-        const angle = eased * Math.PI * 2 * totalTurns;
+        const angle = startAngle + eased * angleRange;
         const faceCos = Math.cos(angle);
-        const showingFront = faceCos >= 0;
-
-        if (showingFront !== lastShowingFront) {
-          coin.setFace(showingFront ? targetFace : oppositeFace);
-          lastShowingFront = showingFront;
-        }
-
-        const edgeSquash = Math.max(0.22, Math.abs(faceCos));
+        const edgeSquash = Math.max(0.24, Math.abs(faceCos));
         const wobble =
           Math.sin(progress * Math.PI * wobbleFrequency) *
           wobbleAmplitude *
           (1 - progress);
 
-        coin.view.scale.x = baseScale.x * (1 + wobble * 0.5);
-        coin.view.scale.y = edgeSquash * baseScale.y * (1 + wobble * 0.25);
-        coin.view.rotation = Math.sin(angle * 0.25) * 0.3 * (1 - progress * 0.35);
+        const roll = Math.sin(angle * 0.25) * 0.3 * (1 - progress * 0.35);
+        coin.applyPose({ angle, squash: edgeSquash, wobble: wobble * 0.5, roll });
 
         if (progress >= 1) finish();
       };
