@@ -193,6 +193,8 @@ export async function createGame(mount, opts = {}) {
     drawCoinFace("tails");
   }
 
+  let currentFace = "tails";
+
   function drawCoinFace(result) {
     const isHeads = result === "heads";
     const outerColor = isHeads ? COLORS.headsRing : COLORS.tailsFill;
@@ -229,6 +231,7 @@ export async function createGame(mount, opts = {}) {
 
     coinContainer.rotation = 0;
     coinContainer.scale.y = coinContainer.scale.x;
+    currentFace = result;
   }
 
   function setFace(result) {
@@ -249,10 +252,14 @@ export async function createGame(mount, opts = {}) {
 
     const baseScaleX = coinContainer.scale.x;
     const baseScaleY = coinContainer.scale.y;
+    const startingRotation = coinContainer.rotation;
+    const flipDuration = COIN_ANIMATION_DURATION;
+    const halfDuration = flipDuration / 2;
 
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let faceShown = currentFace;
 
       const finish = () => {
         if (finished) return;
@@ -264,16 +271,27 @@ export async function createGame(mount, opts = {}) {
 
       const spin = (delta) => {
         tick += delta;
-        coinContainer.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coinContainer.scale.y = squash * baseScaleY;
-        if (tick >= COIN_ANIMATION_DURATION) finish();
+        const progress = Math.min(1, tick / flipDuration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const spinRotation = eased * Math.PI * 2;
+        coinContainer.rotation = startingRotation + spinRotation;
+
+        const flipSqueeze = Math.max(0.2, Math.abs(Math.cos(progress * Math.PI)));
+        coinContainer.scale.y = flipSqueeze * baseScaleY;
+        coinContainer.scale.x = baseScaleX * (1 + 0.06 * Math.sin(progress * Math.PI));
+
+        if (tick >= halfDuration && faceShown !== result) {
+          drawCoinFace(result);
+          faceShown = result;
+        }
+
+        if (tick >= flipDuration) finish();
       };
 
       app.ticker.add(spin);
 
       // Fail-safe in case the ticker stalls; ensures the round completes.
-      setTimeout(finish, (COIN_ANIMATION_DURATION / 60) * 1000 + 200);
+      setTimeout(finish, (flipDuration / 60) * 1000 + 200);
     });
   }
 
