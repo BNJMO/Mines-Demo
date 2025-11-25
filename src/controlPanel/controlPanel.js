@@ -59,6 +59,7 @@ export class ControlPanel extends EventTarget {
     this.betButtonMode = "bet";
     this.betButtonState = "clickable";
     this.randomPickButtonState = "clickable";
+    this.randomPickButtons = [];
     this.minesSelectState = "clickable";
     this.autoStartButtonState = "non-clickable";
     this.autoStartButtonMode = "start";
@@ -116,8 +117,6 @@ export class ControlPanel extends EventTarget {
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
-    this.buildMinesLabel();
-    this.buildMinesSelect();
     this.buildGemsLabel();
     this.buildGemsDisplay();
     this.buildModeSections();
@@ -253,7 +252,7 @@ export class ControlPanel extends EventTarget {
     this.scrollContainer.appendChild(this.betBox);
   }
 
-  buildMinesLabel() {
+  buildMinesLabel(parent = this.scrollContainer) {
     const row = document.createElement("div");
     row.className = "control-row";
 
@@ -262,7 +261,7 @@ export class ControlPanel extends EventTarget {
     label.textContent = this.options.minesLabel;
     row.appendChild(label);
 
-    this.scrollContainer.appendChild(row);
+    (parent ?? this.scrollContainer).appendChild(row);
   }
 
   getSideIcon(value) {
@@ -299,7 +298,7 @@ export class ControlPanel extends EventTarget {
     return button;
   }
 
-  buildMinesSelect() {
+  buildMinesSelect(parent = this.scrollContainer) {
     if (this.minesChoices?.length) {
       this.minesSelectWrapper = document.createElement("div");
       this.minesSelectWrapper.className = "control-side-selector";
@@ -312,8 +311,7 @@ export class ControlPanel extends EventTarget {
         this.minesSelectWrapper.appendChild(button);
       });
 
-      this.buildRandomPickButton(this.minesSelectWrapper);
-      this.scrollContainer.appendChild(this.minesSelectWrapper);
+      (parent ?? this.scrollContainer).appendChild(this.minesSelectWrapper);
       this.setMinesSelectState(this.minesSelectState);
       return;
     }
@@ -338,7 +336,7 @@ export class ControlPanel extends EventTarget {
     arrow.setAttribute("aria-hidden", "true");
     this.minesSelectWrapper.appendChild(arrow);
 
-    this.scrollContainer.appendChild(this.minesSelectWrapper);
+    (parent ?? this.scrollContainer).appendChild(this.minesSelectWrapper);
 
     this.setMinesSelectState(this.minesSelectState);
   }
@@ -373,9 +371,9 @@ export class ControlPanel extends EventTarget {
     this.scrollContainer.appendChild(this.manualSection);
 
     this.buildBetButton();
-    if (!this.randomPickButton) {
-      this.buildRandomPickButton();
-    }
+    this.buildRandomPickButton(this.manualSection);
+    this.buildMinesLabel(this.manualSection);
+    this.buildMinesSelect(this.manualSection);
     this.buildProfitOnWinDisplay();
     this.buildProfitDisplay();
 
@@ -512,6 +510,8 @@ export class ControlPanel extends EventTarget {
       );
       this.dispatchStopOnLossChange(normalized);
     });
+
+    this.buildRandomPickButton(this.autoSection);
 
     this.autoStartButton = document.createElement("button");
     this.autoStartButton.type = "button";
@@ -704,15 +704,18 @@ export class ControlPanel extends EventTarget {
   }
 
   buildRandomPickButton(parent = this.manualSection ?? this.scrollContainer) {
-    this.randomPickButton = document.createElement("button");
-    this.randomPickButton.type = "button";
-    this.randomPickButton.className = "control-side-btn control-random-btn";
-    this.randomPickButton.textContent = "Random Pick";
-    this.randomPickButton.addEventListener("click", () => {
+    const randomPickButton = document.createElement("button");
+    randomPickButton.type = "button";
+    randomPickButton.className = "control-side-btn control-random-btn";
+    randomPickButton.textContent = "Random Pick";
+    randomPickButton.addEventListener("click", () => {
       this.dispatchEvent(new CustomEvent("randompick"));
     });
 
-    parent.appendChild(this.randomPickButton);
+    parent.appendChild(randomPickButton);
+
+    this.randomPickButtons.push(randomPickButton);
+    this.randomPickButton ??= randomPickButton;
 
     this.setRandomPickState(this.randomPickButtonState);
   }
@@ -1433,15 +1436,17 @@ export class ControlPanel extends EventTarget {
   }
 
   setRandomPickState(state) {
-    if (!this.randomPickButton) return;
+    if (!this.randomPickButtons?.length) return;
     const normalized =
       state === "clickable" || state === true || state === "enabled"
         ? "clickable"
         : "non-clickable";
     this.randomPickButtonState = normalized;
     const isClickable = normalized === "clickable";
-    this.randomPickButton.disabled = !isClickable;
-    this.randomPickButton.classList.toggle("is-non-clickable", !isClickable);
+    this.randomPickButtons.forEach((button) => {
+      button.disabled = !isClickable;
+      button.classList.toggle("is-non-clickable", !isClickable);
+    });
   }
 
   setAutoStartButtonState(state) {
