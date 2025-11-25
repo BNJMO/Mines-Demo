@@ -30,6 +30,48 @@ const COLORS = {
   historyBorder: 0x224558,
 };
 
+class Coin {
+  constructor({ textures, baseRadius }) {
+    this.textures = textures;
+    this.baseRadius = baseRadius;
+
+    this.container = new Container();
+    this.sprite = new Sprite({
+      texture: textures.heads,
+      width: baseRadius * 2,
+      height: baseRadius * 2,
+    });
+    this.sprite.anchor.set(0.5);
+    this.container.addChild(this.sprite);
+  }
+
+  get view() {
+    return this.container;
+  }
+
+  setPosition(x, y) {
+    this.container.position.set(x, y);
+  }
+
+  setScale(scale) {
+    this.container.scale.set(scale);
+  }
+
+  getScale() {
+    return { x: this.container.scale.x, y: this.container.scale.y };
+  }
+
+  setFace(face) {
+    const isHeads = face === "heads";
+    this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
+    this.sprite.width = this.baseRadius * 2;
+    this.sprite.height = this.baseRadius * 2;
+
+    this.container.rotation = 0;
+    this.container.scale.y = this.container.scale.x;
+  }
+}
+
 function resolveRoot(mount) {
   const root = typeof mount === "string" ? document.querySelector(mount) : mount;
   if (!root) {
@@ -97,9 +139,6 @@ export async function createGame(mount, opts = {}) {
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
 
-  const coinContainer = new Container();
-  stage.addChild(coinContainer);
-
   const [headsTexture, tailsTexture] = await Promise.all([
     Assets.load(headsIconUrl),
     Assets.load(tailsIconUrl),
@@ -110,13 +149,8 @@ export async function createGame(mount, opts = {}) {
     tails: tailsTexture,
   };
 
-  const coinSprite = new Sprite({
-    texture: coinTextures.heads,
-    width: COIN_BASE_RADIUS * 2,
-    height: COIN_BASE_RADIUS * 2,
-  });
-  coinSprite.anchor.set(0.5);
-  coinContainer.addChild(coinSprite);
+  const coin = new Coin({ textures: coinTextures, baseRadius: COIN_BASE_RADIUS });
+  stage.addChild(coin.view);
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
@@ -144,8 +178,8 @@ export async function createGame(mount, opts = {}) {
       (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
       coinScaleFactor;
 
-    coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
-    coinContainer.scale.set(coinScale);
+    coin.setPosition(width / 2, coinAreaHeight / 2 + 8);
+    coin.setScale(coinScale);
 
     statusText.position.set(18, coinAreaHeight - 12);
 
@@ -202,13 +236,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawCoinFace(result) {
-    const isHeads = result === "heads";
-    coinSprite.texture = isHeads ? coinTextures.heads : coinTextures.tails;
-    coinSprite.width = COIN_BASE_RADIUS * 2;
-    coinSprite.height = COIN_BASE_RADIUS * 2;
-
-    coinContainer.rotation = 0;
-    coinContainer.scale.y = coinContainer.scale.x;
+    coin.setFace(result);
   }
 
   function setFace(result) {
@@ -227,8 +255,7 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const baseScaleX = coinContainer.scale.x;
-    const baseScaleY = coinContainer.scale.y;
+    const { y: baseScaleY } = coin.getScale();
 
     return new Promise((resolve) => {
       let tick = 0;
@@ -244,9 +271,9 @@ export async function createGame(mount, opts = {}) {
 
       const spin = (delta) => {
         tick += delta;
-        coinContainer.rotation += 0.25 * delta;
+        coin.view.rotation += 0.25 * delta;
         const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coinContainer.scale.y = squash * baseScaleY;
+        coin.view.scale.y = squash * baseScaleY;
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
