@@ -17,6 +17,18 @@ let controlPanel;
 
 const cryptoObj = typeof crypto !== "undefined" ? crypto : undefined;
 
+function randomUnit() {
+  if (cryptoObj?.getRandomValues) {
+    const buffer = new Uint32Array(2);
+    cryptoObj.getRandomValues(buffer);
+    const upper = buffer[0] / 0x100000000;
+    const lower = buffer[1] / 0x100000000;
+    return (upper + lower / 0x100000000) % 1;
+  }
+
+  return Math.random();
+}
+
 const seeds = {
   serverSeed: cryptoObj?.randomUUID?.() ?? `server-${Date.now()}`,
   clientSeed:
@@ -108,9 +120,11 @@ function deriveOutcome() {
   for (let i = 0; i < basis.length; i += 1) {
     entropy = (entropy + basis.charCodeAt(i) * (i + 1)) % 9973;
   }
-  const roll = (entropy / 9973 + Math.random() * 0.0001) % 1;
+  const deterministicOffset = entropy / 9973;
+  const randomComponent = randomUnit();
+  const roll = (deterministicOffset + randomComponent) % 1;
   const result = roll < 0.5 ? "heads" : "tails";
-  return { result, proof: { ...seeds, roll } };
+  return { result, proof: { ...seeds, deterministicOffset, randomComponent, roll } };
 }
 
 async function resolveFlip({ instant = false } = {}) {
