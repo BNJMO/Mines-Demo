@@ -12,7 +12,7 @@ import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
-const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_ANIMATION_DURATION = 90; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -264,6 +264,9 @@ export async function createGame(mount, opts = {}) {
     const baseScale = coin.getScale();
     const targetFace = result === "heads" ? "heads" : "tails";
     const oppositeFace = targetFace === "heads" ? "tails" : "heads";
+    const totalTurns = 6; // multiple full turns to mimic a lively spin
+    const wobbleFrequency = 5; // subtle drift to simulate perspective wobble
+    const wobbleAmplitude = 0.12;
 
     return new Promise((resolve) => {
       let tick = 0;
@@ -283,7 +286,8 @@ export async function createGame(mount, opts = {}) {
       const spin = (delta) => {
         tick += delta;
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
-        const angle = progress * Math.PI * 10; // multiple half-rotations
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out for natural decel
+        const angle = eased * Math.PI * 2 * totalTurns;
         const faceCos = Math.cos(angle);
         const showingFront = faceCos >= 0;
 
@@ -292,10 +296,15 @@ export async function createGame(mount, opts = {}) {
           lastShowingFront = showingFront;
         }
 
-        const squash = Math.max(0.25, Math.abs(faceCos));
-        coin.view.scale.x = baseScale.x;
-        coin.view.scale.y = squash * baseScale.y;
-        coin.view.rotation = progress * Math.PI * 2;
+        const edgeSquash = Math.max(0.22, Math.abs(faceCos));
+        const wobble =
+          Math.sin(progress * Math.PI * wobbleFrequency) *
+          wobbleAmplitude *
+          (1 - progress);
+
+        coin.view.scale.x = baseScale.x * (1 + wobble * 0.5);
+        coin.view.scale.y = edgeSquash * baseScale.y * (1 + wobble * 0.25);
+        coin.view.rotation = Math.sin(angle * 0.25) * 0.3 * (1 - progress * 0.35);
 
         if (progress >= 1) finish();
       };
