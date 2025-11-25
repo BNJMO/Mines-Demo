@@ -100,19 +100,6 @@
   justify-content: space-between;
 }
 
-.control-selection-row {
-  display: flex;
-  align-items: center;
-  padding: 0 4px;
-  min-height: 20px;
-}
-
-.control-selection-label {
-  color: #92a3ae;
-  font-size: 0.95rem;
-  font-weight: 800;
-}
-
 .control-row-label {
   color: #92a3ae;
   font-size: 0.95rem;
@@ -498,22 +485,6 @@
 
 .control-profit-value {
   font-weight: 700;
-  font-size: 1rem;
-}
-
-.control-gems-box {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  background: #223540;
-  border-radius: 10px;
-  padding: 14px 18px;
-  box-shadow: none;
-  border: 1px solid #223540;
-}
-
-.control-gems-value {
-  font-weight: 400;
   font-size: 1rem;
 }
 

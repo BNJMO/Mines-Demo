@@ -117,8 +117,6 @@ export class ControlPanel extends EventTarget {
     this.buildToggle();
     this.buildBetAmountDisplay();
     this.buildBetControls();
-    this.buildGemsLabel();
-    this.buildGemsDisplay();
     this.buildModeSections();
     this.buildFooter();
 
@@ -343,38 +341,12 @@ export class ControlPanel extends EventTarget {
     this.setMinesSelectState(this.minesSelectState);
   }
 
-  buildGemsLabel() {
-    if (!this.options.gemsLabel?.trim()) return;
-
-    const row = document.createElement("div");
-    row.className = "control-row";
-
-    const label = document.createElement("span");
-    label.className = "control-row-label";
-    label.textContent = this.options.gemsLabel;
-    row.appendChild(label);
-
-    this.scrollContainer.appendChild(row);
-  }
-
-  buildGemsDisplay() {
-    this.gemsBox = document.createElement("div");
-    this.gemsBox.className = "control-gems-box";
-
-    this.gemsValue = document.createElement("span");
-    this.gemsValue.className = "control-gems-value";
-    this.gemsBox.appendChild(this.gemsValue);
-
-    this.scrollContainer.appendChild(this.gemsBox);
-  }
-
   buildModeSections() {
     this.manualSection = document.createElement("div");
     this.manualSection.className =
       "control-mode-section control-mode-section--manual";
     this.scrollContainer.appendChild(this.manualSection);
 
-    this.buildSelectionLabel(this.manualSection);
     this.buildBetButton();
     this.buildRandomPickButton(this.manualSection);
     this.buildMinesLabel(this.manualSection);
