@@ -5,7 +5,9 @@ const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
-const HISTORY_BAR_HEIGHT = 64;
+const HISTORY_BAR_HEIGHT = 54;
+const HISTORY_SLOT_WIDTH = 32;
+const HISTORY_SLOT_HEIGHT = 28;
 
 const COLORS = {
   headsRing: 0xf6a400,
@@ -73,25 +75,14 @@ export async function createGame(mount, opts = {}) {
   const stage = new Container();
   app.stage.addChild(stage);
 
-  const statsText = new Text({
-    text: "",
-    style: new TextStyle({
-      fill: "#7bdcb5",
-      fontSize: 13,
-      fontFamily,
-      letterSpacing: 0.5,
-    }),
-  });
-  statsText.anchor.set(0, 0);
-  stage.addChild(statsText);
-
   const statusText = new Text({
     text: "Pick a side and place your bet",
     style: new TextStyle({
       fill: "#c5d5e2",
-      fontSize: 14,
+      fontSize: 12,
       fontFamily,
     }),
+    visible: false,
   });
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
@@ -106,18 +97,6 @@ export async function createGame(mount, opts = {}) {
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
-
-  const historyLabel = new Text({
-    text: "History",
-    style: new TextStyle({
-      fill: "#93aabb",
-      fontSize: 12,
-      fontFamily,
-      letterSpacing: 0.5,
-    }),
-  });
-  historyLabel.anchor.set(0, 0.5);
-  stage.addChild(historyLabel);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const graphic = new Graphics();
@@ -137,7 +116,7 @@ export async function createGame(mount, opts = {}) {
     const { width, height } = measureRootSize(root, initialSize);
     app.renderer.resize(width, height);
 
-    const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 12);
+    const coinAreaHeight = Math.max(120, height - HISTORY_BAR_HEIGHT - 8);
     const coinScale =
       (Math.min(width, coinAreaHeight) / (COIN_BASE_RADIUS * 2.2)) *
       coinScaleFactor;
@@ -145,29 +124,35 @@ export async function createGame(mount, opts = {}) {
     coinContainer.position.set(width / 2, coinAreaHeight / 2 + 8);
     coinContainer.scale.set(coinScale);
 
-    statsText.position.set(18, 14);
-    statusText.position.set(18, coinAreaHeight - 10);
+    statusText.position.set(18, coinAreaHeight - 12);
 
-    const barWidth = width - 36;
+    const barX = 18;
+    const barWidth = width - barX * 2;
+    const barY = height - HISTORY_BAR_HEIGHT + 10;
+    const barHeight = HISTORY_BAR_HEIGHT - 20;
     historyBar
       .clear()
-      .roundRect(18, height - HISTORY_BAR_HEIGHT + 8, barWidth, HISTORY_BAR_HEIGHT - 20, 12)
+      .roundRect(barX, barY, barWidth, barHeight, 12)
       .fill({ color: COLORS.historyFrame });
 
-    historyLabel.position.set(32, height - HISTORY_BAR_HEIGHT / 2 + 2);
-
-    const slotWidth = 32;
-    const slotGap = 8;
-    const startX = historyLabel.x + historyLabel.width + 12;
-    const centerY = historyLabel.y;
+    const availableWidth = barWidth - 24;
+    const slotGap = Math.max(
+      6,
+      Math.min(12, (availableWidth - HISTORY_SLOT_WIDTH * HISTORY_SIZE) / (HISTORY_SIZE - 1))
+    );
+    const totalSlotsWidth =
+      HISTORY_SLOT_WIDTH * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
+    const startX = barX + (barWidth - totalSlotsWidth) / 2;
+    const centerY = barY + barHeight / 2;
     historySlots.forEach((slot, index) => {
-      const x = startX + index * (slotWidth + slotGap);
-      slot.position.set(x, centerY - 14);
+      const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
+      slot.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
     });
   }
 
   function updateStatus(message) {
     statusText.text = message;
+    statusText.visible = false;
   }
 
   function startBet({ amount = 0 } = {}) {
@@ -278,12 +263,17 @@ export async function createGame(mount, opts = {}) {
   }
 
   function updateStats({ balance = 0, streak = 0, multiplier = 1 } = {}) {
-    statsText.text = `Balance ${balance.toFixed(2)}  •  Streak ${streak}  •  ${multiplier.toFixed(2)}×`;
+    // The redesigned board hides the running balance and streak indicators to
+    // match the reference layout. The method remains for compatibility with
+    // existing calls but intentionally avoids rendering any text.
+    void balance;
+    void streak;
+    void multiplier;
   }
 
   function drawHistorySlot(slot, value) {
-    const width = 32;
-    const height = 28;
+    const width = HISTORY_SLOT_WIDTH;
+    const height = HISTORY_SLOT_HEIGHT;
     // removeChildren() returns an array and is not chainable with Graphics clear()
     slot.removeChildren();
     slot

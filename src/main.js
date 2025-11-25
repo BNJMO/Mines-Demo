@@ -9,7 +9,7 @@ const MAX_BET = 100000;
 const DEFAULT_SIDE = "heads";
 
 const GAME_CONFIG = {
-  coinSize: 0.85,
+  coinSize: 0.72,
 };
 
 let game;
@@ -373,8 +373,8 @@ function bindControlPanelEvents() {
 (async () => {
   controlPanel = new ControlPanel("#control-panel", {
     gameName: "Flip",
-    minesLabel: "Choose Side",
-    gemsLabel: "Your Pick",
+    minesLabel: "",
+    gemsLabel: "",
     minesChoices: [
       { value: "heads", label: "Heads" },
       { value: "tails", label: "Tails" },
