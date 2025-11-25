@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #142733;
+  background: #10232c;
   height: 100%;
   max-height: calc(
     100vh - var(--app-body-vertical-padding, 0px) -
@@ -20,6 +20,8 @@
   );
   min-height: 0;
   overflow: hidden;
+  padding: 10px 10px 14px;
+  border-radius: 18px;
 }
 
 .control-panel-scroll {
@@ -41,22 +43,25 @@
 .control-toggle {
   display: flex;
   gap: 8px;
-  background: #091b26;
+  background: #0e2029;
   padding: 6px;
   border-radius: 40px;
   margin-bottom: 4px;
+  border: 1px solid #1b353f;
+  box-shadow: inset 0 0 0 1px rgba(19, 53, 64, 0.35);
 }
 
 .control-toggle-btn {
   flex: 1;
   border: none;
   background: transparent;
-  color: #9a9da6;
+  color: #7d919c;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
   border-radius: 40px;
-  padding: 14px 0;
+  padding: 12px 0;
   cursor: pointer;
+  letter-spacing: 0.01em;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
@@ -66,9 +71,10 @@
 }
 
 .control-toggle-btn.is-active {
-  background: #223845;
+  background: #1e3c48;
   color: #ffffff;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
 }
 
 .control-toggle-btn:focus-visible {
@@ -96,28 +102,29 @@
 }
 
 .control-row-label {
-  color: #92aab7;
+  color: #7e8e98;
   font-size: 0.95rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .control-row-value {
-  color: #92aab7;
+  color: #6f8894;
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .control-bet-box {
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #223845;
-  border-radius: 8px;
+  background: #1a333e;
+  border-radius: 10px;
   padding: 0px;
   min-width: 0;
-  box-shadow: var(--control-elevation-shadow);
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
   position: relative;
   margin-bottom: 4px;
+  border: 1px solid #1b323c;
 }
 
 .control-bet-box.is-non-clickable {
@@ -169,15 +176,16 @@
   position: relative;
   display: flex;
   align-items: center;
-  background: #091b26;
-  border-radius: 8px;
-  border: 3px solid #223845;
+  background: #0f242d;
+  border-radius: 10px;
+  border: 2px solid #203840;
   color: #f1f5ff;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1rem;
   min-width: 0;
   width: 100%;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
 }
 
 .control-select {
@@ -198,14 +206,16 @@
 .control-select-field:focus-within,
 .control-select:hover,
 .control-select:focus {
-  border-color: #325b73;
+  border-color: #2e4f59;
+  background: #14303a;
 }
 
 .control-select-field.is-non-clickable {
-  background: #091b26;
+  background: #0b1d24;
   border-color: #0d1b24;
   color: #4c5d68;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .control-select-field.is-non-clickable .control-select-arrow {
@@ -251,31 +261,30 @@
   justify-content: center;
   gap: 10px;
   padding: 12px 10px;
-  background: #091b26;
-  border-radius: 8px;
-  border: 3px solid #223845;
+  background: #0f242d;
+  border-radius: 10px;
+  border: 2px solid #203840;
   color: #f1f5ff;
-  font-weight: 700;
+  font-weight: 750;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: var(--control-elevation-shadow);
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease,
     transform 0.2s ease;
 }
 
 .control-side-btn:hover {
-  background: #0f2734;
-  border-color: #325b73;
+  background: #14303a;
+  border-color: #2e4f59;
   transform: translateY(-1px);
   box-shadow: var(--control-elevation-shadow-hover);
 }
 
 .control-side-btn.is-active {
-  background: linear-gradient(135deg, #eaff00 0%, #eaff00 100%);
-  border-color: #eaff00;
-  color: #091b26;
-  box-shadow: var(--control-elevation-shadow-strong),
-    0 12px 24px rgba(234, 255, 0, 0.25);
+  background: #183740;
+  border-color: #2e4f59;
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(6, 18, 26, 0.55);
 }
 
 .control-side-btn.is-non-clickable,
@@ -304,12 +313,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #091b26;
-  border-radius: 8px;
-  border: 3px solid #223845;
+  background: #10242d;
+  border-radius: 10px;
+  border: 2px solid #23404c;
   color: #f1f5ff;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
@@ -317,13 +326,15 @@
   --control-bet-padding-right: clamp(56px, 20%, 118px);
   --control-bet-stepper-offset: clamp(30px, 16%, 56px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
-  padding: 14px var(--control-bet-padding-right) 14px 8px;
+  padding: 14px var(--control-bet-padding-right) 14px 12px;
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .control-bet-input-field:hover,
 .control-bet-input-field:focus-within {
-  border-color: #325b73;
+  border-color: #326072;
+  background: #14303a;
+  box-shadow: 0 0 0 1px rgba(88, 194, 201, 0.25);
 }
 
 .control-bet-input {
@@ -346,20 +357,21 @@
 }
 
 .control-bet-action {
-  border: none;
-  background: #223845;
-  color: #f5f6ff;
-  font-weight: 700;
-  font-size: 1.2rem;
-  border-radius: 8px;
+  border: 1px solid #1e353f;
+  background: #0e2029;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  border-radius: 10px;
   padding: 12px 16px;
   flex: 0 0 auto;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
 .control-bet-action:hover {
-  background: #325b73;
+  background: #14303a;
+  border-color: #2b4d5c;
   transform: translateY(-1px);
 }
 
@@ -370,6 +382,7 @@
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+  border-color: #13232c;
 }
 
 .control-bet-action.is-non-clickable:hover,
@@ -381,22 +394,22 @@
 .control-bet-separator {
   width: 3px;
   height: 26px;
-  background: #091b26;
+  background: #0c1f28;
   border-radius: 1px;
 }
 
 .control-bet-btn {
   width: 100%;
   border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #eaff00 0%, #eaff00 100%);
-  color: #091b26;
-  font-size: 1.1rem;
-  font-weight: 700;
-  padding: 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #30ff6b 0%, #15e94f 100%);
+  color: #0b1c23;
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding: 16px 14px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: var(--control-elevation-shadow-strong);
+  box-shadow: 0 14px 26px rgba(21, 233, 79, 0.28);
 }
 
 .control-bet-btn:hover {
@@ -407,12 +420,12 @@
 
 .control-bet-btn.is-non-clickable,
 .control-bet-btn:disabled {
-  background: linear-gradient(135deg, #656b00 0%, #656b00 100%);
+  background: linear-gradient(135deg, #1f2f24 0%, #1f2f24 100%);
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
   transform: none;
-  color: #091b26;
+  color: #4c5d68;
 }
 
 .control-bet-btn.is-non-clickable:hover,
@@ -422,13 +435,14 @@
 }
 
 .control-random-btn {
-  background: #223845;
-  color: #f5f6ff;
-  box-shadow: var(--control-elevation-shadow-strong);
+  background: #1a313c;
+  color: #d5e1e8;
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
+  border: 1px solid #1e353f;
 }
 
 .control-random-btn:hover {
-  background: #2b4a5a;
+  background: #213c48;
   box-shadow: var(--control-elevation-shadow-hover);
 }
 
@@ -459,10 +473,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #223845;
-  border-radius: 8px;
-  padding: 14px 8px;
-  box-shadow: var(--control-elevation-shadow);
+  background: #162d36;
+  border-radius: 10px;
+  padding: 14px 12px;
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
+  border: 1px solid #1c323b;
 }
 
 .control-profit-value {
@@ -474,10 +489,11 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  background: #223845;
-  border-radius: 8px;
+  background: #162d36;
+  border-radius: 10px;
   padding: 14px 18px;
-  box-shadow: var(--control-elevation-shadow);
+  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
+  border: 1px solid #1c323b;
 }
 
 .control-gems-value {
