@@ -7,12 +7,12 @@ import {
   Text,
   TextStyle,
 } from "pixi.js";
-import coinHeadsUrl from "../../assets/sprites/coin_heads.svg";
-import coinTailsUrl from "../../assets/sprites/coin_tails.svg";
+import coinHeadsUrl from "../../assets/sprites/Heads.svg";
+import coinTailsUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
-const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_ANIMATION_DURATION = 64; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -286,15 +286,16 @@ export async function createGame(mount, opts = {}) {
         const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
         const angle = totalRotation * progress;
         const eased = Math.sin(progress * Math.PI);
+        const wobble = Math.sin(angle * 0.65) * 0.45;
+        const tilt = Math.sin(angle * 0.85) * 0.35;
 
-        const edgeSquash = 0.7 + 0.3 * eased;
+        const edgeSquash = 0.62 + 0.38 * eased;
         const flipScale = Math.cos(angle);
-        const lift = eased * COIN_BASE_RADIUS * 0.3;
-        const wobble = Math.sin(angle * 0.45) * 0.35;
+        const lift = eased * COIN_BASE_RADIUS * 0.36;
 
         coinBody.scale.x = baseScaleX * flipScale;
         coinBody.scale.y = baseScaleY * edgeSquash;
-        coinBody.skew.y = Math.sin(angle) * 0.25;
+        coinBody.skew.y = tilt;
         coinContainer.position.y = baseY - lift;
         coinBody.rotation = wobble;
 
