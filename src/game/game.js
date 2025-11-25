@@ -1,4 +1,18 @@
-import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
+import {
+  Application,
+  Assets,
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Text,
+  TextStyle,
+  Texture,
+} from "pixi.js";
+import headsIconUrl from "../../assets/sprites/Coin/Heads.jpg";
+import tailsIconUrl from "../../assets/sprites/Coin/Tails.jpg";
+import headsToTailsUrl from "../../assets/sprites/Coin/HtoT.png";
+import tailsToHeadsUrl from "../../assets/sprites/Coin/TtoH.png";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
@@ -17,6 +31,40 @@ const COLORS = {
   historyEmpty: 0x153243,
   historyBorder: 0x224558,
 };
+
+function gcd(a, b) {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y) {
+    [x, y] = [y, x % y];
+  }
+  return x;
+}
+
+function sliceSpriteSheet(texture) {
+  const frameSize = gcd(Math.round(texture.width), Math.round(texture.height));
+  const columns = Math.max(1, Math.round(texture.width / frameSize));
+  const rows = Math.max(1, Math.round(texture.height / frameSize));
+  const frames = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      frames.push(
+        new Texture({
+          baseTexture: texture.baseTexture,
+          frame: new Rectangle(
+            column * frameSize,
+            row * frameSize,
+            frameSize,
+            frameSize
+          ),
+        })
+      );
+    }
+  }
+
+  return frames;
+}
 
 function resolveRoot(mount) {
   const root = typeof mount === "string" ? document.querySelector(mount) : mount;
@@ -99,10 +147,26 @@ export async function createGame(mount, opts = {}) {
   const coinContainer = new Container();
   stage.addChild(coinContainer);
 
-  const coinBase = new Graphics();
-  const coinDiamond = new Graphics();
   const coinHighlight = new Graphics();
-  coinContainer.addChild(coinBase, coinDiamond, coinHighlight);
+  const coinSprite = new Sprite();
+  coinSprite.anchor.set(0.5);
+  coinContainer.addChild(coinSprite, coinHighlight);
+
+  const [headsTexture, tailsTexture, headsToTailsTexture, tailsToHeadsTexture] =
+    await Promise.all([
+      Assets.load(headsIconUrl),
+      Assets.load(tailsIconUrl),
+      Assets.load(headsToTailsUrl),
+      Assets.load(tailsToHeadsUrl),
+    ]);
+
+  const animationFrames = {
+    headsToTails: sliceSpriteSheet(headsToTailsTexture),
+    tailsToHeads: sliceSpriteSheet(tailsToHeadsTexture),
+  };
+
+  coinSprite.width = COIN_BASE_RADIUS * 2;
+  coinSprite.height = COIN_BASE_RADIUS * 2;
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
@@ -131,6 +195,7 @@ export async function createGame(mount, opts = {}) {
     result: null,
     history: [],
     showAnimations: true,
+    currentFace: "tails",
   };
 
   function layout() {
@@ -194,38 +259,16 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawCoinFace(result) {
-    const isHeads = result === "heads";
-    const outerColor = isHeads ? COLORS.headsRing : COLORS.tailsFill;
-    const cutoutColor = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
-
-    coinBase
-      .clear()
-      .circle(0, 0, COIN_BASE_RADIUS)
-      .fill({ color: outerColor })
-      .stroke({ color: outerColor, width: 6, join: "round" });
-
-    coinDiamond.clear();
-    if (isHeads) {
-      coinDiamond
-        .circle(0, 0, COIN_BASE_RADIUS * 0.45)
-        .fill({ color: cutoutColor });
-    } else {
-      coinDiamond
-        .moveTo(0, -COIN_BASE_RADIUS * 0.6)
-        .lineTo(COIN_BASE_RADIUS * 0.72, 0)
-        .lineTo(0, COIN_BASE_RADIUS * 0.6)
-        .lineTo(-COIN_BASE_RADIUS * 0.72, 0)
-        .closePath()
-        .fill({ color: cutoutColor })
-        .stroke({ color: COLORS.tailsStroke, width: 6, join: "round" });
-    }
+    state.currentFace = result === "heads" ? "heads" : "tails";
+    coinSprite.texture =
+      state.currentFace === "heads" ? headsTexture : tailsTexture;
 
     coinHighlight
       .clear()
-      .circle(-COIN_BASE_RADIUS * 0.22, COIN_BASE_RADIUS * 0.26, COIN_BASE_RADIUS * 0.08)
-      .fill({ color: 0xffffff, alpha: 0.06 })
-      .circle(COIN_BASE_RADIUS * 0.24, -COIN_BASE_RADIUS * 0.18, COIN_BASE_RADIUS * 0.1)
-      .fill({ color: 0xffffff, alpha: 0.08 });
+      .circle(-COIN_BASE_RADIUS * 0.24, COIN_BASE_RADIUS * 0.28, COIN_BASE_RADIUS * 0.08)
+      .fill({ color: 0xffffff, alpha: 0.08 })
+      .circle(COIN_BASE_RADIUS * 0.22, -COIN_BASE_RADIUS * 0.2, COIN_BASE_RADIUS * 0.1)
+      .fill({ color: 0xffffff, alpha: 0.12 });
 
     coinContainer.rotation = 0;
     coinContainer.scale.y = coinContainer.scale.x;
@@ -250,9 +293,33 @@ export async function createGame(mount, opts = {}) {
     const baseScaleX = coinContainer.scale.x;
     const baseScaleY = coinContainer.scale.y;
 
+    const flipFrames =
+      state.currentFace === result
+        ? result === "heads"
+          ? [
+              ...animationFrames.headsToTails,
+              ...animationFrames.tailsToHeads,
+            ]
+          : [
+              ...animationFrames.tailsToHeads,
+              ...animationFrames.headsToTails,
+            ]
+        : state.currentFace === "heads"
+          ? result === "tails"
+            ? animationFrames.headsToTails
+            : animationFrames.tailsToHeads
+          : result === "heads"
+            ? animationFrames.tailsToHeads
+            : animationFrames.headsToTails;
+
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let frameIndex = 0;
+      const frameDuration = Math.max(
+        1,
+        COIN_ANIMATION_DURATION / Math.max(1, flipFrames.length)
+      );
 
       const finish = () => {
         if (finished) return;
@@ -264,9 +331,23 @@ export async function createGame(mount, opts = {}) {
 
       const spin = (delta) => {
         tick += delta;
-        coinContainer.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
+        const nextIndex = Math.min(
+          flipFrames.length - 1,
+          Math.floor(tick / frameDuration)
+        );
+
+        if (flipFrames[nextIndex]) {
+          frameIndex = nextIndex;
+          coinSprite.texture = flipFrames[frameIndex];
+        }
+
+        const squash = Math.max(
+          0.75,
+          Math.abs(Math.sin((tick / COIN_ANIMATION_DURATION) * Math.PI))
+        );
+        coinContainer.scale.x = baseScaleX;
         coinContainer.scale.y = squash * baseScaleY;
+        coinContainer.rotation = 0;
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
