@@ -11,8 +11,8 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background: #10232c;
+  gap: 12px;
+  background: #0c1b24;
   height: 100%;
   max-height: calc(
     100vh - var(--app-body-vertical-padding, 0px) -
@@ -20,15 +20,16 @@
   );
   min-height: 0;
   overflow: hidden;
-  padding: 10px 10px 14px;
+  padding: 12px;
   border-radius: 18px;
+  border: 1px solid #1a2f3a;
 }
 
 .control-panel-scroll {
   flex: 0 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   overflow-y: auto;
   max-height: 100%;
   min-height: 0;
@@ -108,23 +109,25 @@
 }
 
 .control-row-value {
-  color: #6f8894;
-  font-size: 1rem;
-  font-weight: 800;
+  color: #8fa2ac;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: right;
+  min-width: 90px;
 }
 
 .control-bet-box {
   display: flex;
   align-items: center;
   gap: 2px;
-  background: #1a333e;
+  background: #112530;
   border-radius: 10px;
   padding: 0px;
   min-width: 0;
-  box-shadow: 0 10px 18px rgba(6, 18, 26, 0.5);
+  box-shadow: 0 8px 16px rgba(6, 18, 26, 0.35);
   position: relative;
   margin-bottom: 4px;
-  border: 1px solid #1b323c;
+  border: 1px solid #16313c;
 }
 
 .control-bet-box.is-non-clickable {
@@ -313,9 +316,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #10242d;
+  background: #0f222b;
   border-radius: 10px;
-  border: 2px solid #23404c;
+  border: 2px solid #1f3844;
   color: #f1f5ff;
   font-size: 1rem;
   font-weight: 700;
@@ -326,7 +329,7 @@
   --control-bet-padding-right: clamp(56px, 20%, 118px);
   --control-bet-stepper-offset: clamp(30px, 16%, 56px);
   --control-bet-icon-offset: clamp(10px, 6%, 18px);
-  padding: 14px var(--control-bet-padding-right) 14px 12px;
+  padding: 12px var(--control-bet-padding-right) 12px 12px;
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
@@ -511,13 +514,7 @@
 }
 
 .control-panel-footer {
-  margin-top: auto;
-  padding: 0px 16px 0px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: none;
 }
 
 .control-footer-actions {

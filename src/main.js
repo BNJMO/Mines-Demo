@@ -9,7 +9,7 @@ const MAX_BET = 100000;
 const DEFAULT_SIDE = "heads";
 
 const GAME_CONFIG = {
-  coinSize: 0.85,
+  coinSize: 0.72,
 };
 
 let game;
