@@ -32,6 +32,7 @@ const state = {
   chosenSide: DEFAULT_SIDE,
   roundActive: false,
   awaitingDecision: false,
+  awaitingChoice: false,
   autoplayActive: false,
   autoplayBaseBalance: 0,
   showAnimations: true,
@@ -70,10 +71,13 @@ function updateStatus(message) {
 function resetRoundState({ resetHistory = false } = {}) {
   state.roundActive = false;
   state.awaitingDecision = false;
+  state.awaitingChoice = false;
   state.currentStreak = 0;
   state.currentMultiplier = 1;
   controlPanel?.setBetButtonMode?.("bet");
-  controlPanel?.setRandomPickState?.("clickable");
+  controlPanel?.setBetButtonState?.("clickable");
+  controlPanel?.setRandomPickState?.("non-clickable");
+  controlPanel?.setMinesSelectState?.("non-clickable");
   if (resetHistory) {
     state.history = [];
     game?.updateHistory?.(state.history);
@@ -125,8 +129,11 @@ async function resolveFlip({ instant = false } = {}) {
     state.currentStreak += 1;
     state.currentMultiplier = calculateMultiplier(state.currentStreak);
     state.awaitingDecision = true;
+    state.awaitingChoice = true;
     controlPanel?.setBetButtonMode?.("cashout");
+    controlPanel?.setBetButtonState?.("clickable");
     controlPanel?.setRandomPickState?.("clickable");
+    controlPanel?.setMinesSelectState?.("clickable");
     updateStatus(
       `Win! Landed on ${result.toUpperCase()} — streak ${state.currentStreak} at ${state.currentMultiplier.toFixed(2)}×`
     );
@@ -135,8 +142,11 @@ async function resolveFlip({ instant = false } = {}) {
     state.currentMultiplier = 1;
     state.roundActive = false;
     state.awaitingDecision = false;
+    state.awaitingChoice = false;
     controlPanel?.setBetButtonMode?.("bet");
-    controlPanel?.setRandomPickState?.("clickable");
+    controlPanel?.setBetButtonState?.("clickable");
+    controlPanel?.setRandomPickState?.("non-clickable");
+    controlPanel?.setMinesSelectState?.("non-clickable");
     updateStatus(`Missed: landed on ${result.toUpperCase()}`);
     game?.completeBet?.({ resultText: "Round lost" });
   }
@@ -175,24 +185,29 @@ function applyBetFromInput() {
   return betValue;
 }
 
-async function startRound() {
+async function startRound({ autoPickSide } = {}) {
   if (state.roundActive) return;
   const bet = applyBetFromInput();
   if (!bet) return;
 
   state.roundActive = true;
   state.awaitingDecision = false;
+  state.awaitingChoice = true;
   state.currentStreak = 0;
   state.currentMultiplier = 1;
   state.balance -= bet;
   controlPanel?.setBetButtonMode?.("cashout");
-  controlPanel?.setRandomPickState?.("non-clickable");
+  controlPanel?.setBetButtonState?.("non-clickable");
+  controlPanel?.setRandomPickState?.("clickable");
+  controlPanel?.setMinesSelectState?.("clickable");
   game?.startBet?.({ amount: bet });
   updateStatus(
-    `Betting ${formatCurrency(bet)} on ${state.chosenSide.toUpperCase()}`
+    `Betting ${formatCurrency(bet)} placed. Choose Heads or Tails to start!`
   );
   updateDisplays();
-  await resolveFlip({ instant: !state.showAnimations });
+  if (autoPickSide) {
+    await handleSideSelection(autoPickSide);
+  }
 }
 
 function cashOut() {
@@ -207,7 +222,10 @@ function cashOut() {
 async function continueStreak() {
   if (!state.roundActive || !state.awaitingDecision) return;
   state.awaitingDecision = false;
+  state.awaitingChoice = false;
+  controlPanel?.setBetButtonState?.("non-clickable");
   controlPanel?.setRandomPickState?.("non-clickable");
+  controlPanel?.setMinesSelectState?.("non-clickable");
   await resolveFlip({ instant: !state.showAnimations });
 }
 
@@ -258,7 +276,7 @@ async function autoplay() {
   controlPanel?.setAutoStartButtonState?.("clickable");
 
   for (let i = 0; i < flipsTarget && state.autoplayActive; i += 1) {
-    await startRound();
+    await startRound({ autoPickSide: state.chosenSide });
     if (!state.roundActive) {
       applyProgression(false);
       continue;
@@ -311,6 +329,17 @@ function handleRandomPickClick() {
   controlPanel?.setMinesValue?.(side);
 }
 
+async function handleSideSelection(side) {
+  setChosenSide(side);
+  if (!state.roundActive || !state.awaitingChoice) return;
+  state.awaitingChoice = false;
+  state.awaitingDecision = false;
+  controlPanel?.setBetButtonState?.("non-clickable");
+  controlPanel?.setRandomPickState?.("non-clickable");
+  controlPanel?.setMinesSelectState?.("non-clickable");
+  await resolveFlip({ instant: !state.showAnimations });
+}
+
 function handleStartAutobetClick() {
   if (state.autoplayActive) {
     stopAutoplay();
@@ -330,7 +359,7 @@ function bindControlPanelEvents() {
   });
   controlPanel.addEventListener("mineschanged", (event) => {
     const side = event.detail?.value;
-    setChosenSide(side);
+    handleSideSelection(side);
   });
   controlPanel.addEventListener("betvaluechange", (event) => {
     const betAmount = event.detail?.numericValue ?? event.detail?.value ?? 0;
