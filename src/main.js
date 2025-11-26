@@ -398,7 +398,7 @@ function bindControlPanelEvents() {
   state.currentBet = controlPanel.getBetValue?.() ?? MIN_BET;
   updateDisplays();
 
-  game = await createGame("#game", { coinSize: GAME_CONFIG.coinSize });
+  game = await createGame("#game", { coinSize: GAME_CONFIG.coinSize, debugFrames: true });
   game?.setAnimationsEnabled?.(controlPanel.getAnimationsEnabled?.());
   state.showAnimations = Boolean(controlPanel.getAnimationsEnabled?.());
 
