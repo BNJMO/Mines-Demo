@@ -37,6 +37,7 @@ class Coin {
     this.baseRadius = baseRadius;
 
     this.container = new Container();
+    this.container.alpha = 1;
     this.sprite = new Sprite({
       texture: textures.heads,
       width: baseRadius * 2,
@@ -257,7 +258,12 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const { y: baseScaleY } = coin.getScale();
+    const { x: baseScaleX, y: baseScaleY } = coin.getScale();
+    const minAxisScale = 0.001;
+    const safeBaseScaleX = Math.max(minAxisScale, baseScaleX);
+    const safeBaseScaleY = Math.max(minAxisScale, baseScaleY);
+    const minSquash = 0.2;
+    coin.view.alpha = 1;
 
     return new Promise((resolve) => {
       let tick = 0;
@@ -267,6 +273,7 @@ export async function createGame(mount, opts = {}) {
         if (finished) return;
         finished = true;
         app.ticker.remove(spin);
+        coin.view.alpha = 1;
         drawCoinFace(result);
         resolve();
       };
@@ -274,8 +281,9 @@ export async function createGame(mount, opts = {}) {
       const spin = (delta) => {
         tick += delta;
         coin.view.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coin.view.scale.y = squash * baseScaleY;
+        const squash = Math.max(minSquash, Math.abs(Math.cos(tick * 0.3)));
+        coin.view.alpha = 1;
+        coin.view.scale.set(safeBaseScaleX, Math.max(minAxisScale, squash) * safeBaseScaleY);
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
