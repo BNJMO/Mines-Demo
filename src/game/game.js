@@ -17,7 +17,7 @@ import headsIconUrl from "../../assets/sprites/Heads.svg";
 import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
-const HISTORY_SIZE = 10;
+const HISTORY_SIZE = 20;
 const COIN_ANIMATION_DURATION = 200; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
@@ -40,6 +40,7 @@ const COLORS = {
   historyEmpty: 0x153243,
   historyBorder: 0x224558,
   historyDisabled: 0x3a5161,
+  historyLabel: 0x0b202e,
 };
 
 class Coin {
@@ -417,8 +418,18 @@ export async function createGame(mount, opts = {}) {
   );
   setFrameDebug("Face: heads");
 
+  const historyContainer = new Container();
+  stage.addChild(historyContainer);
+
+  const historyLabelContainer = new Container();
+  const historyLabelBackground = new Graphics();
+  historyLabelContainer.addChild(historyLabelBackground);
+  historyContainer.addChild(historyLabelContainer);
+
   const historyBar = new Graphics();
-  stage.addChild(historyBar);
+  const historyTrackContainer = new Container();
+  historyTrackContainer.addChild(historyBar);
+  historyContainer.addChild(historyTrackContainer);
 
   const historyLabel = new Text({
     text: "History",
@@ -429,8 +440,8 @@ export async function createGame(mount, opts = {}) {
       fontFamily,
     }),
   });
-  historyLabel.anchor.set(0, 1);
-  stage.addChild(historyLabel);
+  historyLabel.anchor.set(0, 0.5);
+  historyLabelContainer.addChild(historyLabel);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const container = new Container();
@@ -440,7 +451,7 @@ export async function createGame(mount, opts = {}) {
     icon.visible = false;
     container.addChild(background);
     container.addChild(icon);
-    stage.addChild(container);
+    historyTrackContainer.addChild(container);
     return { container, background, icon };
   });
 
@@ -474,25 +485,44 @@ export async function createGame(mount, opts = {}) {
 
     const barX = 18;
     const barWidth = width - barX * 2;
-    const barY = height - HISTORY_BAR_HEIGHT + 14;
-    const barHeight = HISTORY_BAR_HEIGHT - 24;
+    const barY = height - HISTORY_BAR_HEIGHT + 10;
+    const barHeight = HISTORY_BAR_HEIGHT - 14;
+
+    const labelPaddingX = 18;
+    const labelPaddingY = 10;
+    const labelWidth = Math.max(historyLabel.width + labelPaddingX * 2, 120);
+
+    historyLabelContainer.position.set(barX, barY);
+    historyLabelBackground
+      .clear()
+      .roundRect(0, 0, labelWidth, barHeight, 12)
+      .fill({ color: COLORS.historyLabel })
+      .stroke({ color: COLORS.historyBorder, width: 2 });
+    historyLabel.position.set(labelPaddingX, barHeight / 2 + labelPaddingY / 4);
+
+    const trackSpacing = 10;
+    const trackWidth = Math.max(120, barWidth - labelWidth - trackSpacing);
+    historyTrackContainer.position.set(barX + labelWidth + trackSpacing, barY);
     historyBar
       .clear()
-      .roundRect(barX, barY, barWidth, barHeight, 14)
+      .roundRect(0, 0, trackWidth, barHeight, 12)
       .fill({ color: COLORS.historyFrame })
       .stroke({ color: COLORS.historyBorder, width: 2 });
 
-    historyLabel.position.set(barX + 10, barY - 6);
-
-    const availableWidth = barWidth - 24;
+    const horizontalPadding = 14;
+    const availableWidth = trackWidth - horizontalPadding * 2;
     const slotGap = Math.max(
-      6,
-      Math.min(12, (availableWidth - HISTORY_SLOT_WIDTH * HISTORY_SIZE) / (HISTORY_SIZE - 1))
+      4,
+      Math.min(
+        10,
+        (availableWidth - HISTORY_SLOT_WIDTH * HISTORY_SIZE) / (HISTORY_SIZE - 1)
+      )
     );
     const totalSlotsWidth =
       HISTORY_SLOT_WIDTH * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
-    const startX = barX + (barWidth - totalSlotsWidth) / 2;
-    const centerY = barY + barHeight / 2;
+    const startX = Math.max(horizontalPadding, (trackWidth - totalSlotsWidth) / 2);
+    const centerY = barHeight / 2;
+
     historySlots.forEach((slot, index) => {
       const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
       slot.container.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
