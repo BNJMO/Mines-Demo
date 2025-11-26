@@ -271,6 +271,11 @@ export class ControlPanel extends EventTarget {
     button.dataset.value = String(choice.value);
     button.setAttribute("aria-pressed", "false");
 
+    const label = document.createElement("span");
+    label.className = "control-side-btn-label";
+    label.textContent = choice.label ?? String(choice.value);
+    button.appendChild(label);
+
     const iconSrc = choice.icon ?? this.getSideIcon(choice.value);
     if (iconSrc) {
       const icon = document.createElement("img");
@@ -279,11 +284,6 @@ export class ControlPanel extends EventTarget {
       icon.className = "control-side-btn-icon";
       button.appendChild(icon);
     }
-
-    const label = document.createElement("span");
-    label.className = "control-side-btn-label";
-    label.textContent = choice.label ?? String(choice.value);
-    button.appendChild(label);
 
     button.addEventListener("click", () => {
       this.setMinesValue(choice.value);

@@ -13,6 +13,8 @@ import spriteSheetHHUrl from "../../assets/sprites/SHH.png";
 import spriteSheetHTUrl from "../../assets/sprites/SHT.png";
 import spriteSheetTHUrl from "../../assets/sprites/STH.png";
 import spriteSheetTTUrl from "../../assets/sprites/STT.png";
+import headsIconUrl from "../../assets/sprites/Heads.svg";
+import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
@@ -375,12 +377,15 @@ export async function createGame(mount, opts = {}) {
   });
   framePreview.addChild(framePreviewMeta);
 
-  const [sheetHH, sheetHT, sheetTH, sheetTT] = await Promise.all([
-    Assets.load(spriteSheetHHUrl),
-    Assets.load(spriteSheetHTUrl),
-    Assets.load(spriteSheetTHUrl),
-    Assets.load(spriteSheetTTUrl),
-  ]);
+  const [sheetHH, sheetHT, sheetTH, sheetTT, headsIconTexture, tailsIconTexture] =
+    await Promise.all([
+      Assets.load(spriteSheetHHUrl),
+      Assets.load(spriteSheetHTUrl),
+      Assets.load(spriteSheetTHUrl),
+      Assets.load(spriteSheetTTUrl),
+      Assets.load(headsIconUrl),
+      Assets.load(tailsIconUrl),
+    ]);
 
   const coinAnimations = {
     HH: sliceSpriteSheet(sheetHH, resolveSliceOptions(sliceOptions, "HH")),
@@ -392,6 +397,11 @@ export async function createGame(mount, opts = {}) {
   const coinTextures = {
     heads: coinAnimations.HH?.[0] ?? Texture.WHITE,
     tails: coinAnimations.TT?.[0] ?? Texture.WHITE,
+  };
+
+  const historyIconTextures = {
+    heads: headsIconTexture ?? Texture.WHITE,
+    tails: tailsIconTexture ?? Texture.WHITE,
   };
 
   const coin = new Coin({
@@ -411,9 +421,15 @@ export async function createGame(mount, opts = {}) {
   stage.addChild(historyBar);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
-    const graphic = new Graphics();
-    stage.addChild(graphic);
-    return graphic;
+    const container = new Container();
+    const background = new Graphics();
+    const icon = new Sprite({ texture: Texture.WHITE });
+    icon.anchor.set(0.5);
+    icon.visible = false;
+    container.addChild(background);
+    container.addChild(icon);
+    stage.addChild(container);
+    return { container, background, icon };
   });
 
   const state = {
@@ -464,7 +480,7 @@ export async function createGame(mount, opts = {}) {
     const centerY = barY + barHeight / 2;
     historySlots.forEach((slot, index) => {
       const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
-      slot.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
+      slot.container.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
     });
   }
 
@@ -642,37 +658,28 @@ export async function createGame(mount, opts = {}) {
     const width = HISTORY_SLOT_WIDTH;
     const height = HISTORY_SLOT_HEIGHT;
     // removeChildren() returns an array and is not chainable with Graphics clear()
-    slot.removeChildren();
-    slot
+    slot.background.removeChildren();
+    slot.background
       .clear()
       .roundRect(0, 0, width, height, 8)
       .fill({ color: COLORS.historyEmpty })
       .stroke({ color: COLORS.historyBorder, width: 2 });
 
+    slot.icon.visible = false;
+    slot.icon.alpha = disabled ? 0.6 : 1;
+    slot.icon.tint = disabled ? COLORS.historyDisabled : 0xffffff;
+
     if (!value) return;
 
     const isHeads = value.toUpperCase() === "H";
-    const primary = disabled ? COLORS.historyDisabled : isHeads ? COLORS.headsRing : COLORS.tailsFill;
-    const cutout = disabled ? COLORS.historyDisabled : isHeads ? COLORS.headsCenter : COLORS.tailsHole;
-
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    if (isHeads) {
-      slot.circle(centerX, centerY, height * 0.42).fill({ color: primary });
-      slot.circle(centerX, centerY, height * 0.24).fill({ color: cutout });
-    } else {
-      slot
-        .circle(centerX, centerY, height * 0.42)
-        .fill({ color: primary })
-        .moveTo(centerX, centerY - height * 0.5)
-        .lineTo(centerX + height * 0.4, centerY)
-        .lineTo(centerX, centerY + height * 0.5)
-        .lineTo(centerX - height * 0.4, centerY)
-        .closePath()
-        .fill({ color: cutout })
-        .stroke({ color: COLORS.tailsStroke, width: 2, join: "round" });
-    }
+    slot.icon.texture = isHeads
+      ? historyIconTextures.heads ?? Texture.WHITE
+      : historyIconTextures.tails ?? Texture.WHITE;
+    const iconSize = height * 0.82;
+    slot.icon.width = iconSize;
+    slot.icon.height = iconSize;
+    slot.icon.position.set(width / 2, height / 2);
+    slot.icon.visible = true;
   }
 
   function updateHistory(history = [], { disabled = false } = {}) {
