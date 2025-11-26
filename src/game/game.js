@@ -154,7 +154,12 @@ class Coin {
 
 function sliceSpriteSheet(
   spriteSheetTexture,
-  { frameSize = COIN_SPRITE_SIZE, gap = 0, rows = COIN_SPRITE_ROWS } = {}
+  {
+    frameSize = COIN_SPRITE_SIZE,
+    gap = 0,
+    rows = COIN_SPRITE_ROWS,
+    columns,
+  } = {}
 ) {
   const frames = [];
 
@@ -165,10 +170,12 @@ function sliceSpriteSheet(
     ? inferredFrameSize
     : frameSize;
   const frameStep = size + gap;
-  const columns = Math.max(1, Math.floor((spriteSheetTexture.width + gap) / frameStep));
+  const columnsCount = Number.isFinite(columns) && columns > 0
+    ? Math.floor(columns)
+    : Math.max(1, Math.floor((spriteSheetTexture.width + gap) / frameStep));
 
   for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < columns; col += 1) {
+    for (let col = 0; col < columnsCount; col += 1) {
       const x = col * frameStep;
       const y = row * frameStep;
 
@@ -186,6 +193,33 @@ function sliceSpriteSheet(
   }
 
   return frames;
+}
+
+function normalizeSpriteSheetOptions(raw = {}) {
+  const frameSize = Number.isFinite(raw.frameSize) && raw.frameSize > 0
+    ? Math.floor(raw.frameSize)
+    : COIN_SPRITE_SIZE;
+  const gap = Number.isFinite(raw.gap) && raw.gap >= 0 ? Math.floor(raw.gap) : COIN_SPRITE_GAP;
+  const rows = Number.isFinite(raw.rows) && raw.rows > 0 ? Math.floor(raw.rows) : COIN_SPRITE_ROWS;
+  const columns = Number.isFinite(raw.columns) && raw.columns > 0
+    ? Math.floor(raw.columns)
+    : undefined;
+
+  return { frameSize, gap, rows, columns };
+}
+
+function formatSpriteSheetOptions(options) {
+  const parts = [
+    `size ${options.frameSize}px`,
+    `gap ${options.gap}px`,
+    `${options.rows} row${options.rows === 1 ? "" : "s"}`,
+  ];
+
+  if (options.columns) {
+    parts.push(`${options.columns} column${options.columns === 1 ? "" : "s"}`);
+  }
+
+  return parts.join(" · ");
 }
 
 function resolveRoot(mount) {
@@ -213,6 +247,7 @@ export async function createGame(mount, opts = {}) {
     Number.isFinite(opts.coinSize) && opts.coinSize > 0
       ? opts.coinSize
       : COIN_SCALE_FACTOR;
+  const sliceOptions = normalizeSpriteSheetOptions(opts.spriteSheet);
 
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
@@ -295,6 +330,18 @@ export async function createGame(mount, opts = {}) {
   });
   framePreview.addChild(framePreviewText);
 
+  const framePreviewMeta = new Text({
+    text: "",
+    style: new TextStyle({
+      fill: "#8fb3c9",
+      fontSize: 11,
+      fontFamily,
+      fontWeight: "500",
+    }),
+    visible: frameDebugEnabled,
+  });
+  framePreview.addChild(framePreviewMeta);
+
   const [headsTexture, tailsTexture, sheetHH, sheetHT, sheetTH, sheetTT] =
     await Promise.all([
       Assets.load(headsIconUrl),
@@ -311,26 +358,10 @@ export async function createGame(mount, opts = {}) {
   };
 
   const coinAnimations = {
-    HH: sliceSpriteSheet(sheetHH, {
-      frameSize: COIN_SPRITE_SIZE,
-      gap: COIN_SPRITE_GAP,
-      rows: COIN_SPRITE_ROWS,
-    }),
-    HT: sliceSpriteSheet(sheetHT, {
-      frameSize: COIN_SPRITE_SIZE,
-      gap: COIN_SPRITE_GAP,
-      rows: COIN_SPRITE_ROWS,
-    }),
-    TH: sliceSpriteSheet(sheetTH, {
-      frameSize: COIN_SPRITE_SIZE,
-      gap: COIN_SPRITE_GAP,
-      rows: COIN_SPRITE_ROWS,
-    }),
-    TT: sliceSpriteSheet(sheetTT, {
-      frameSize: COIN_SPRITE_SIZE,
-      gap: COIN_SPRITE_GAP,
-      rows: COIN_SPRITE_ROWS,
-    }),
+    HH: sliceSpriteSheet(sheetHH, sliceOptions),
+    HT: sliceSpriteSheet(sheetHT, sliceOptions),
+    TH: sliceSpriteSheet(sheetTH, sliceOptions),
+    TT: sliceSpriteSheet(sheetTT, sliceOptions),
   };
 
   const coin = new Coin({
@@ -426,18 +457,24 @@ export async function createGame(mount, opts = {}) {
     framePreviewSprite.width = FRAME_PREVIEW_SIZE;
     framePreviewSprite.height = FRAME_PREVIEW_SIZE;
 
-    const textY =
-      FRAME_PREVIEW_SIZE + FRAME_PREVIEW_PADDING + (framePreviewText.text ? 6 : 0);
-    framePreviewText.position.set(FRAME_PREVIEW_PADDING, textY);
+    const labels = [framePreviewText, framePreviewMeta].filter(
+      (text) => text.visible && text.text
+    );
+
+    let nextY =
+      FRAME_PREVIEW_SIZE + FRAME_PREVIEW_PADDING + (labels.length ? 6 : 0);
+    for (const text of labels) {
+      text.position.set(FRAME_PREVIEW_PADDING, nextY);
+      nextY += text.height + 4;
+    }
 
     const contentWidth = Math.max(
       FRAME_PREVIEW_SIZE,
-      framePreviewText.visible ? framePreviewText.width : 0
+      framePreviewText.visible ? framePreviewText.width : 0,
+      framePreviewMeta.visible ? framePreviewMeta.width : 0
     );
     const boxWidth = contentWidth + FRAME_PREVIEW_PADDING * 2;
-    const boxHeight =
-      textY + (framePreviewText.visible ? framePreviewText.height : 0) +
-      FRAME_PREVIEW_PADDING;
+    const boxHeight = nextY + FRAME_PREVIEW_PADDING - (labels.length ? 4 : 0);
 
     framePreviewBg
       .clear()
@@ -452,6 +489,8 @@ export async function createGame(mount, opts = {}) {
     framePreviewSprite.texture = texture;
     framePreviewText.text = label;
     framePreviewText.visible = true;
+    framePreviewMeta.text = formatSpriteSheetOptions(sliceOptions);
+    framePreviewMeta.visible = true;
 
     layoutFramePreview();
   }
