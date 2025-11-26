@@ -1,11 +1,4 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="headsShadow" x="2" y="2" width="60" height="60" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#7a4d0e" flood-opacity="0.35" />
-    </filter>
-  </defs>
-  <g filter="url(#headsShadow)">
-    <circle cx="32" cy="32" r="26" fill="#F6A400" />
-  </g>
-  <circle cx="32" cy="32" r="14" fill="#0C1F2B" />
+  <circle cx="32" cy="32" r="11" fill="#F6A400" />
+  <circle cx="32" cy="32" r="11" stroke="#E29200" stroke-width="2" fill="none" />
 </svg>
