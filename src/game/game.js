@@ -3,18 +3,25 @@ import {
   Assets,
   Container,
   Graphics,
+  Rectangle,
   Sprite,
+  Texture,
   Text,
   TextStyle,
 } from "pixi.js";
 import headsIconUrl from "../../assets/sprites/Heads.svg";
 import tailsIconUrl from "../../assets/sprites/Tails.svg";
+import spriteSheetHHUrl from "../../assets/sprites/SHH.png";
+import spriteSheetHTUrl from "../../assets/sprites/SHT.png";
+import spriteSheetTHUrl from "../../assets/sprites/STH.png";
+import spriteSheetTTUrl from "../../assets/sprites/STT.png";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
+const COIN_SPRITE_SIZE = 145;
 const HISTORY_BAR_HEIGHT = 54;
 const HISTORY_SLOT_WIDTH = 32;
 const HISTORY_SLOT_HEIGHT = 28;
@@ -32,9 +39,11 @@ const COLORS = {
 };
 
 class Coin {
-  constructor({ textures, baseRadius }) {
+  constructor({ textures, animations, baseRadius }) {
     this.textures = textures;
+    this.animations = animations;
     this.baseRadius = baseRadius;
+    this.currentFace = "heads";
 
     this.container = new Container();
     this.sprite = new Sprite({
@@ -70,7 +79,81 @@ class Coin {
 
     this.container.rotation = 0;
     this.container.scale.y = this.container.scale.x;
+
+    this.currentFace = isHeads ? "heads" : "tails";
   }
+
+  playFlipAnimation(targetFace, { ticker, duration }) {
+    const from = this.currentFace === "tails" ? "T" : "H";
+    const to = targetFace === "tails" ? "T" : "H";
+    const animationKey = `${from}${to}`;
+    const frames = this.animations?.[animationKey];
+
+    if (!frames?.length) {
+      this.setFace(targetFace);
+      return Promise.resolve();
+    }
+
+    const totalFrames = frames.length;
+    let finished = false;
+    let progress = 0;
+
+    return new Promise((resolve) => {
+      this.container.rotation = 0;
+      this.container.scale.y = this.container.scale.x;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        ticker.remove(step);
+        this.setFace(targetFace);
+        resolve();
+      };
+
+      const step = (delta) => {
+        progress = Math.min(duration, progress + delta);
+        const frameIndex = Math.min(
+          totalFrames - 1,
+          Math.floor((progress / duration) * totalFrames)
+        );
+        this.sprite.texture = frames[frameIndex];
+        this.sprite.width = this.baseRadius * 2;
+        this.sprite.height = this.baseRadius * 2;
+
+        if (progress >= duration) {
+          finish();
+        }
+      };
+
+      ticker.add(step);
+
+      setTimeout(finish, (duration / 60) * 1000 + 200);
+    });
+  }
+}
+
+function sliceSpriteSheet(spriteSheetTexture, frameSize) {
+  const frames = [];
+  const columns = Math.floor(spriteSheetTexture.width / frameSize);
+  const rows = Math.floor(spriteSheetTexture.height / frameSize);
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < columns; col += 1) {
+      frames.push(
+        new Texture({
+          baseTexture: spriteSheetTexture.baseTexture,
+          frame: new Rectangle(
+            col * frameSize,
+            row * frameSize,
+            frameSize,
+            frameSize
+          ),
+        })
+      );
+    }
+  }
+
+  return frames;
 }
 
 function resolveRoot(mount) {
@@ -140,17 +223,33 @@ export async function createGame(mount, opts = {}) {
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
 
-  const [headsTexture, tailsTexture] = await Promise.all([
-    Assets.load(headsIconUrl),
-    Assets.load(tailsIconUrl),
-  ]);
+  const [headsTexture, tailsTexture, sheetHH, sheetHT, sheetTH, sheetTT] =
+    await Promise.all([
+      Assets.load(headsIconUrl),
+      Assets.load(tailsIconUrl),
+      Assets.load(spriteSheetHHUrl),
+      Assets.load(spriteSheetHTUrl),
+      Assets.load(spriteSheetTHUrl),
+      Assets.load(spriteSheetTTUrl),
+    ]);
 
   const coinTextures = {
     heads: headsTexture,
     tails: tailsTexture,
   };
 
-  const coin = new Coin({ textures: coinTextures, baseRadius: COIN_BASE_RADIUS });
+  const coinAnimations = {
+    HH: sliceSpriteSheet(sheetHH, COIN_SPRITE_SIZE),
+    HT: sliceSpriteSheet(sheetHT, COIN_SPRITE_SIZE),
+    TH: sliceSpriteSheet(sheetTH, COIN_SPRITE_SIZE),
+    TT: sliceSpriteSheet(sheetTT, COIN_SPRITE_SIZE),
+  };
+
+  const coin = new Coin({
+    textures: coinTextures,
+    animations: coinAnimations,
+    baseRadius: COIN_BASE_RADIUS,
+  });
   stage.addChild(coin.view);
 
   const historyBar = new Graphics();
@@ -257,32 +356,9 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const { y: baseScaleY } = coin.getScale();
-
-    return new Promise((resolve) => {
-      let tick = 0;
-      let finished = false;
-
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        app.ticker.remove(spin);
-        drawCoinFace(result);
-        resolve();
-      };
-
-      const spin = (delta) => {
-        tick += delta;
-        coin.view.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coin.view.scale.y = squash * baseScaleY;
-        if (tick >= COIN_ANIMATION_DURATION) finish();
-      };
-
-      app.ticker.add(spin);
-
-      // Fail-safe in case the ticker stalls; ensures the round completes.
-      setTimeout(finish, (COIN_ANIMATION_DURATION / 60) * 1000 + 200);
+    return coin.playFlipAnimation(result, {
+      ticker: app.ticker,
+      duration: COIN_ANIMATION_DURATION,
     });
   }
 
