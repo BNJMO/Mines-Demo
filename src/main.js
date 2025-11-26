@@ -194,7 +194,7 @@ async function startRound({ autoPickSide } = {}) {
   const bet = applyBetFromInput();
   if (!bet) return;
 
-  if (state.historyDisabled) {
+  if (state.history.length || state.historyDisabled) {
     state.history = [];
     state.historyDisabled = false;
     game?.updateHistory?.(state.history, { disabled: state.historyDisabled });
