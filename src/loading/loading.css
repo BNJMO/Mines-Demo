@@ -43,12 +43,27 @@
 }
 
 .coin-loader {
-  position: relative;
-  width: min(280px, 70vw);
-  aspect-ratio: 1 / 1;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  z-index: 2;
   display: grid;
   place-items: center;
   gap: 16px;
+  width: min(280px, 70vw);
+  aspect-ratio: 1 / 1;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.coin-loader--active {
+  pointer-events: none;
+}
+
+.coin-loader--hidden {
+  opacity: 0;
+  transform: translateY(12px) scale(0.9);
 }
 
 .coin {
@@ -58,6 +73,8 @@
   transform-style: preserve-3d;
   animation: coin-flip 1.8s ease-in-out infinite;
   filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.32));
+  transform-origin: center;
+  will-change: transform, filter;
 }
 
 .coin-face {
@@ -86,6 +103,7 @@
   background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.28), transparent 70%);
   animation: shadow-pulse 1.8s ease-in-out infinite;
   filter: blur(1px);
+  will-change: transform, opacity;
 }
 
 @keyframes coin-flip {

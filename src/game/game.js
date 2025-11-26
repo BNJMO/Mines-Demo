@@ -90,6 +90,7 @@ function measureRootSize(root, fallbackSize) {
 
 export async function createGame(mount, opts = {}) {
   const root = resolveRoot(mount);
+  const loader = root.querySelector?.(".coin-loader");
   const initialSize = Math.max(1, opts.size ?? 400);
   const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
   const fontFamily =
@@ -114,6 +115,10 @@ export async function createGame(mount, opts = {}) {
     initialSize
   );
 
+  if (loader) {
+    loader.remove();
+  }
+
   await app.init({
     background: backgroundColor,
     width: startWidth,
@@ -124,6 +129,11 @@ export async function createGame(mount, opts = {}) {
 
   root.innerHTML = "";
   root.appendChild(app.canvas);
+
+  if (loader) {
+    loader.classList.add("coin-loader--active");
+    root.appendChild(loader);
+  }
 
   const stage = new Container();
   app.stage.addChild(stage);
@@ -144,6 +154,17 @@ export async function createGame(mount, opts = {}) {
     Assets.load(headsIconUrl),
     Assets.load(tailsIconUrl),
   ]);
+
+  if (loader) {
+    requestAnimationFrame(() => {
+      loader.classList.add("coin-loader--hidden");
+      loader.addEventListener(
+        "transitionend",
+        () => loader.remove(),
+        { once: true }
+      );
+    });
+  }
 
   const coinTextures = {
     heads: headsTexture,
