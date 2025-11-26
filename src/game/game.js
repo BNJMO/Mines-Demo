@@ -273,6 +273,11 @@ export async function createGame(mount, opts = {}) {
   const backgroundColor = opts.backgroundColor ?? DEFAULT_BACKGROUND;
   const fontFamily =
     opts.fontFamily ?? "Inter, system-ui, -apple-system, Segoe UI, Arial";
+  const coinAnimationDuration = Number.isFinite(opts.coinAnimationDuration)
+    ? Math.max(1, Math.floor(opts.coinAnimationDuration))
+    : Number.isFinite(opts.animationDuration)
+      ? Math.max(1, Math.floor(opts.animationDuration))
+      : COIN_ANIMATION_DURATION;
   const coinScaleFactor =
     Number.isFinite(opts.coinSize) && opts.coinSize > 0
       ? opts.coinSize
@@ -609,7 +614,7 @@ export async function createGame(mount, opts = {}) {
 
     return coin.playFlipAnimation(result, {
       ticker: app.ticker,
-      duration: COIN_ANIMATION_DURATION,
+      duration: coinAnimationDuration,
       onFrame: frameDebugEnabled ? showFrameStep : undefined,
       onFinish: frameDebugEnabled ? showFrameComplete : undefined,
     });
