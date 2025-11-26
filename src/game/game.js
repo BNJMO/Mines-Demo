@@ -423,6 +423,7 @@ export async function createGame(mount, opts = {}) {
     history: [],
     historyDisabled: false,
     showAnimations: true,
+    currentFace: "heads",
   };
 
   function layout() {
@@ -587,7 +588,9 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawCoinFace(result) {
-    coin.setFace(result);
+    const normalized = result === "tails" ? "tails" : "heads";
+    state.currentFace = normalized;
+    coin.setFace(normalized);
   }
 
   function setFace(result) {
@@ -596,6 +599,8 @@ export async function createGame(mount, opts = {}) {
   }
 
   function playFlip(result, { instant = false } = {}) {
+    coin.currentFace = state.currentFace === "tails" ? "tails" : "heads";
+
     if (!state.showAnimations || instant) {
       setFace(result);
       return Promise.resolve();
