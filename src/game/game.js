@@ -14,7 +14,7 @@ const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_SPIN_SPEED = Math.PI * 0.35; // radians per tick for Y-spin simulation
-const COIN_MIN_DEPTH_SCALE = 0.12; // prevents scale from reaching zero at edge-on
+const COIN_MIN_DEPTH_SCALE = 0.35; // prevents scale from reaching zero at edge-on
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -46,6 +46,8 @@ class Coin {
       height: baseRadius * 2,
     });
     this.sprite.anchor.set(0.5);
+    this.sprite.position.set(baseRadius, baseRadius);
+    this.container.pivot.set(baseRadius, baseRadius);
     this.container.addChild(this.sprite);
   }
 
@@ -78,9 +80,8 @@ class Coin {
     this.setFaceTexture(face);
 
     if (!preserveTransform) {
-      this.container.rotation = 0;
-      this.container.scale.y = this.container.scale.x;
-      this.container.skew.set(0, 0);
+      this.sprite.scale.set(1, 1);
+      this.sprite.skew.set(0, 0);
     }
   }
 }
@@ -175,8 +176,6 @@ export async function createGame(mount, opts = {}) {
 
   let spinAngle = 0;
   let lastHalfTurn = 0;
-  let baseScaleX = 1;
-  let baseScaleY = 1;
   let pendingResult = null;
   let flipTicks = 0;
   let flipResolver = null;
@@ -203,9 +202,9 @@ export async function createGame(mount, opts = {}) {
   function applySpinTransforms(angle) {
     const depth = Math.max(COIN_MIN_DEPTH_SCALE, Math.abs(Math.cos(angle)));
     const direction = Math.sign(Math.cos(angle)) || 1;
-    coin.view.scale.x = direction * depth * baseScaleX;
-    coin.view.scale.y = baseScaleY * (0.9 + 0.1 * depth);
-    coin.view.skew.y = Math.sin(angle) * 0.18;
+    coin.sprite.scale.x = direction * depth;
+    coin.sprite.scale.y = 0.9 + 0.1 * depth;
+    coin.sprite.skew.y = Math.sin(angle) * 0.18;
   }
 
   function layout() {
@@ -219,8 +218,6 @@ export async function createGame(mount, opts = {}) {
 
     coin.setPosition(width / 2, coinAreaHeight / 2 + 8);
     coin.setScale(coinScale);
-    baseScaleX = coinScale;
-    baseScaleY = coinScale;
 
     statusText.position.set(18, coinAreaHeight - 12);
 
