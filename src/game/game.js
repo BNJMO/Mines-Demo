@@ -599,10 +599,11 @@ export async function createGame(mount, opts = {}) {
   }
 
   function playFlip(result, { instant = false } = {}) {
+    const targetFace = result === "tails" ? "tails" : "heads";
     coin.currentFace = state.currentFace === "tails" ? "tails" : "heads";
 
     if (!state.showAnimations || instant) {
-      setFace(result);
+      setFace(targetFace);
       return Promise.resolve();
     }
 
@@ -612,11 +613,19 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    return coin.playFlipAnimation(result, {
+    const handleFinish = (meta) => {
+      state.currentFace = targetFace;
+      setFrameDebug(`Face: ${targetFace}`);
+      if (frameDebugEnabled) {
+        showFrameComplete(meta);
+      }
+    };
+
+    return coin.playFlipAnimation(targetFace, {
       ticker: app.ticker,
       duration: coinAnimationDuration,
       onFrame: frameDebugEnabled ? showFrameStep : undefined,
-      onFinish: frameDebugEnabled ? showFrameComplete : undefined,
+      onFinish: handleFinish,
     });
   }
 
