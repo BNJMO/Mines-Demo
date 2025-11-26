@@ -1,11 +1,41 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <filter id="tailsShadow" x="2" y="2" width="60" height="60" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f2032" flood-opacity="0.35" />
+    <radialGradient id="blueDepth" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#7EA5FF" />
+      <stop offset="45%" stop-color="#4D6DF3" />
+      <stop offset="100%" stop-color="#223BA2" />
+    </radialGradient>
+    <radialGradient id="blueRim" cx="46%" cy="34%" r="72%">
+      <stop offset="0%" stop-color="#C7D6FF" stop-opacity="0.85" />
+      <stop offset="55%" stop-color="#6E8CFF" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#0A1A4A" stop-opacity="0.2" />
+    </radialGradient>
+    <linearGradient id="bandShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.15" />
+      <stop offset="50%" stop-color="#000" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0.25" />
+    </linearGradient>
+    <radialGradient id="tailCutout" cx="50%" cy="42%" r="70%">
+      <stop offset="0%" stop-color="#112538" />
+      <stop offset="60%" stop-color="#0C1F2B" />
+      <stop offset="100%" stop-color="#071018" />
+    </radialGradient>
+    <radialGradient id="tailHighlight" cx="34%" cy="30%" r="48%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.7" />
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+    <filter id="softShadow" x="-20" y="-8" width="296" height="296" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#0A1420" flood-opacity="0.35" />
     </filter>
   </defs>
-  <g filter="url(#tailsShadow)">
-    <circle cx="32" cy="32" r="26" fill="#536AFF" />
+  <g filter="url(#softShadow)">
+    <circle cx="128" cy="128" r="112" fill="url(#blueDepth)" />
+    <circle cx="128" cy="128" r="106" fill="url(#blueRim)" />
+    <circle cx="128" cy="128" r="104" fill="url(#bandShadow)" />
+    <circle cx="128" cy="128" r="104" stroke="#8DA9FF" stroke-width="6" fill="none" />
+    <path d="M128 38 L206 128 L128 218 L50 128 Z" fill="url(#tailCutout)" stroke="#223BA2" stroke-width="6" stroke-linejoin="round" />
+    <circle cx="96" cy="90" r="64" fill="url(#tailHighlight)" />
+    <path d="M104 120 L150 176" stroke="#5E79E6" stroke-width="6" stroke-linecap="round" opacity="0.45" />
   </g>
-  <path d="M32 12 L48 32 L32 52 L16 32 Z" fill="#0C1F2B" />
 </svg>
