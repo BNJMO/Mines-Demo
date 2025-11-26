@@ -119,6 +119,12 @@ export async function createGame(mount, opts = {}) {
   if (!root.style.maxWidth) {
     root.style.maxWidth = "100%";
   }
+  if (!root.style.minWidth) {
+    root.style.minWidth = `${initialSize}px`;
+  }
+  if (!root.style.minHeight) {
+    root.style.minHeight = `${initialSize}px`;
+  }
 
   const app = new Application();
   const { width: startWidth, height: startHeight } = measureRootSize(
