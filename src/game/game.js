@@ -12,7 +12,7 @@ import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
-const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_ANIMATION_DURATION = 180; // ticks (~3 seconds at 60fps)
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -35,6 +35,7 @@ class Coin {
   constructor({ textures, baseRadius }) {
     this.textures = textures;
     this.baseRadius = baseRadius;
+    this.currentFace = "heads";
 
     this.container = new Container();
     this.sprite = new Sprite({
@@ -62,11 +63,26 @@ class Coin {
     return { x: this.container.scale.x, y: this.container.scale.y };
   }
 
-  setFace(face) {
+  getFace() {
+    return this.currentFace;
+  }
+
+  setFace(face, { preserveTransform = false } = {}) {
     const isHeads = face === "heads";
+    const { x: prevScaleX, y: prevScaleY } = this.container.scale;
+    const prevRotation = this.container.rotation;
+
     this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
     this.sprite.width = this.baseRadius * 2;
     this.sprite.height = this.baseRadius * 2;
+
+    this.currentFace = isHeads ? "heads" : "tails";
+
+    if (preserveTransform) {
+      this.container.rotation = prevRotation;
+      this.container.scale.set(prevScaleX, prevScaleY);
+      return;
+    }
 
     this.container.rotation = 0;
     this.container.scale.y = this.container.scale.x;
@@ -258,10 +274,25 @@ export async function createGame(mount, opts = {}) {
     }
 
     const { y: baseScaleY } = coin.getScale();
+    const totalRotations = result === "heads" ? 6 : 5.5; // Mirrors the CSS reference
+    const totalHalfTurns = Math.round(totalRotations * 2);
+    const startFace = totalHalfTurns % 2 === 0 ? result : result === "heads" ? "tails" : "heads";
+
+    coin.setFace(startFace);
+
+    const flipFace = (face) => (face === "heads" ? "tails" : "heads");
 
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let face = startFace;
+
+      const swapFace = (nextFace) => {
+        if (nextFace !== face) {
+          face = nextFace;
+          coin.setFace(face, { preserveTransform: true });
+        }
+      };
 
       const finish = () => {
         if (finished) return;
@@ -273,10 +304,21 @@ export async function createGame(mount, opts = {}) {
 
       const spin = (delta) => {
         tick += delta;
-        coin.view.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
+        const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
+        const easedProgress = 1 - (1 - progress) ** 3;
+        const angle = easedProgress * totalRotations * Math.PI * 2;
+
+        const squash = Math.max(0.3, Math.abs(Math.cos(angle)));
         coin.view.scale.y = squash * baseScaleY;
-        if (tick >= COIN_ANIMATION_DURATION) finish();
+
+        const wobble = Math.sin(progress * Math.PI * 2) * 0.08;
+        coin.view.rotation = wobble;
+
+        const halfTurns = Math.floor(angle / Math.PI);
+        const faceForAngle = halfTurns % 2 === 0 ? startFace : flipFace(startFace);
+        swapFace(faceForAngle);
+
+        if (progress >= 1) finish();
       };
 
       app.ticker.add(spin);
