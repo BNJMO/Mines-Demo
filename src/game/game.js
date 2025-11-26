@@ -165,6 +165,15 @@ export async function createGame(mount, opts = {}) {
   const coin = new Coin({ textures: coinTextures, baseRadius: COIN_BASE_RADIUS });
   stage.addChild(coin.view);
 
+  let spinAngle = 0;
+  let lastHalfTurn = 0;
+  let baseScaleX = 1;
+  let baseScaleY = 1;
+  let pendingResult = null;
+  let flipTicks = 0;
+  let flipResolver = null;
+  let flipActive = false;
+
   const historyBar = new Graphics();
   stage.addChild(historyBar);
 
@@ -183,6 +192,14 @@ export async function createGame(mount, opts = {}) {
     showAnimations: true,
   };
 
+  function applySpinTransforms(angle) {
+    const depth = Math.max(COIN_MIN_DEPTH_SCALE, Math.abs(Math.cos(angle)));
+    const direction = Math.sign(Math.cos(angle)) || 1;
+    coin.view.scale.x = direction * depth * baseScaleX;
+    coin.view.scale.y = baseScaleY * (0.9 + 0.1 * depth);
+    coin.view.skew.y = Math.sin(angle) * 0.18;
+  }
+
   function layout() {
     const { width, height } = measureRootSize(root, initialSize);
     app.renderer.resize(width, height);
@@ -194,6 +211,8 @@ export async function createGame(mount, opts = {}) {
 
     coin.setPosition(width / 2, coinAreaHeight / 2 + 8);
     coin.setScale(coinScale);
+    baseScaleX = coinScale;
+    baseScaleY = coinScale;
 
     statusText.position.set(18, coinAreaHeight - 12);
 
@@ -219,6 +238,7 @@ export async function createGame(mount, opts = {}) {
       const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
       slot.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
     });
+    applySpinTransforms(spinAngle);
   }
 
   function updateStatus(message) {
@@ -257,62 +277,60 @@ export async function createGame(mount, opts = {}) {
     drawCoinFace(result);
   }
 
+  function updateSpin(delta) {
+    spinAngle += delta * COIN_SPIN_SPEED;
+    if (flipActive) {
+      flipTicks += delta;
+    }
+
+    applySpinTransforms(spinAngle);
+
+    const halfTurns = Math.floor(spinAngle / Math.PI);
+    if (halfTurns !== lastHalfTurn) {
+      const flips = Math.abs(halfTurns - lastHalfTurn);
+      for (let i = 0; i < flips; i += 1) {
+        const nextFace = coin.currentFace === "heads" ? "tails" : "heads";
+        coin.setFaceTexture(nextFace);
+      }
+      lastHalfTurn = halfTurns;
+    }
+
+    if (flipActive && flipTicks >= COIN_ANIMATION_DURATION) {
+      flipActive = false;
+      flipTicks = 0;
+      if (pendingResult) {
+        coin.setFaceTexture(pendingResult);
+        spinAngle = 0;
+        lastHalfTurn = 0;
+        applySpinTransforms(spinAngle);
+      }
+      if (flipResolver) {
+        flipResolver();
+        flipResolver = null;
+      }
+    }
+  }
+
   function playFlip(result, { instant = false } = {}) {
+    pendingResult = result;
+
     if (!state.showAnimations || instant) {
-      drawCoinFace(result);
+      spinAngle = 0;
+      lastHalfTurn = 0;
+      coin.setFace(result);
+      applySpinTransforms(spinAngle);
       return Promise.resolve();
     }
 
-    // Ensure the ticker is running so the animation can complete even if it was
-    // previously stopped by an animations toggle or render pause.
     if (!app.ticker.started) {
       app.ticker.start();
     }
 
-    const { x: baseScaleX, y: baseScaleY } = coin.getScale();
+    flipTicks = 0;
+    flipActive = true;
 
     return new Promise((resolve) => {
-      let tick = 0;
-      let finished = false;
-      let angle = 0;
-      let lastHalfTurn = 0;
-
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        app.ticker.remove(spin);
-        coin.view.scale.set(baseScaleX, baseScaleY);
-        coin.view.skew.set(0, 0);
-        coin.setFace(result);
-        resolve();
-      };
-
-      const spin = (delta) => {
-        tick += delta;
-        angle += delta * COIN_SPIN_SPEED;
-
-        const depth = Math.max(COIN_MIN_DEPTH_SCALE, Math.abs(Math.cos(angle)));
-        const direction = Math.sign(Math.cos(angle)) || 1;
-        coin.view.scale.x = direction * depth * baseScaleX;
-        coin.view.scale.y = baseScaleY * (0.9 + 0.1 * depth);
-        coin.view.skew.y = Math.sin(angle) * 0.18;
-
-        const halfTurns = Math.floor(angle / Math.PI);
-        if (halfTurns !== lastHalfTurn) {
-          const flips = Math.abs(halfTurns - lastHalfTurn);
-          for (let i = 0; i < flips; i += 1) {
-            const nextFace = coin.currentFace === "heads" ? "tails" : "heads";
-            coin.setFaceTexture(nextFace);
-          }
-          lastHalfTurn = halfTurns;
-        }
-        if (tick >= COIN_ANIMATION_DURATION) finish();
-      };
-
-      app.ticker.add(spin);
-
-      // Fail-safe in case the ticker stalls; ensures the round completes.
-      setTimeout(finish, (COIN_ANIMATION_DURATION / 60) * 1000 + 200);
+      flipResolver = resolve;
     });
   }
 
@@ -387,6 +405,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   window.addEventListener("resize", layout);
+  app.ticker.add(updateSpin);
   layout();
 
   return {
