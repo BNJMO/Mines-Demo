@@ -24,9 +24,9 @@ const COIN_SCALE_FACTOR = 0.85;
 const COIN_SPRITE_SIZE = 425;
 const COIN_SPRITE_GAP = 10;
 const COIN_SPRITE_ROWS = 5;
-const HISTORY_BAR_HEIGHT = 54;
-const HISTORY_SLOT_WIDTH = 32;
-const HISTORY_SLOT_HEIGHT = 28;
+const HISTORY_BAR_HEIGHT = 70;
+const HISTORY_SLOT_WIDTH = 30;
+const HISTORY_SLOT_HEIGHT = 24;
 const FRAME_PREVIEW_SIZE = 72;
 const FRAME_PREVIEW_PADDING = 8;
 
@@ -36,9 +36,10 @@ const COLORS = {
   tailsFill: 0x536aff,
   tailsHole: 0x0c1f2b,
   tailsStroke: 0x2f46b5,
-  historyFrame: 0x0f2734,
-  historyEmpty: 0x153243,
-  historyBorder: 0x224558,
+  historyPanel: 0x0d2432,
+  historyFrame: 0x0b1f2a,
+  historyEmpty: 0x122d3b,
+  historyBorder: 0x1c4559,
   historyDisabled: 0x3a5161,
   historyLabel: 0x0b202e,
 };
@@ -421,10 +422,8 @@ export async function createGame(mount, opts = {}) {
   const historyContainer = new Container();
   stage.addChild(historyContainer);
 
-  const historyLabelContainer = new Container();
-  const historyLabelBackground = new Graphics();
-  historyLabelContainer.addChild(historyLabelBackground);
-  historyContainer.addChild(historyLabelContainer);
+  const historyPanel = new Graphics();
+  historyContainer.addChild(historyPanel);
 
   const historyBar = new Graphics();
   const historyTrackContainer = new Container();
@@ -434,14 +433,14 @@ export async function createGame(mount, opts = {}) {
   const historyLabel = new Text({
     text: "History",
     style: new TextStyle({
-      fill: "#c4d9e8",
-      fontSize: 13,
-      fontWeight: "700",
+      fill: "#c0d7e7",
+      fontSize: 12,
+      fontWeight: "600",
       fontFamily,
     }),
   });
   historyLabel.anchor.set(0, 0.5);
-  historyLabelContainer.addChild(historyLabel);
+  historyContainer.addChild(historyLabel);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const container = new Container();
@@ -485,31 +484,33 @@ export async function createGame(mount, opts = {}) {
 
     const barX = 18;
     const barWidth = width - barX * 2;
-    const barY = height - HISTORY_BAR_HEIGHT + 10;
-    const barHeight = HISTORY_BAR_HEIGHT - 14;
+    const barY = height - HISTORY_BAR_HEIGHT + 6;
+    const barHeight = HISTORY_BAR_HEIGHT - 10;
 
-    const labelPaddingX = 18;
-    const labelPaddingY = 10;
-    const labelWidth = Math.max(historyLabel.width + labelPaddingX * 2, 120);
+    const panelPaddingX = 14;
+    const panelPaddingY = 10;
+    const trackGapY = 6;
 
-    historyLabelContainer.position.set(barX, barY);
-    historyLabelBackground
+    historyContainer.position.set(barX, barY);
+    historyPanel
       .clear()
-      .roundRect(0, 0, labelWidth, barHeight, 12)
-      .fill({ color: COLORS.historyLabel })
-      .stroke({ color: COLORS.historyBorder, width: 2 });
-    historyLabel.position.set(labelPaddingX, barHeight / 2 + labelPaddingY / 4);
+      .roundRect(0, 0, barWidth, barHeight, 10)
+      .fill({ color: COLORS.historyPanel, alpha: 0.96 })
+      .stroke({ color: COLORS.historyBorder, width: 1.5 });
 
-    const trackSpacing = 10;
-    const trackWidth = Math.max(120, barWidth - labelWidth - trackSpacing);
-    historyTrackContainer.position.set(barX + labelWidth + trackSpacing, barY);
+    historyLabel.position.set(panelPaddingX, panelPaddingY + historyLabel.height / 2);
+
+    const trackY = panelPaddingY + historyLabel.height + trackGapY;
+    const trackWidth = barWidth - panelPaddingX * 2;
+    const trackHeight = Math.max(32, barHeight - trackY - panelPaddingY);
+    historyTrackContainer.position.set(panelPaddingX, trackY);
     historyBar
       .clear()
-      .roundRect(0, 0, trackWidth, barHeight, 12)
-      .fill({ color: COLORS.historyFrame })
-      .stroke({ color: COLORS.historyBorder, width: 2 });
+      .roundRect(0, 0, trackWidth, trackHeight, 8)
+      .fill({ color: COLORS.historyFrame, alpha: 0.95 })
+      .stroke({ color: COLORS.historyBorder, width: 1.5, alpha: 0.6 });
 
-    const horizontalPadding = 14;
+    const horizontalPadding = 12;
     const availableWidth = trackWidth - horizontalPadding * 2;
     const slotGap = Math.max(
       4,
@@ -521,7 +522,7 @@ export async function createGame(mount, opts = {}) {
     const totalSlotsWidth =
       HISTORY_SLOT_WIDTH * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
     const startX = Math.max(horizontalPadding, (trackWidth - totalSlotsWidth) / 2);
-    const centerY = barHeight / 2;
+    const centerY = trackHeight / 2;
 
     historySlots.forEach((slot, index) => {
       const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
@@ -706,9 +707,9 @@ export async function createGame(mount, opts = {}) {
     slot.background.removeChildren();
     slot.background
       .clear()
-      .roundRect(0, 0, width, height, 8)
-      .fill({ color: COLORS.historyEmpty })
-      .stroke({ color: COLORS.historyBorder, width: 2 });
+      .roundRect(0, 0, width, height, 6)
+      .fill({ color: COLORS.historyEmpty, alpha: 0.42 })
+      .stroke({ color: COLORS.historyBorder, width: 1, alpha: 0.5 });
 
     slot.icon.visible = false;
     slot.icon.alpha = disabled ? 0.6 : 1;
