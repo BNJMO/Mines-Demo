@@ -9,8 +9,6 @@ import {
   Text,
   TextStyle,
 } from "pixi.js";
-import headsIconUrl from "../../assets/sprites/Heads.svg";
-import tailsIconUrl from "../../assets/sprites/Tails.svg";
 import spriteSheetHHUrl from "../../assets/sprites/SHH.png";
 import spriteSheetHTUrl from "../../assets/sprites/SHT.png";
 import spriteSheetTHUrl from "../../assets/sprites/STH.png";
@@ -377,26 +375,23 @@ export async function createGame(mount, opts = {}) {
   });
   framePreview.addChild(framePreviewMeta);
 
-  const [headsTexture, tailsTexture, sheetHH, sheetHT, sheetTH, sheetTT] =
-    await Promise.all([
-      Assets.load(headsIconUrl),
-      Assets.load(tailsIconUrl),
-      Assets.load(spriteSheetHHUrl),
-      Assets.load(spriteSheetHTUrl),
-      Assets.load(spriteSheetTHUrl),
-      Assets.load(spriteSheetTTUrl),
-    ]);
-
-  const coinTextures = {
-    heads: headsTexture,
-    tails: tailsTexture,
-  };
+  const [sheetHH, sheetHT, sheetTH, sheetTT] = await Promise.all([
+    Assets.load(spriteSheetHHUrl),
+    Assets.load(spriteSheetHTUrl),
+    Assets.load(spriteSheetTHUrl),
+    Assets.load(spriteSheetTTUrl),
+  ]);
 
   const coinAnimations = {
     HH: sliceSpriteSheet(sheetHH, resolveSliceOptions(sliceOptions, "HH")),
     HT: sliceSpriteSheet(sheetHT, resolveSliceOptions(sliceOptions, "HT")),
     TH: sliceSpriteSheet(sheetTH, resolveSliceOptions(sliceOptions, "TH")),
     TT: sliceSpriteSheet(sheetTT, resolveSliceOptions(sliceOptions, "TT")),
+  };
+
+  const coinTextures = {
+    heads: coinAnimations.HH?.[0] ?? Texture.WHITE,
+    tails: coinAnimations.TT?.[0] ?? Texture.WHITE,
   };
 
   const coin = new Coin({
