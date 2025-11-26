@@ -18,10 +18,61 @@
       <div class="app-container">
         <div class="game-container">
           <div id="game">
-            <video class="loading-video" autoplay loop muted>
-              <source src="./assets/videos/loading.webm" type="video/webm" />
-              <div class="loading">Loading Game</div>
-            </video>
+            <div class="coin-loader" aria-hidden="true">
+              <div class="coin">
+                <svg
+                  class="coin-face coin-face--front"
+                  viewBox="0 0 120 120"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <defs>
+                    <linearGradient id="frontGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#ffe57f" />
+                      <stop offset="50%" stop-color="#f7c74c" />
+                      <stop offset="100%" stop-color="#f0a400" />
+                    </linearGradient>
+                    <linearGradient id="frontRim" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#fff6cf" />
+                      <stop offset="100%" stop-color="#c27c00" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="60" cy="60" r="54" fill="url(#frontGradient)" />
+                  <circle cx="60" cy="60" r="44" fill="url(#frontRim)" opacity="0.75" />
+                  <circle cx="60" cy="60" r="34" fill="#132633" opacity="0.18" />
+                  <path
+                    d="M60 30c10 0 18 8 18 18 0 8-5 15-12 17 5 2 9 8 9 14 0 9-7 16-15 16s-15-7-15-16h8c0 4 3 7 7 7s7-3 7-7-3-7-7-7h-5v-8h5c6 0 11-5 11-11 0-6-5-11-11-11s-11 5-11 11h-8c0-10 8-18 18-18z"
+                    fill="#1d2c3b"
+                    opacity="0.7"
+                  />
+                </svg>
+
+                <svg
+                  class="coin-face coin-face--back"
+                  viewBox="0 0 120 120"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <defs>
+                    <linearGradient id="backGradient" x1="100%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#ffefb0" />
+                      <stop offset="50%" stop-color="#efb928" />
+                      <stop offset="100%" stop-color="#d98c00" />
+                    </linearGradient>
+                    <linearGradient id="backRim" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#fff4bf" />
+                      <stop offset="100%" stop-color="#a66b00" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="60" cy="60" r="54" fill="url(#backGradient)" />
+                  <circle cx="60" cy="60" r="44" fill="url(#backRim)" opacity="0.8" />
+                  <path
+                    d="M60 32 74 78h-8l-3-10H47l-3 10h-8l14-46h10zm-4 11-6 21h12l-6-21z"
+                    fill="#1d2c3b"
+                    opacity="0.7"
+                  />
+                </svg>
+              </div>
+              <div class="coin-shadow"></div>
+            </div>
           </div>
         </div>
         <div id="control-panel" class="control-panel-mount"></div>
