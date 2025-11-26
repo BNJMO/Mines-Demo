@@ -13,6 +13,8 @@ import tailsIconUrl from "../../assets/sprites/Tails.svg";
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_SPIN_SPEED = Math.PI * 0.35; // radians per tick for Y-spin simulation
+const COIN_MIN_DEPTH_SCALE = 0.12; // prevents scale from reaching zero at edge-on
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -35,6 +37,7 @@ class Coin {
   constructor({ textures, baseRadius }) {
     this.textures = textures;
     this.baseRadius = baseRadius;
+    this.currentFace = "heads";
 
     this.container = new Container();
     this.sprite = new Sprite({
@@ -62,14 +65,23 @@ class Coin {
     return { x: this.container.scale.x, y: this.container.scale.y };
   }
 
-  setFace(face) {
+  setFaceTexture(face) {
     const isHeads = face === "heads";
     this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
     this.sprite.width = this.baseRadius * 2;
     this.sprite.height = this.baseRadius * 2;
 
-    this.container.rotation = 0;
-    this.container.scale.y = this.container.scale.x;
+    this.currentFace = face;
+  }
+
+  setFace(face, { preserveTransform = false } = {}) {
+    this.setFaceTexture(face);
+
+    if (!preserveTransform) {
+      this.container.rotation = 0;
+      this.container.scale.y = this.container.scale.x;
+      this.container.skew.set(0, 0);
+    }
   }
 }
 
@@ -257,25 +269,43 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const { y: baseScaleY } = coin.getScale();
+    const { x: baseScaleX, y: baseScaleY } = coin.getScale();
 
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let angle = 0;
+      let lastHalfTurn = 0;
 
       const finish = () => {
         if (finished) return;
         finished = true;
         app.ticker.remove(spin);
-        drawCoinFace(result);
+        coin.view.scale.set(baseScaleX, baseScaleY);
+        coin.view.skew.set(0, 0);
+        coin.setFace(result);
         resolve();
       };
 
       const spin = (delta) => {
         tick += delta;
-        coin.view.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coin.view.scale.y = squash * baseScaleY;
+        angle += delta * COIN_SPIN_SPEED;
+
+        const depth = Math.max(COIN_MIN_DEPTH_SCALE, Math.abs(Math.cos(angle)));
+        const direction = Math.sign(Math.cos(angle)) || 1;
+        coin.view.scale.x = direction * depth * baseScaleX;
+        coin.view.scale.y = baseScaleY * (0.9 + 0.1 * depth);
+        coin.view.skew.y = Math.sin(angle) * 0.18;
+
+        const halfTurns = Math.floor(angle / Math.PI);
+        if (halfTurns !== lastHalfTurn) {
+          const flips = Math.abs(halfTurns - lastHalfTurn);
+          for (let i = 0; i < flips; i += 1) {
+            const nextFace = coin.currentFace === "heads" ? "tails" : "heads";
+            coin.setFaceTexture(nextFace);
+          }
+          lastHalfTurn = halfTurns;
+        }
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
