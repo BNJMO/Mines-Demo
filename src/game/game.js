@@ -25,6 +25,8 @@ const COIN_SPRITE_SIZE = 145;
 const HISTORY_BAR_HEIGHT = 54;
 const HISTORY_SLOT_WIDTH = 32;
 const HISTORY_SLOT_HEIGHT = 28;
+const FRAME_PREVIEW_SIZE = 72;
+const FRAME_PREVIEW_PADDING = 8;
 
 const COLORS = {
   headsRing: 0xf6a400,
@@ -253,6 +255,32 @@ export async function createGame(mount, opts = {}) {
   frameDebugText.anchor.set(1, 0);
   stage.addChild(frameDebugText);
 
+  const framePreview = new Container();
+  framePreview.visible = frameDebugEnabled;
+  stage.addChild(framePreview);
+
+  const framePreviewBg = new Graphics();
+  framePreview.addChild(framePreviewBg);
+
+  const framePreviewSprite = new Sprite({
+    texture: Texture.WHITE,
+    width: FRAME_PREVIEW_SIZE,
+    height: FRAME_PREVIEW_SIZE,
+  });
+  framePreview.addChild(framePreviewSprite);
+
+  const framePreviewText = new Text({
+    text: "",
+    style: new TextStyle({
+      fill: "#c5d5e2",
+      fontSize: 11,
+      fontFamily,
+      fontWeight: "600",
+    }),
+    visible: frameDebugEnabled,
+  });
+  framePreview.addChild(framePreviewText);
+
   const [headsTexture, tailsTexture, sheetHH, sheetHT, sheetTH, sheetTT] =
     await Promise.all([
       Assets.load(headsIconUrl),
@@ -281,6 +309,7 @@ export async function createGame(mount, opts = {}) {
     baseRadius: COIN_BASE_RADIUS,
   });
   stage.addChild(coin.view);
+  setFramePreview(coinAnimations.HH?.[0], "Sliced HH frame 1");
   setFrameDebug("Face: heads");
 
   const historyBar = new Graphics();
@@ -316,6 +345,8 @@ export async function createGame(mount, opts = {}) {
     statusText.position.set(18, coinAreaHeight - 12);
 
     frameDebugText.position.set(width - 12, 8);
+
+    layoutFramePreview();
 
     const barX = 18;
     const barWidth = width - barX * 2;
@@ -357,16 +388,65 @@ export async function createGame(mount, opts = {}) {
     frameDebugText.visible = false;
   }
 
+  function layoutFramePreview() {
+    if (!frameDebugEnabled) return;
+
+    framePreview.position.set(FRAME_PREVIEW_PADDING, FRAME_PREVIEW_PADDING);
+    framePreviewSprite.position.set(FRAME_PREVIEW_PADDING, FRAME_PREVIEW_PADDING);
+    framePreviewSprite.width = FRAME_PREVIEW_SIZE;
+    framePreviewSprite.height = FRAME_PREVIEW_SIZE;
+
+    const textY =
+      FRAME_PREVIEW_SIZE + FRAME_PREVIEW_PADDING + (framePreviewText.text ? 6 : 0);
+    framePreviewText.position.set(FRAME_PREVIEW_PADDING, textY);
+
+    const contentWidth = Math.max(
+      FRAME_PREVIEW_SIZE,
+      framePreviewText.visible ? framePreviewText.width : 0
+    );
+    const boxWidth = contentWidth + FRAME_PREVIEW_PADDING * 2;
+    const boxHeight =
+      textY + (framePreviewText.visible ? framePreviewText.height : 0) +
+      FRAME_PREVIEW_PADDING;
+
+    framePreviewBg
+      .clear()
+      .roundRect(0, 0, boxWidth, boxHeight, 10)
+      .fill({ color: COLORS.historyFrame })
+      .stroke({ color: COLORS.historyBorder, width: 2 });
+  }
+
+  function setFramePreview(texture, label) {
+    if (!frameDebugEnabled || !texture) return;
+
+    framePreviewSprite.texture = texture;
+    framePreviewText.text = label;
+    framePreviewText.visible = true;
+
+    layoutFramePreview();
+  }
+
   function showFrameStep({ animationKey, frameIndex, totalFrames, targetFace }) {
     const faceLabel = targetFace === "tails" ? "tails" : "heads";
     setFrameDebug(
       `Anim ${animationKey}: frame ${frameIndex + 1}/${totalFrames} → ${faceLabel}`
+    );
+
+    const previewFrame = coinAnimations?.[animationKey]?.[frameIndex];
+    setFramePreview(
+      previewFrame,
+      `Sliced ${animationKey} frame ${frameIndex + 1}/${totalFrames}`
     );
   }
 
   function showFrameComplete({ animationKey, targetFace }) {
     const faceLabel = targetFace === "tails" ? "tails" : "heads";
     setFrameDebug(`Done ${animationKey} → ${faceLabel}`);
+
+    const finalFrame = coinAnimations?.[animationKey]?.[0];
+    if (finalFrame) {
+      setFramePreview(finalFrame, `Sliced ${animationKey} sample`);
+    }
   }
 
   function startBet({ amount = 0 } = {}) {
