@@ -420,6 +420,18 @@ export async function createGame(mount, opts = {}) {
   const historyBar = new Graphics();
   stage.addChild(historyBar);
 
+  const historyLabel = new Text({
+    text: "History",
+    style: new TextStyle({
+      fill: "#c4d9e8",
+      fontSize: 13,
+      fontWeight: "700",
+      fontFamily,
+    }),
+  });
+  historyLabel.anchor.set(0, 1);
+  stage.addChild(historyLabel);
+
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const container = new Container();
     const background = new Graphics();
@@ -462,12 +474,15 @@ export async function createGame(mount, opts = {}) {
 
     const barX = 18;
     const barWidth = width - barX * 2;
-    const barY = height - HISTORY_BAR_HEIGHT + 10;
-    const barHeight = HISTORY_BAR_HEIGHT - 20;
+    const barY = height - HISTORY_BAR_HEIGHT + 14;
+    const barHeight = HISTORY_BAR_HEIGHT - 24;
     historyBar
       .clear()
-      .roundRect(barX, barY, barWidth, barHeight, 12)
-      .fill({ color: COLORS.historyFrame });
+      .roundRect(barX, barY, barWidth, barHeight, 14)
+      .fill({ color: COLORS.historyFrame })
+      .stroke({ color: COLORS.historyBorder, width: 2 });
+
+    historyLabel.position.set(barX + 10, barY - 6);
 
     const availableWidth = barWidth - 24;
     const slotGap = Math.max(
