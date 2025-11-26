@@ -83,7 +83,7 @@ class Coin {
     this.currentFace = isHeads ? "heads" : "tails";
   }
 
-  playFlipAnimation(targetFace, { ticker, duration }) {
+  playFlipAnimation(targetFace, { ticker, duration, onFrame, onFinish }) {
     const from = this.currentFace === "tails" ? "T" : "H";
     const to = targetFace === "tails" ? "T" : "H";
     const animationKey = `${from}${to}`;
@@ -91,6 +91,7 @@ class Coin {
 
     if (!frames?.length) {
       this.setFace(targetFace);
+      onFinish?.({ animationKey, targetFace });
       return Promise.resolve();
     }
 
@@ -107,6 +108,7 @@ class Coin {
         finished = true;
         ticker.remove(step);
         this.setFace(targetFace);
+        onFinish?.({ animationKey, targetFace });
         resolve();
       };
 
@@ -120,6 +122,13 @@ class Coin {
         this.sprite.width = this.baseRadius * 2;
         this.sprite.height = this.baseRadius * 2;
 
+        onFrame?.({
+          animationKey,
+          frameIndex,
+          totalFrames,
+          targetFace,
+        });
+
         if (progress >= duration) {
           finish();
         }
@@ -128,6 +137,13 @@ class Coin {
       ticker.add(step);
 
       setTimeout(finish, (duration / 60) * 1000 + 200);
+
+      onFrame?.({
+        animationKey,
+        frameIndex: 0,
+        totalFrames,
+        targetFace,
+      });
     });
   }
 }
@@ -223,6 +239,20 @@ export async function createGame(mount, opts = {}) {
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
 
+  const frameDebugEnabled = Boolean(opts.debugFrames);
+  const frameDebugText = new Text({
+    text: "",
+    style: new TextStyle({
+      fill: "#83e4ff",
+      fontSize: 11,
+      fontFamily,
+      fontWeight: "600",
+    }),
+    visible: frameDebugEnabled,
+  });
+  frameDebugText.anchor.set(1, 0);
+  stage.addChild(frameDebugText);
+
   const [headsTexture, tailsTexture, sheetHH, sheetHT, sheetTH, sheetTT] =
     await Promise.all([
       Assets.load(headsIconUrl),
@@ -251,6 +281,7 @@ export async function createGame(mount, opts = {}) {
     baseRadius: COIN_BASE_RADIUS,
   });
   stage.addChild(coin.view);
+  setFrameDebug("Face: heads");
 
   const historyBar = new Graphics();
   stage.addChild(historyBar);
@@ -284,6 +315,8 @@ export async function createGame(mount, opts = {}) {
 
     statusText.position.set(18, coinAreaHeight - 12);
 
+    frameDebugText.position.set(width - 12, 8);
+
     const barX = 18;
     const barWidth = width - barX * 2;
     const barY = height - HISTORY_BAR_HEIGHT + 10;
@@ -313,6 +346,29 @@ export async function createGame(mount, opts = {}) {
     statusText.visible = false;
   }
 
+  function setFrameDebug(message) {
+    if (!frameDebugEnabled) return;
+    frameDebugText.text = message;
+    frameDebugText.visible = true;
+  }
+
+  function clearFrameDebug() {
+    if (!frameDebugEnabled) return;
+    frameDebugText.visible = false;
+  }
+
+  function showFrameStep({ animationKey, frameIndex, totalFrames, targetFace }) {
+    const faceLabel = targetFace === "tails" ? "tails" : "heads";
+    setFrameDebug(
+      `Anim ${animationKey}: frame ${frameIndex + 1}/${totalFrames} → ${faceLabel}`
+    );
+  }
+
+  function showFrameComplete({ animationKey, targetFace }) {
+    const faceLabel = targetFace === "tails" ? "tails" : "heads";
+    setFrameDebug(`Done ${animationKey} → ${faceLabel}`);
+  }
+
   function startBet({ amount = 0 } = {}) {
     state.roundActive = true;
     state.betAmount = Number(amount) || 0;
@@ -333,7 +389,7 @@ export async function createGame(mount, opts = {}) {
     state.history = [];
     updateHistory([]);
     updateStatus("Choose a side to start flipping");
-    drawCoinFace("tails");
+    setFace("tails");
   }
 
   function drawCoinFace(result) {
@@ -342,11 +398,12 @@ export async function createGame(mount, opts = {}) {
 
   function setFace(result) {
     drawCoinFace(result);
+    setFrameDebug(`Face: ${result}`);
   }
 
   function playFlip(result, { instant = false } = {}) {
     if (!state.showAnimations || instant) {
-      drawCoinFace(result);
+      setFace(result);
       return Promise.resolve();
     }
 
@@ -359,6 +416,8 @@ export async function createGame(mount, opts = {}) {
     return coin.playFlipAnimation(result, {
       ticker: app.ticker,
       duration: COIN_ANIMATION_DURATION,
+      onFrame: frameDebugEnabled ? showFrameStep : undefined,
+      onFinish: frameDebugEnabled ? showFrameComplete : undefined,
     });
   }
 
