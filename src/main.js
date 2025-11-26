@@ -118,12 +118,7 @@ function recordHistory(result) {
 
 function deriveOutcome() {
   seeds.nonce += 1;
-  const basis = `${seeds.serverSeed}:${seeds.clientSeed}:${seeds.nonce}`;
-  let entropy = 0;
-  for (let i = 0; i < basis.length; i += 1) {
-    entropy = (entropy + basis.charCodeAt(i) * (i + 1)) % 9973;
-  }
-  const roll = (entropy / 9973 + getUniformRandom() * 0.0001) % 1;
+  const roll = getUniformRandom();
   const result = roll < 0.5 ? "heads" : "tails";
   return { result, proof: { ...seeds, roll } };
 }
