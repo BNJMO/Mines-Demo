@@ -134,6 +134,8 @@ export async function createGame(mount, opts = {}) {
     autoDensity: true,
   });
 
+  app.start();
+
   root.innerHTML = "";
   root.appendChild(app.canvas);
 
