@@ -27,6 +27,8 @@ const COIN_SPRITE_ROWS = 5;
 const HISTORY_BAR_HEIGHT = 70;
 const HISTORY_SLOT_WIDTH = 30;
 const HISTORY_SLOT_HEIGHT = 24;
+const HISTORY_SLOT_MIN_WIDTH = 18;
+const HISTORY_SLOT_MIN_HEIGHT = 16;
 const FRAME_PREVIEW_SIZE = 72;
 const FRAME_PREVIEW_PADDING = 8;
 
@@ -406,6 +408,9 @@ export async function createGame(mount, opts = {}) {
     tails: tailsIconTexture ?? Texture.WHITE,
   };
 
+  let historySlotWidth = HISTORY_SLOT_WIDTH;
+  let historySlotHeight = HISTORY_SLOT_HEIGHT;
+
   const coin = new Coin({
     textures: coinTextures,
     animations: coinAnimations,
@@ -425,6 +430,10 @@ export async function createGame(mount, opts = {}) {
   const historyPanel = new Graphics();
   historyContainer.addChild(historyPanel);
 
+  const historyLabelContainer = new Container();
+  const historyLabelBg = new Graphics();
+  historyLabelContainer.addChild(historyLabelBg);
+
   const historyBar = new Graphics();
   const historyTrackContainer = new Container();
   historyTrackContainer.addChild(historyBar);
@@ -440,7 +449,8 @@ export async function createGame(mount, opts = {}) {
     }),
   });
   historyLabel.anchor.set(0, 0.5);
-  historyContainer.addChild(historyLabel);
+  historyLabelContainer.addChild(historyLabel);
+  historyContainer.addChild(historyLabelContainer);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const container = new Container();
@@ -483,26 +493,41 @@ export async function createGame(mount, opts = {}) {
     layoutFramePreview();
 
     const barX = 18;
-    const barWidth = width - barX * 2;
+    const barWidth = Math.max(260, width - barX * 2);
     const barY = height - HISTORY_BAR_HEIGHT + 6;
-    const barHeight = HISTORY_BAR_HEIGHT - 10;
+    const barHeight = HISTORY_BAR_HEIGHT - 8;
 
     const panelPaddingX = 14;
     const panelPaddingY = 10;
-    const trackGapY = 6;
+    const trackGapY = 8;
+    const labelPaddingX = 12;
+    const labelPaddingY = 6;
 
     historyContainer.position.set(barX, barY);
     historyPanel
       .clear()
-      .roundRect(0, 0, barWidth, barHeight, 10)
+      .roundRect(0, 0, barWidth, barHeight, 12)
       .fill({ color: COLORS.historyPanel, alpha: 0.96 })
       .stroke({ color: COLORS.historyBorder, width: 1.5 });
 
-    historyLabel.position.set(panelPaddingX, panelPaddingY + historyLabel.height / 2);
-
-    const trackY = panelPaddingY + historyLabel.height + trackGapY;
     const trackWidth = barWidth - panelPaddingX * 2;
-    const trackHeight = Math.max(32, barHeight - trackY - panelPaddingY);
+    const labelWidth = Math.min(
+      trackWidth,
+      Math.max(historyLabel.width + labelPaddingX * 2, 96)
+    );
+    const labelHeight = historyLabel.height + labelPaddingY * 2;
+
+    historyLabelContainer.position.set(panelPaddingX, panelPaddingY);
+    historyLabelBg
+      .clear()
+      .roundRect(0, 0, labelWidth, labelHeight, 8)
+      .fill({ color: COLORS.historyLabel, alpha: 0.95 })
+      .stroke({ color: COLORS.historyBorder, width: 1.25, alpha: 0.8 });
+
+    historyLabel.position.set(labelPaddingX, labelPaddingY + historyLabel.height / 2);
+
+    const trackY = panelPaddingY + labelHeight + trackGapY;
+    const trackHeight = Math.max(34, barHeight - trackY - panelPaddingY);
     historyTrackContainer.position.set(panelPaddingX, trackY);
     historyBar
       .clear()
@@ -512,22 +537,41 @@ export async function createGame(mount, opts = {}) {
 
     const horizontalPadding = 12;
     const availableWidth = trackWidth - horizontalPadding * 2;
-    const slotGap = Math.max(
-      4,
-      Math.min(
-        10,
-        (availableWidth - HISTORY_SLOT_WIDTH * HISTORY_SIZE) / (HISTORY_SIZE - 1)
+    const minGap = 4;
+    const maxGap = 10;
+    historySlotWidth = Math.min(
+      HISTORY_SLOT_WIDTH,
+      Math.max(
+        HISTORY_SLOT_MIN_WIDTH,
+        Math.floor(
+          (availableWidth - minGap * (HISTORY_SIZE - 1)) / Math.max(1, HISTORY_SIZE)
+        )
       )
     );
+    const remainingWidth = Math.max(
+      0,
+      availableWidth - historySlotWidth * HISTORY_SIZE
+    );
+    const computedGap = remainingWidth / Math.max(1, HISTORY_SIZE - 1);
+    const slotGap = Math.max(minGap, Math.min(maxGap, computedGap));
     const totalSlotsWidth =
-      HISTORY_SLOT_WIDTH * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
+      historySlotWidth * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
+    historySlotHeight = Math.min(
+      HISTORY_SLOT_HEIGHT,
+      Math.max(
+        HISTORY_SLOT_MIN_HEIGHT,
+        Math.round(historySlotWidth * (HISTORY_SLOT_HEIGHT / HISTORY_SLOT_WIDTH))
+      )
+    );
     const startX = Math.max(horizontalPadding, (trackWidth - totalSlotsWidth) / 2);
     const centerY = trackHeight / 2;
 
     historySlots.forEach((slot, index) => {
-      const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
-      slot.container.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
+      const x = startX + index * (historySlotWidth + slotGap);
+      slot.container.position.set(x, centerY - historySlotHeight / 2);
     });
+
+    updateHistory(state.history, { disabled: state.historyDisabled });
   }
 
   function updateStatus(message) {
@@ -701,8 +745,8 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawHistorySlot(slot, value, { disabled = false } = {}) {
-    const width = HISTORY_SLOT_WIDTH;
-    const height = HISTORY_SLOT_HEIGHT;
+    const width = historySlotWidth;
+    const height = historySlotHeight;
     // removeChildren() returns an array and is not chainable with Graphics clear()
     slot.background.removeChildren();
     slot.background
