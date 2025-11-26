@@ -35,6 +35,7 @@ class Coin {
   constructor({ textures, baseRadius }) {
     this.textures = textures;
     this.baseRadius = baseRadius;
+    this.currentFace = "heads";
 
     this.container = new Container();
     this.sprite = new Sprite({
@@ -62,14 +63,17 @@ class Coin {
     return { x: this.container.scale.x, y: this.container.scale.y };
   }
 
-  setFace(face) {
+  setFace(face, { preserveTransform = false } = {}) {
     const isHeads = face === "heads";
     this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
     this.sprite.width = this.baseRadius * 2;
     this.sprite.height = this.baseRadius * 2;
 
-    this.container.rotation = 0;
-    this.container.scale.y = this.container.scale.x;
+    this.currentFace = face;
+    if (!preserveTransform) {
+      this.container.rotation = 0;
+      this.container.scale.y = this.container.scale.x;
+    }
   }
 }
 
@@ -98,6 +102,12 @@ export async function createGame(mount, opts = {}) {
     Number.isFinite(opts.coinSize) && opts.coinSize > 0
       ? opts.coinSize
       : COIN_SCALE_FACTOR;
+  const debugOptions = {
+    enabled: Boolean(opts.debug),
+    console: Boolean(opts.debug?.console ?? true),
+    key: opts.debug?.key ?? "t",
+    deterministicDelta: opts.debug?.deterministicDelta ?? 1,
+  };
 
   root.style.position = root.style.position || "relative";
   root.style.aspectRatio = root.style.aspectRatio || "1 / 1";
@@ -140,6 +150,18 @@ export async function createGame(mount, opts = {}) {
   statusText.anchor.set(0, 1);
   stage.addChild(statusText);
 
+  const debugText = new Text({
+    text: "",
+    style: new TextStyle({
+      fill: "#9bd4ff",
+      fontSize: 12,
+      fontFamily,
+    }),
+    visible: debugOptions.enabled,
+  });
+  debugText.anchor.set(0, 0);
+  stage.addChild(debugText);
+
   const [headsTexture, tailsTexture] = await Promise.all([
     Assets.load(headsIconUrl),
     Assets.load(tailsIconUrl),
@@ -169,6 +191,12 @@ export async function createGame(mount, opts = {}) {
     history: [],
     historyDisabled: false,
     showAnimations: true,
+    debugTestSpin: null,
+  };
+
+  const debugUi = {
+    keyListener: null,
+    button: null,
   };
 
   function layout() {
@@ -182,6 +210,8 @@ export async function createGame(mount, opts = {}) {
 
     coin.setPosition(width / 2, coinAreaHeight / 2 + 8);
     coin.setScale(coinScale);
+
+    debugText.position.set(12, 10);
 
     statusText.position.set(18, coinAreaHeight - 12);
 
@@ -258,24 +288,60 @@ export async function createGame(mount, opts = {}) {
     }
 
     const { y: baseScaleY } = coin.getScale();
+    const swapProgressPoints = [0.25, 0.5, 0.75];
 
     return new Promise((resolve) => {
       let tick = 0;
       let finished = false;
+      let faceSwapCount = 0;
+      let lastSwapIndex = -1;
+      let currentFace = coin.currentFace ?? "heads";
 
       const finish = () => {
         if (finished) return;
         finished = true;
         app.ticker.remove(spin);
         drawCoinFace(result);
+        if (debugOptions.enabled) {
+          debugText.text = `${debugText.text.split("\n")[0]}\nscale: ${coin.view.scale.x
+            .toFixed(2)} / ${coin.view.scale.y.toFixed(2)}\nface swaps: ${faceSwapCount}`;
+          if (debugOptions.console) {
+            // eslint-disable-next-line no-console
+            console.debug("spin complete", { faceSwapCount });
+          }
+        }
         resolve();
       };
 
       const spin = (delta) => {
-        tick += delta;
+        const effectiveDelta = debugOptions.enabled
+          ? debugOptions.deterministicDelta
+          : delta;
+        tick += effectiveDelta;
         coin.view.rotation += 0.25 * delta;
         const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
         coin.view.scale.y = squash * baseScaleY;
+        const progress = Math.min(1, tick / COIN_ANIMATION_DURATION);
+
+        for (let i = lastSwapIndex + 1; i < swapProgressPoints.length; i += 1) {
+          if (progress >= swapProgressPoints[i]) {
+            currentFace = currentFace === "heads" ? "tails" : "heads";
+            coin.setFace(currentFace, { preserveTransform: true });
+            faceSwapCount += 1;
+            lastSwapIndex = i;
+          }
+        }
+
+        if (debugOptions.enabled) {
+          const scaleX = coin.view.scale.x.toFixed(2);
+          const scaleY = coin.view.scale.y.toFixed(2);
+          debugText.text = `progress: ${progress.toFixed(2)}\nscale: ${scaleX} / ${scaleY}\nface swaps: ${faceSwapCount}`;
+          if (debugOptions.console) {
+            // eslint-disable-next-line no-console
+            console.debug("spin frame", { progress, scaleX, scaleY, faceSwapCount });
+          }
+        }
+
         if (tick >= COIN_ANIMATION_DURATION) finish();
       };
 
@@ -350,6 +416,12 @@ export async function createGame(mount, opts = {}) {
 
   function destroy() {
     window.removeEventListener("resize", layout);
+    if (debugUi.keyListener) {
+      window.removeEventListener("keydown", debugUi.keyListener);
+    }
+    if (debugUi.button?.parentNode === root) {
+      root.removeChild(debugUi.button);
+    }
     app.destroy(true);
     if (app.canvas?.parentNode === root) {
       root.removeChild(app.canvas);
@@ -358,6 +430,35 @@ export async function createGame(mount, opts = {}) {
 
   window.addEventListener("resize", layout);
   layout();
+
+  if (debugOptions.enabled) {
+    const triggerTestSpin = () => {
+      state.debugTestSpin = (state.debugTestSpin || 0) + 1;
+      playFlip(state.debugTestSpin % 2 === 0 ? "heads" : "tails");
+    };
+
+    debugUi.keyListener = (event) => {
+      if (event.key.toLowerCase() === debugOptions.key.toLowerCase()) {
+        triggerTestSpin();
+      }
+    };
+
+    window.addEventListener("keydown", debugUi.keyListener);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = `Test Spin (${debugOptions.key.toUpperCase()})`;
+    button.style.position = "absolute";
+    button.style.top = "12px";
+    button.style.right = "12px";
+    button.style.padding = "6px 10px";
+    button.style.fontSize = "12px";
+    button.style.opacity = "0.8";
+    button.style.cursor = "pointer";
+    button.addEventListener("click", triggerTestSpin);
+    root.appendChild(button);
+    debugUi.button = button;
+  }
 
   return {
     app,
