@@ -28,6 +28,7 @@ const COLORS = {
   historyFrame: 0x0f2734,
   historyEmpty: 0x153243,
   historyBorder: 0x224558,
+  historyDisabled: 0x3a5161,
 };
 
 class Coin {
@@ -166,6 +167,7 @@ export async function createGame(mount, opts = {}) {
     betAmount: 0,
     result: null,
     history: [],
+    historyDisabled: false,
     showAnimations: true,
   };
 
@@ -293,7 +295,7 @@ export async function createGame(mount, opts = {}) {
     void multiplier;
   }
 
-  function drawHistorySlot(slot, value) {
+  function drawHistorySlot(slot, value, { disabled = false } = {}) {
     const width = HISTORY_SLOT_WIDTH;
     const height = HISTORY_SLOT_HEIGHT;
     // removeChildren() returns an array and is not chainable with Graphics clear()
@@ -307,8 +309,8 @@ export async function createGame(mount, opts = {}) {
     if (!value) return;
 
     const isHeads = value.toUpperCase() === "H";
-    const primary = isHeads ? COLORS.headsRing : COLORS.tailsFill;
-    const cutout = isHeads ? COLORS.headsCenter : COLORS.tailsHole;
+    const primary = disabled ? COLORS.historyDisabled : isHeads ? COLORS.headsRing : COLORS.tailsFill;
+    const cutout = disabled ? COLORS.historyDisabled : isHeads ? COLORS.headsCenter : COLORS.tailsHole;
 
     const centerX = width / 2;
     const centerY = height / 2;
@@ -330,10 +332,11 @@ export async function createGame(mount, opts = {}) {
     }
   }
 
-  function updateHistory(history = []) {
+  function updateHistory(history = [], { disabled = false } = {}) {
     state.history = history.slice(-HISTORY_SIZE);
+    state.historyDisabled = disabled;
     for (let i = 0; i < HISTORY_SIZE; i += 1) {
-      drawHistorySlot(historySlots[i], state.history[i]);
+      drawHistorySlot(historySlots[i], state.history[i], { disabled });
     }
   }
 

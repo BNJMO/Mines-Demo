@@ -37,6 +37,7 @@ const state = {
   autoplayBaseBalance: 0,
   showAnimations: true,
   history: [],
+  historyDisabled: false,
 };
 
 function formatCurrency(value) {
@@ -60,7 +61,7 @@ function updateDisplays() {
     streak: state.currentStreak,
     multiplier: state.currentMultiplier,
   });
-  game?.updateHistory?.(state.history);
+  game?.updateHistory?.(state.history, { disabled: state.historyDisabled });
 }
 
 function updateStatus(message) {
@@ -74,13 +75,14 @@ function resetRoundState({ resetHistory = false } = {}) {
   state.awaitingChoice = false;
   state.currentStreak = 0;
   state.currentMultiplier = 1;
+  state.historyDisabled = false;
   controlPanel?.setBetButtonMode?.("bet");
   controlPanel?.setBetButtonState?.("clickable");
   controlPanel?.setRandomPickState?.("non-clickable");
   controlPanel?.setMinesSelectState?.("non-clickable");
   if (resetHistory) {
     state.history = [];
-    game?.updateHistory?.(state.history);
+    game?.updateHistory?.(state.history, { disabled: state.historyDisabled });
   }
   updateDisplays();
 }
@@ -126,6 +128,7 @@ async function resolveFlip({ instant = false } = {}) {
   recordHistory(result);
   const won = result === state.chosenSide;
   if (won) {
+    state.historyDisabled = false;
     state.currentStreak += 1;
     state.currentMultiplier = calculateMultiplier(state.currentStreak);
     state.awaitingDecision = true;
@@ -149,6 +152,7 @@ async function resolveFlip({ instant = false } = {}) {
     controlPanel?.setMinesSelectState?.("non-clickable");
     updateStatus(`Missed: landed on ${result.toUpperCase()}`);
     game?.completeBet?.({ resultText: "Round lost" });
+    state.historyDisabled = true;
   }
 
   updateDisplays();
@@ -189,6 +193,12 @@ async function startRound({ autoPickSide } = {}) {
   if (state.roundActive) return;
   const bet = applyBetFromInput();
   if (!bet) return;
+
+  if (state.historyDisabled) {
+    state.history = [];
+    state.historyDisabled = false;
+    game?.updateHistory?.(state.history, { disabled: state.historyDisabled });
+  }
 
   state.roundActive = true;
   state.awaitingDecision = false;
