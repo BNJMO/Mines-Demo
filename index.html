@@ -18,10 +18,127 @@
       <div class="app-container">
         <div class="game-container">
           <div id="game">
-            <video class="loading-video" autoplay loop muted>
-              <source src="./assets/videos/loading.webm" type="video/webm" />
-              <div class="loading">Loading Game</div>
-            </video>
+            <div class="coin-loader" aria-hidden="true">
+              <div class="coin">
+                <svg
+                  class="coin-face coin-face--front"
+                  viewBox="0 0 120 120"
+                  xmlns="http://www.w3.org/2000/svg"
+                  role="presentation"
+                >
+                  <defs>
+                    <radialGradient id="frontEdge" cx="30%" cy="30%" r="80%">
+                      <stop offset="0%" stop-color="#ffe8a6" />
+                      <stop offset="50%" stop-color="#f6b600" />
+                      <stop offset="100%" stop-color="#c57a00" />
+                    </radialGradient>
+                    <radialGradient id="frontPlate" cx="35%" cy="35%" r="70%">
+                      <stop offset="0%" stop-color="#ffd772" />
+                      <stop offset="65%" stop-color="#f6a400" />
+                      <stop offset="100%" stop-color="#c67600" />
+                    </radialGradient>
+                    <linearGradient id="frontShine" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32" />
+                      <stop offset="35%" stop-color="#ffffff" stop-opacity="0" />
+                      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.28" />
+                    </linearGradient>
+                  </defs>
+
+                  <circle cx="60" cy="60" r="56" fill="url(#frontEdge)" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="48"
+                    fill="url(#frontPlate)"
+                    stroke="#fbe3a4"
+                    stroke-width="2"
+                    opacity="0.92"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="url(#frontPlate)"
+                    stroke="#ffd772"
+                    stroke-width="1.5"
+                  />
+                  <circle cx="60" cy="60" r="18" fill="#0c1f2b" />
+                  <circle cx="60" cy="60" r="12" fill="#0c1f2b" opacity="0.5" />
+                  <path
+                    d="M36 54c0-14 10-24 24-24 3.6 0 6.9 0.7 9.9 2l-3.1 7.4C64.7 38.6 62.5 38 60 38c-9.3 0-16 6.7-16 16s6.7 16 16 16c4 0 7.6-1.4 10.3-4l5.7 5.4C72 75 66.6 77 60 77 46 77 36 68 36 54z"
+                    fill="#ffe8a6"
+                    fill-opacity="0.45"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="56"
+                    fill="url(#frontShine)"
+                    opacity="0.35"
+                  />
+                </svg>
+
+                <svg
+                  class="coin-face coin-face--back"
+                  viewBox="0 0 120 120"
+                  xmlns="http://www.w3.org/2000/svg"
+                  role="presentation"
+                >
+                  <defs>
+                    <radialGradient id="backEdge" cx="30%" cy="30%" r="80%">
+                      <stop offset="0%" stop-color="#ffe8a6" />
+                      <stop offset="50%" stop-color="#f6b600" />
+                      <stop offset="100%" stop-color="#c57a00" />
+                    </radialGradient>
+                    <radialGradient id="backPlate" cx="40%" cy="35%" r="70%">
+                      <stop offset="0%" stop-color="#ffe29b" />
+                      <stop offset="60%" stop-color="#f6a400" />
+                      <stop offset="100%" stop-color="#c67600" />
+                    </radialGradient>
+                    <linearGradient id="backShine" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+                      <stop offset="38%" stop-color="#ffffff" stop-opacity="0" />
+                      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.24" />
+                    </linearGradient>
+                  </defs>
+
+                  <circle cx="60" cy="60" r="56" fill="url(#backEdge)" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="48"
+                    fill="url(#backPlate)"
+                    stroke="#fbe3a4"
+                    stroke-width="2"
+                    opacity="0.92"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="url(#backPlate)"
+                    stroke="#ffd772"
+                    stroke-width="1.5"
+                  />
+                  <circle cx="60" cy="60" r="18" fill="#536aff" />
+                  <path
+                    d="M60 44 74 60 60 76 46 60 60 44z"
+                    fill="#0c1f2b"
+                    stroke="#0c1f2b"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="56"
+                    fill="url(#backShine)"
+                    opacity="0.35"
+                  />
+                </svg>
+              </div>
+              <div class="coin-shadow"></div>
+            </div>
           </div>
         </div>
         <div id="control-panel" class="control-panel-mount"></div>
