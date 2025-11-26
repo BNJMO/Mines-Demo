@@ -115,10 +115,6 @@ export async function createGame(mount, opts = {}) {
     initialSize
   );
 
-  if (loader) {
-    loader.remove();
-  }
-
   await app.init({
     background: backgroundColor,
     width: startWidth,
@@ -127,12 +123,10 @@ export async function createGame(mount, opts = {}) {
     autoDensity: true,
   });
 
-  root.innerHTML = "";
-  root.appendChild(app.canvas);
+  root.insertBefore(app.canvas, root.firstChild);
 
   if (loader) {
     loader.classList.add("coin-loader--active");
-    root.appendChild(loader);
   }
 
   const stage = new Container();
