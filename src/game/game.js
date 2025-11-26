@@ -141,7 +141,7 @@ function sliceSpriteSheet(spriteSheetTexture, frameSize) {
     for (let col = 0; col < columns; col += 1) {
       frames.push(
         new Texture({
-          baseTexture: spriteSheetTexture.baseTexture,
+          source: spriteSheetTexture.source,
           frame: new Rectangle(
             col * frameSize,
             row * frameSize,
