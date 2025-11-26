@@ -13,6 +13,8 @@ import tailsIconUrl from "../../assets/sprites/Tails.svg";
 const DEFAULT_BACKGROUND = 0x091b26;
 const HISTORY_SIZE = 10;
 const COIN_ANIMATION_DURATION = 50; // ticks
+const COIN_SPIN_SPEED = Math.PI * 0.35; // radians per tick for Y-spin simulation
+const COIN_MIN_DEPTH_SCALE = 0.35; // prevents scale from reaching zero at edge-on
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const HISTORY_BAR_HEIGHT = 54;
@@ -35,14 +37,14 @@ class Coin {
   constructor({ textures, baseRadius }) {
     this.textures = textures;
     this.baseRadius = baseRadius;
+    this.currentFace = "heads";
 
     this.container = new Container();
-    this.sprite = new Sprite({
-      texture: textures.heads,
-      width: baseRadius * 2,
-      height: baseRadius * 2,
-    });
+    this.sprite = new Sprite({ texture: textures.heads });
+    this.sprite.width = baseRadius * 2;
+    this.sprite.height = baseRadius * 2;
     this.sprite.anchor.set(0.5);
+    this.sprite.position.set(0, 0);
     this.container.addChild(this.sprite);
   }
 
@@ -62,14 +64,22 @@ class Coin {
     return { x: this.container.scale.x, y: this.container.scale.y };
   }
 
-  setFace(face) {
+  setFaceTexture(face) {
     const isHeads = face === "heads";
     this.sprite.texture = isHeads ? this.textures.heads : this.textures.tails;
     this.sprite.width = this.baseRadius * 2;
     this.sprite.height = this.baseRadius * 2;
 
-    this.container.rotation = 0;
-    this.container.scale.y = this.container.scale.x;
+    this.currentFace = face;
+  }
+
+  setFace(face, { preserveTransform = false } = {}) {
+    this.setFaceTexture(face);
+
+    if (!preserveTransform) {
+      this.sprite.scale.set(1, 1);
+      this.sprite.skew.set(0, 0);
+    }
   }
 }
 
@@ -107,6 +117,12 @@ export async function createGame(mount, opts = {}) {
   if (!root.style.maxWidth) {
     root.style.maxWidth = "100%";
   }
+  if (!root.style.minWidth) {
+    root.style.minWidth = `${initialSize}px`;
+  }
+  if (!root.style.minHeight) {
+    root.style.minHeight = `${initialSize}px`;
+  }
 
   const app = new Application();
   const { width: startWidth, height: startHeight } = measureRootSize(
@@ -121,6 +137,8 @@ export async function createGame(mount, opts = {}) {
     antialias: true,
     autoDensity: true,
   });
+
+  app.start();
 
   root.innerHTML = "";
   root.appendChild(app.canvas);
@@ -153,6 +171,13 @@ export async function createGame(mount, opts = {}) {
   const coin = new Coin({ textures: coinTextures, baseRadius: COIN_BASE_RADIUS });
   stage.addChild(coin.view);
 
+  let spinAngle = 0;
+  let lastHalfTurn = 0;
+  let pendingResult = null;
+  let flipTicks = 0;
+  let flipResolver = null;
+  let flipActive = false;
+
   const historyBar = new Graphics();
   stage.addChild(historyBar);
 
@@ -170,6 +195,14 @@ export async function createGame(mount, opts = {}) {
     historyDisabled: false,
     showAnimations: true,
   };
+
+  function applySpinTransforms(angle) {
+    const depth = Math.max(COIN_MIN_DEPTH_SCALE, Math.abs(Math.cos(angle)));
+    const direction = Math.sign(Math.cos(angle)) || 1;
+    coin.sprite.scale.x = direction * depth;
+    coin.sprite.scale.y = 0.9 + 0.1 * depth;
+    coin.sprite.skew.y = Math.sin(angle) * 0.18;
+  }
 
   function layout() {
     const { width, height } = measureRootSize(root, initialSize);
@@ -207,6 +240,7 @@ export async function createGame(mount, opts = {}) {
       const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
       slot.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
     });
+    applySpinTransforms(spinAngle);
   }
 
   function updateStatus(message) {
@@ -245,44 +279,60 @@ export async function createGame(mount, opts = {}) {
     drawCoinFace(result);
   }
 
+  function updateSpin(delta) {
+    spinAngle += delta * COIN_SPIN_SPEED;
+    if (flipActive) {
+      flipTicks += delta;
+    }
+
+    applySpinTransforms(spinAngle);
+
+    const halfTurns = Math.floor(spinAngle / Math.PI);
+    if (halfTurns !== lastHalfTurn) {
+      const flips = Math.abs(halfTurns - lastHalfTurn);
+      for (let i = 0; i < flips; i += 1) {
+        const nextFace = coin.currentFace === "heads" ? "tails" : "heads";
+        coin.setFaceTexture(nextFace);
+      }
+      lastHalfTurn = halfTurns;
+    }
+
+    if (flipActive && flipTicks >= COIN_ANIMATION_DURATION) {
+      flipActive = false;
+      flipTicks = 0;
+      if (pendingResult) {
+        coin.setFaceTexture(pendingResult);
+        spinAngle = 0;
+        lastHalfTurn = 0;
+        applySpinTransforms(spinAngle);
+      }
+      if (flipResolver) {
+        flipResolver();
+        flipResolver = null;
+      }
+    }
+  }
+
   function playFlip(result, { instant = false } = {}) {
+    pendingResult = result;
+
     if (!state.showAnimations || instant) {
-      drawCoinFace(result);
+      spinAngle = 0;
+      lastHalfTurn = 0;
+      coin.setFace(result);
+      applySpinTransforms(spinAngle);
       return Promise.resolve();
     }
 
-    // Ensure the ticker is running so the animation can complete even if it was
-    // previously stopped by an animations toggle or render pause.
     if (!app.ticker.started) {
       app.ticker.start();
     }
 
-    const { y: baseScaleY } = coin.getScale();
+    flipTicks = 0;
+    flipActive = true;
 
     return new Promise((resolve) => {
-      let tick = 0;
-      let finished = false;
-
-      const finish = () => {
-        if (finished) return;
-        finished = true;
-        app.ticker.remove(spin);
-        drawCoinFace(result);
-        resolve();
-      };
-
-      const spin = (delta) => {
-        tick += delta;
-        coin.view.rotation += 0.25 * delta;
-        const squash = Math.max(0.35, Math.abs(Math.cos(tick * 0.3)));
-        coin.view.scale.y = squash * baseScaleY;
-        if (tick >= COIN_ANIMATION_DURATION) finish();
-      };
-
-      app.ticker.add(spin);
-
-      // Fail-safe in case the ticker stalls; ensures the round completes.
-      setTimeout(finish, (COIN_ANIMATION_DURATION / 60) * 1000 + 200);
+      flipResolver = resolve;
     });
   }
 
@@ -357,6 +407,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   window.addEventListener("resize", layout);
+  app.ticker.add(updateSpin);
   layout();
 
   return {
