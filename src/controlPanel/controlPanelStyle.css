@@ -504,23 +504,6 @@
   color: #ffffff;
 }
 
-.control-animations-toggle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #9a9da6;
-  font-weight: 600;
-}
-
-.control-animations-label {
-  font-size: 0.95rem;
-  color: #92aab7;
-}
-
-.control-animations-switch {
-  flex: 0 0 auto;
-}
-
 .control-show-dummy-server {
   padding: 8px 14px;
   border-radius: 8px;

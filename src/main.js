@@ -362,11 +362,6 @@ function bindControlPanelEvents() {
   controlPanel.addEventListener("bet", handleBetButtonClick);
   controlPanel.addEventListener("randompick", handleRandomPickClick);
   controlPanel.addEventListener("startautobet", handleStartAutobetClick);
-  controlPanel.addEventListener("animationschange", (event) => {
-    const enabled = Boolean(event.detail?.enabled);
-    state.showAnimations = enabled;
-    game?.setAnimationsEnabled?.(enabled);
-  });
   controlPanel.addEventListener("mineschanged", (event) => {
     const side = event.detail?.value;
     handleSideSelection(side);
@@ -399,8 +394,8 @@ function bindControlPanelEvents() {
   updateDisplays();
 
   game = await createGame("#game", { coinSize: GAME_CONFIG.coinSize });
-  game?.setAnimationsEnabled?.(controlPanel.getAnimationsEnabled?.());
-  state.showAnimations = Boolean(controlPanel.getAnimationsEnabled?.());
+  game?.setAnimationsEnabled?.(true);
+  state.showAnimations = true;
 
   setChosenSide(controlPanel?.getMinesValue?.() ?? DEFAULT_SIDE);
   resetRoundState({ resetHistory: true });
