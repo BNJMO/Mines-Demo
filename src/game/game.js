@@ -22,6 +22,8 @@ const COIN_ANIMATION_DURATION = 50; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const COIN_SPRITE_SIZE = 145;
+const COIN_SPRITE_GAP = 5;
+const COIN_SPRITE_ROWS = 5;
 const HISTORY_BAR_HEIGHT = 54;
 const HISTORY_SLOT_WIDTH = 32;
 const HISTORY_SLOT_HEIGHT = 28;
@@ -150,22 +152,34 @@ class Coin {
   }
 }
 
-function sliceSpriteSheet(spriteSheetTexture, frameSize) {
+function sliceSpriteSheet(
+  spriteSheetTexture,
+  { frameSize = COIN_SPRITE_SIZE, gap = 0, rows = COIN_SPRITE_ROWS } = {}
+) {
   const frames = [];
-  const columns = Math.floor(spriteSheetTexture.width / frameSize);
-  const rows = Math.floor(spriteSheetTexture.height / frameSize);
+
+  const inferredFrameSize = Math.floor(
+    (spriteSheetTexture.height - gap * Math.max(0, rows - 1)) / rows
+  );
+  const size = Number.isFinite(inferredFrameSize) && inferredFrameSize > 0
+    ? inferredFrameSize
+    : frameSize;
+  const frameStep = size + gap;
+  const columns = Math.max(1, Math.floor((spriteSheetTexture.width + gap) / frameStep));
 
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < columns; col += 1) {
+      const x = col * frameStep;
+      const y = row * frameStep;
+
+      if (x + size > spriteSheetTexture.width || y + size > spriteSheetTexture.height) {
+        continue;
+      }
+
       frames.push(
         new Texture({
           source: spriteSheetTexture.source,
-          frame: new Rectangle(
-            col * frameSize,
-            row * frameSize,
-            frameSize,
-            frameSize
-          ),
+          frame: new Rectangle(x, y, size, size),
         })
       );
     }
@@ -297,10 +311,26 @@ export async function createGame(mount, opts = {}) {
   };
 
   const coinAnimations = {
-    HH: sliceSpriteSheet(sheetHH, COIN_SPRITE_SIZE),
-    HT: sliceSpriteSheet(sheetHT, COIN_SPRITE_SIZE),
-    TH: sliceSpriteSheet(sheetTH, COIN_SPRITE_SIZE),
-    TT: sliceSpriteSheet(sheetTT, COIN_SPRITE_SIZE),
+    HH: sliceSpriteSheet(sheetHH, {
+      frameSize: COIN_SPRITE_SIZE,
+      gap: COIN_SPRITE_GAP,
+      rows: COIN_SPRITE_ROWS,
+    }),
+    HT: sliceSpriteSheet(sheetHT, {
+      frameSize: COIN_SPRITE_SIZE,
+      gap: COIN_SPRITE_GAP,
+      rows: COIN_SPRITE_ROWS,
+    }),
+    TH: sliceSpriteSheet(sheetTH, {
+      frameSize: COIN_SPRITE_SIZE,
+      gap: COIN_SPRITE_GAP,
+      rows: COIN_SPRITE_ROWS,
+    }),
+    TT: sliceSpriteSheet(sheetTT, {
+      frameSize: COIN_SPRITE_SIZE,
+      gap: COIN_SPRITE_GAP,
+      rows: COIN_SPRITE_ROWS,
+    }),
   };
 
   const coin = new Coin({
