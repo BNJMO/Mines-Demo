@@ -40,14 +40,11 @@ class Coin {
     this.currentFace = "heads";
 
     this.container = new Container();
-    this.sprite = new Sprite({
-      texture: textures.heads,
-      width: baseRadius * 2,
-      height: baseRadius * 2,
-    });
+    this.sprite = new Sprite({ texture: textures.heads });
+    this.sprite.width = baseRadius * 2;
+    this.sprite.height = baseRadius * 2;
     this.sprite.anchor.set(0.5);
-    this.sprite.position.set(baseRadius, baseRadius);
-    this.container.pivot.set(baseRadius, baseRadius);
+    this.sprite.position.set(0, 0);
     this.container.addChild(this.sprite);
   }
 
