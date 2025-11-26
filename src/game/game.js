@@ -17,16 +17,18 @@ import headsIconUrl from "../../assets/sprites/Heads.svg";
 import tailsIconUrl from "../../assets/sprites/Tails.svg";
 
 const DEFAULT_BACKGROUND = 0x091b26;
-const HISTORY_SIZE = 10;
+const HISTORY_SIZE = 20;
 const COIN_ANIMATION_DURATION = 200; // ticks
 const COIN_BASE_RADIUS = 130;
 const COIN_SCALE_FACTOR = 0.85;
 const COIN_SPRITE_SIZE = 425;
 const COIN_SPRITE_GAP = 10;
 const COIN_SPRITE_ROWS = 5;
-const HISTORY_BAR_HEIGHT = 54;
-const HISTORY_SLOT_WIDTH = 32;
-const HISTORY_SLOT_HEIGHT = 28;
+const HISTORY_BAR_HEIGHT = 70;
+const HISTORY_SLOT_WIDTH = 30;
+const HISTORY_SLOT_HEIGHT = 24;
+const HISTORY_SLOT_MIN_WIDTH = 18;
+const HISTORY_SLOT_MIN_HEIGHT = 16;
 const FRAME_PREVIEW_SIZE = 72;
 const FRAME_PREVIEW_PADDING = 8;
 
@@ -36,10 +38,12 @@ const COLORS = {
   tailsFill: 0x536aff,
   tailsHole: 0x0c1f2b,
   tailsStroke: 0x2f46b5,
-  historyFrame: 0x0f2734,
-  historyEmpty: 0x153243,
-  historyBorder: 0x224558,
+  historyPanel: 0x0d2432,
+  historyFrame: 0x0b1f2a,
+  historyEmpty: 0x122d3b,
+  historyBorder: 0x1c4559,
   historyDisabled: 0x3a5161,
+  historyLabel: 0x0b202e,
 };
 
 class Coin {
@@ -404,6 +408,9 @@ export async function createGame(mount, opts = {}) {
     tails: tailsIconTexture ?? Texture.WHITE,
   };
 
+  let historySlotWidth = HISTORY_SLOT_WIDTH;
+  let historySlotHeight = HISTORY_SLOT_HEIGHT;
+
   const coin = new Coin({
     textures: coinTextures,
     animations: coinAnimations,
@@ -417,8 +424,31 @@ export async function createGame(mount, opts = {}) {
   );
   setFrameDebug("Face: heads");
 
+  const historyContainer = new Container();
+  stage.addChild(historyContainer);
+
+  const historyPanel = new Graphics();
+  historyContainer.addChild(historyPanel);
+
+  const historyLabelContainer = new Container();
+
   const historyBar = new Graphics();
-  stage.addChild(historyBar);
+  const historyTrackContainer = new Container();
+  historyTrackContainer.addChild(historyBar);
+  historyContainer.addChild(historyTrackContainer);
+
+  const historyLabel = new Text({
+    text: "History",
+    style: new TextStyle({
+      fill: "#c0d7e7",
+      fontSize: 12,
+      fontWeight: "600",
+      fontFamily,
+    }),
+  });
+  historyLabel.anchor.set(0, 0.5);
+  historyLabelContainer.addChild(historyLabel);
+  historyContainer.addChild(historyLabelContainer);
 
   const historySlots = Array.from({ length: HISTORY_SIZE }, () => {
     const container = new Container();
@@ -428,7 +458,7 @@ export async function createGame(mount, opts = {}) {
     icon.visible = false;
     container.addChild(background);
     container.addChild(icon);
-    stage.addChild(container);
+    historyTrackContainer.addChild(container);
     return { container, background, icon };
   });
 
@@ -461,27 +491,99 @@ export async function createGame(mount, opts = {}) {
     layoutFramePreview();
 
     const barX = 18;
-    const barWidth = width - barX * 2;
-    const barY = height - HISTORY_BAR_HEIGHT + 10;
-    const barHeight = HISTORY_BAR_HEIGHT - 20;
+    const barY = height - HISTORY_BAR_HEIGHT + 6;
+
+    const panelPaddingX = 14;
+    const panelPaddingY = 10;
+    const trackGapY = 8;
+    const horizontalPadding = 12;
+    const minSlotGap = 2;
+    const minContentWidth =
+      horizontalPadding * 2 +
+      HISTORY_SLOT_MIN_WIDTH * HISTORY_SIZE +
+      minSlotGap * (HISTORY_SIZE - 1);
+    const maxPanelWidth = Math.min(width - barX * 2, 860);
+    const minPanelWidth = Math.max(240, historyLabel.width + panelPaddingX * 2);
+
+    const labelHeight = historyLabel.height;
+    const trackWidth = Math.min(
+      maxPanelWidth - panelPaddingX * 2,
+      Math.max(minPanelWidth - panelPaddingX * 2, minContentWidth)
+    );
+    const barWidth = Math.max(minPanelWidth, trackWidth + panelPaddingX * 2);
+    const barHeight =
+      panelPaddingY * 2 + labelHeight + trackGapY + Math.max(36, HISTORY_SLOT_MIN_HEIGHT + 10);
+
+    historyContainer.position.set(barX, barY);
+    historyPanel
+      .clear()
+      .roundRect(0, 0, barWidth, barHeight, 12)
+      .fill({ color: COLORS.historyPanel, alpha: 0.96 })
+      .stroke({ color: COLORS.historyBorder, width: 1.5 });
+
+    historyLabel.position.set(panelPaddingX, panelPaddingY + labelHeight / 2);
+    historyLabel.anchor.set(0, 0.5);
+    historyLabelContainer.position.set(0, 0);
+
+    const trackY = panelPaddingY + labelHeight + trackGapY;
+    const trackHeight = barHeight - trackY - panelPaddingY;
+    historyTrackContainer.position.set(panelPaddingX, trackY);
     historyBar
       .clear()
-      .roundRect(barX, barY, barWidth, barHeight, 12)
-      .fill({ color: COLORS.historyFrame });
+      .roundRect(0, 0, trackWidth, trackHeight, 8)
+      .fill({ color: COLORS.historyFrame, alpha: 0.95 })
+      .stroke({ color: COLORS.historyBorder, width: 1.5, alpha: 0.6 });
 
-    const availableWidth = barWidth - 24;
-    const slotGap = Math.max(
-      6,
-      Math.min(12, (availableWidth - HISTORY_SLOT_WIDTH * HISTORY_SIZE) / (HISTORY_SIZE - 1))
+    const availableWidth = trackWidth - horizontalPadding * 2;
+    const minGap = minSlotGap;
+    const maxGap = 10;
+    const slotWidthCandidate = Math.floor(
+      (availableWidth - minGap * (HISTORY_SIZE - 1)) / Math.max(1, HISTORY_SIZE)
     );
-    const totalSlotsWidth =
-      HISTORY_SLOT_WIDTH * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
-    const startX = barX + (barWidth - totalSlotsWidth) / 2;
-    const centerY = barY + barHeight / 2;
+    historySlotWidth = Math.min(
+      HISTORY_SLOT_WIDTH,
+      Math.max(HISTORY_SLOT_MIN_WIDTH, slotWidthCandidate)
+    );
+    let remainingWidth = availableWidth - historySlotWidth * HISTORY_SIZE;
+    let computedGap = remainingWidth / Math.max(1, HISTORY_SIZE - 1);
+    let slotGap = Math.max(minGap, Math.min(maxGap, computedGap));
+    let totalSlotsWidth =
+      historySlotWidth * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
+
+    if (totalSlotsWidth > availableWidth) {
+      historySlotWidth = Math.min(
+        HISTORY_SLOT_WIDTH,
+        Math.max(
+          HISTORY_SLOT_MIN_WIDTH,
+          Math.floor(
+            (availableWidth - minGap * (HISTORY_SIZE - 1)) /
+              Math.max(1, HISTORY_SIZE)
+          )
+        )
+      );
+      remainingWidth = availableWidth - historySlotWidth * HISTORY_SIZE;
+      computedGap = remainingWidth / Math.max(1, HISTORY_SIZE - 1);
+      slotGap = Math.max(minGap, Math.min(maxGap, computedGap));
+      totalSlotsWidth =
+        historySlotWidth * HISTORY_SIZE + slotGap * (HISTORY_SIZE - 1);
+    }
+    historySlotHeight = Math.min(
+      HISTORY_SLOT_HEIGHT,
+      Math.max(
+        HISTORY_SLOT_MIN_HEIGHT,
+        Math.round(historySlotWidth * (HISTORY_SLOT_HEIGHT / HISTORY_SLOT_WIDTH))
+      )
+    );
+    const startX =
+      horizontalPadding + Math.max(0, (availableWidth - totalSlotsWidth) / 2);
+    const centerY = trackHeight / 2;
+
     historySlots.forEach((slot, index) => {
-      const x = startX + index * (HISTORY_SLOT_WIDTH + slotGap);
-      slot.container.position.set(x, centerY - HISTORY_SLOT_HEIGHT / 2);
+      const x = startX + index * (historySlotWidth + slotGap);
+      slot.container.position.set(x, centerY - historySlotHeight / 2);
     });
+
+    updateHistory(state.history, { disabled: state.historyDisabled });
   }
 
   function updateStatus(message) {
@@ -655,15 +757,15 @@ export async function createGame(mount, opts = {}) {
   }
 
   function drawHistorySlot(slot, value, { disabled = false } = {}) {
-    const width = HISTORY_SLOT_WIDTH;
-    const height = HISTORY_SLOT_HEIGHT;
+    const width = historySlotWidth;
+    const height = historySlotHeight;
     // removeChildren() returns an array and is not chainable with Graphics clear()
     slot.background.removeChildren();
     slot.background
       .clear()
-      .roundRect(0, 0, width, height, 8)
-      .fill({ color: COLORS.historyEmpty })
-      .stroke({ color: COLORS.historyBorder, width: 2 });
+      .roundRect(0, 0, width, height, 6)
+      .fill({ color: COLORS.historyEmpty, alpha: 0.42 })
+      .stroke({ color: COLORS.historyBorder, width: 1, alpha: 0.5 });
 
     slot.icon.visible = false;
     slot.icon.alpha = disabled ? 0.6 : 1;
