@@ -273,7 +273,7 @@ export async function createGame(mount, opts = {}) {
       app.ticker.start();
     }
 
-    const { y: baseScaleY } = coin.getScale();
+    const { x: baseScaleX, y: baseScaleY } = coin.getScale();
     const totalRotations = result === "heads" ? 6 : 5.5; // Mirrors the CSS reference
     const totalHalfTurns = Math.round(totalRotations * 2);
     const startFace = totalHalfTurns % 2 === 0 ? result : result === "heads" ? "tails" : "heads";
@@ -298,6 +298,8 @@ export async function createGame(mount, opts = {}) {
         if (finished) return;
         finished = true;
         app.ticker.remove(spin);
+        coin.view.rotation = 0;
+        coin.view.scale.set(baseScaleX, baseScaleY);
         drawCoinFace(result);
         resolve();
       };
@@ -308,11 +310,14 @@ export async function createGame(mount, opts = {}) {
         const easedProgress = 1 - (1 - progress) ** 3;
         const angle = easedProgress * totalRotations * Math.PI * 2;
 
-        const squash = Math.max(0.3, Math.abs(Math.cos(angle)));
+        const squash = 0.55 + 0.45 * Math.abs(Math.cos(angle));
         coin.view.scale.y = squash * baseScaleY;
 
-        const wobble = Math.sin(progress * Math.PI * 2) * 0.08;
+        const wobble = Math.sin(angle * 0.35) * 0.12;
         coin.view.rotation = wobble;
+
+        const spinTwist = 0.9 + 0.1 * Math.sin(angle * 0.5);
+        coin.view.scale.x = spinTwist * baseScaleX;
 
         const halfTurns = Math.floor(angle / Math.PI);
         const faceForAngle = halfTurns % 2 === 0 ? startFace : flipFace(startFace);
