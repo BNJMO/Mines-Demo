@@ -157,24 +157,24 @@ function sliceSpriteSheet(
   {
     frameSize = COIN_SPRITE_SIZE,
     gap = 0,
-    rows = COIN_SPRITE_ROWS,
+    rows,
     columns,
   } = {}
 ) {
   const frames = [];
 
-  const inferredFrameSize = Math.floor(
-    (spriteSheetTexture.height - gap * Math.max(0, rows - 1)) / rows
-  );
-  const size = Number.isFinite(inferredFrameSize) && inferredFrameSize > 0
-    ? inferredFrameSize
-    : frameSize;
+  const size = Number.isFinite(frameSize) && frameSize > 0
+    ? Math.floor(frameSize)
+    : COIN_SPRITE_SIZE;
   const frameStep = size + gap;
   const columnsCount = Number.isFinite(columns) && columns > 0
     ? Math.floor(columns)
     : Math.max(1, Math.floor((spriteSheetTexture.width + gap) / frameStep));
+  const rowsCount = Number.isFinite(rows) && rows > 0
+    ? Math.floor(rows)
+    : Math.max(1, Math.floor((spriteSheetTexture.height + gap) / frameStep));
 
-  for (let row = 0; row < rows; row += 1) {
+  for (let row = 0; row < rowsCount; row += 1) {
     for (let col = 0; col < columnsCount; col += 1) {
       const x = col * frameStep;
       const y = row * frameStep;
@@ -196,30 +196,53 @@ function sliceSpriteSheet(
 }
 
 function normalizeSpriteSheetOptions(raw = {}) {
-  const frameSize = Number.isFinite(raw.frameSize) && raw.frameSize > 0
-    ? Math.floor(raw.frameSize)
-    : COIN_SPRITE_SIZE;
-  const gap = Number.isFinite(raw.gap) && raw.gap >= 0 ? Math.floor(raw.gap) : COIN_SPRITE_GAP;
-  const rows = Number.isFinite(raw.rows) && raw.rows > 0 ? Math.floor(raw.rows) : COIN_SPRITE_ROWS;
-  const columns = Number.isFinite(raw.columns) && raw.columns > 0
-    ? Math.floor(raw.columns)
-    : undefined;
+  const normalize = (candidate = {}, fallback = {}) => {
+    const frameSize = Number.isFinite(candidate.frameSize) && candidate.frameSize > 0
+      ? Math.floor(candidate.frameSize)
+      : fallback.frameSize ?? COIN_SPRITE_SIZE;
+    const gap = Number.isFinite(candidate.gap) && candidate.gap >= 0
+      ? Math.floor(candidate.gap)
+      : fallback.gap ?? COIN_SPRITE_GAP;
+    const rows = Number.isFinite(candidate.rows) && candidate.rows > 0
+      ? Math.floor(candidate.rows)
+      : fallback.rows;
+    const columns = Number.isFinite(candidate.columns) && candidate.columns > 0
+      ? Math.floor(candidate.columns)
+      : fallback.columns;
 
-  return { frameSize, gap, rows, columns };
+    return { frameSize, gap, rows, columns };
+  };
+
+  const base = normalize(raw);
+  const perAnimationRaw = raw.overrides || raw.perAnimation;
+  const perAnimation = {};
+
+  if (perAnimationRaw && typeof perAnimationRaw === "object") {
+    for (const [key, value] of Object.entries(perAnimationRaw)) {
+      perAnimation[key] = normalize(value, base);
+    }
+  }
+
+  return { base, perAnimation };
 }
 
 function formatSpriteSheetOptions(options) {
-  const parts = [
-    `size ${options.frameSize}px`,
-    `gap ${options.gap}px`,
-    `${options.rows} row${options.rows === 1 ? "" : "s"}`,
-  ];
+  const rowLabel = Number.isFinite(options.rows)
+    ? `${options.rows} row${options.rows === 1 ? "" : "s"}`
+    : "auto rows";
+  const columnLabel = Number.isFinite(options.columns)
+    ? `${options.columns} column${options.columns === 1 ? "" : "s"}`
+    : "auto columns";
 
-  if (options.columns) {
-    parts.push(`${options.columns} column${options.columns === 1 ? "" : "s"}`);
-  }
+  const parts = [`size ${options.frameSize}px`, `gap ${options.gap}px`, rowLabel, columnLabel];
 
   return parts.join(" · ");
+}
+
+function resolveSliceOptions(options, animationKey) {
+  if (!options) return undefined;
+  if (!animationKey) return options.base;
+  return options.perAnimation?.[animationKey] || options.base;
 }
 
 function resolveRoot(mount) {
@@ -358,10 +381,10 @@ export async function createGame(mount, opts = {}) {
   };
 
   const coinAnimations = {
-    HH: sliceSpriteSheet(sheetHH, sliceOptions),
-    HT: sliceSpriteSheet(sheetHT, sliceOptions),
-    TH: sliceSpriteSheet(sheetTH, sliceOptions),
-    TT: sliceSpriteSheet(sheetTT, sliceOptions),
+    HH: sliceSpriteSheet(sheetHH, resolveSliceOptions(sliceOptions, "HH")),
+    HT: sliceSpriteSheet(sheetHT, resolveSliceOptions(sliceOptions, "HT")),
+    TH: sliceSpriteSheet(sheetTH, resolveSliceOptions(sliceOptions, "TH")),
+    TT: sliceSpriteSheet(sheetTT, resolveSliceOptions(sliceOptions, "TT")),
   };
 
   const coin = new Coin({
@@ -370,7 +393,11 @@ export async function createGame(mount, opts = {}) {
     baseRadius: COIN_BASE_RADIUS,
   });
   stage.addChild(coin.view);
-  setFramePreview(coinAnimations.HH?.[0], "Sliced HH frame 1");
+  setFramePreview(
+    coinAnimations.HH?.[0],
+    "Sliced HH frame 1",
+    resolveSliceOptions(sliceOptions, "HH")
+  );
   setFrameDebug("Face: heads");
 
   const historyBar = new Graphics();
@@ -483,14 +510,19 @@ export async function createGame(mount, opts = {}) {
       .stroke({ color: COLORS.historyBorder, width: 2 });
   }
 
-  function setFramePreview(texture, label) {
+  function setFramePreview(texture, label, optionsForLabel) {
     if (!frameDebugEnabled || !texture) return;
 
     framePreviewSprite.texture = texture;
     framePreviewText.text = label;
     framePreviewText.visible = true;
-    framePreviewMeta.text = formatSpriteSheetOptions(sliceOptions);
-    framePreviewMeta.visible = true;
+    const metaOptions = optionsForLabel || sliceOptions?.base;
+    if (metaOptions) {
+      framePreviewMeta.text = formatSpriteSheetOptions(metaOptions);
+      framePreviewMeta.visible = true;
+    } else {
+      framePreviewMeta.visible = false;
+    }
 
     layoutFramePreview();
   }
@@ -502,9 +534,11 @@ export async function createGame(mount, opts = {}) {
     );
 
     const previewFrame = coinAnimations?.[animationKey]?.[frameIndex];
+    const previewOptions = resolveSliceOptions(sliceOptions, animationKey);
     setFramePreview(
       previewFrame,
-      `Sliced ${animationKey} frame ${frameIndex + 1}/${totalFrames}`
+      `Sliced ${animationKey} frame ${frameIndex + 1}/${totalFrames}`,
+      previewOptions
     );
   }
 
@@ -514,7 +548,11 @@ export async function createGame(mount, opts = {}) {
 
     const finalFrame = coinAnimations?.[animationKey]?.[0];
     if (finalFrame) {
-      setFramePreview(finalFrame, `Sliced ${animationKey} sample`);
+      setFramePreview(
+        finalFrame,
+        `Sliced ${animationKey} sample`,
+        resolveSliceOptions(sliceOptions, animationKey)
+      );
     }
   }
 
