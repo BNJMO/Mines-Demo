@@ -7,6 +7,7 @@ import {
   initializeSessionWebSocket,
   initializeGameSession,
   submitBet,
+  submitAutoplay,
   submitStep,
   submitCashout,
   leaveGameSession,
@@ -1417,6 +1418,26 @@ function handleAutoSelectionChange(count) {
   }
 }
 
+function requestServerAutobetStart() {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+
+  const amount = controlPanel?.getBetValue?.();
+  const count = controlPanel?.getNumberOfBetsValue?.();
+  const steps = storedAutoSelections?.length ?? autoSelectionCount ?? 0;
+
+  submitAutoplay({
+    amount,
+    count,
+    steps,
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+  }).catch((error) => {
+    console.error("Failed to submit autobet start request", error);
+  });
+}
+
 function handleStartAutobetClick() {
   if (autoRunActive) {
     if (!autoStopFinishing) {
@@ -1432,6 +1453,7 @@ function handleStartAutobetClick() {
     return;
   }
 
+  requestServerAutobetStart();
   beginAutoBetProcess();
 }
 
