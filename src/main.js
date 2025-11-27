@@ -8,10 +8,12 @@ import {
   initializeGameSession,
   submitBet,
   submitAutoplay,
+  submitStopAutoplay,
   submitStep,
   submitCashout,
   leaveGameSession,
   getGameSessionDetails,
+  disconnectSessionWebSocket,
   DEFAULT_SCRATCH_GAME_ID,
 } from "./server/server.js";
 
@@ -1241,6 +1243,7 @@ function requestLeaveGameSession(options = {}) {
 
 window.addEventListener("beforeunload", () => {
   requestLeaveGameSession({ keepalive: true });
+  disconnectSessionWebSocket();
 });
 
 window.addEventListener("pagehide", (event) => {
@@ -1248,6 +1251,7 @@ window.addEventListener("pagehide", (event) => {
     return;
   }
   requestLeaveGameSession({ keepalive: true });
+  disconnectSessionWebSocket();
 });
 
 function handleGameStateChange(state) {
@@ -1438,12 +1442,26 @@ function requestServerAutobetStart() {
   });
 }
 
+function requestServerAutobetStop() {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+
+  submitStopAutoplay({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+  }).catch((error) => {
+    console.error("Failed to submit autobet stop request", error);
+  });
+}
+
 function handleStartAutobetClick() {
   if (autoRunActive) {
     if (!autoStopFinishing) {
       autoRunFlag = false;
       autoStopFinishing = true;
       setAutoRunUIState(true);
+      requestServerAutobetStop();
       sendRelayMessage("action:stop-autobet", { reason: "user" });
     }
     return;
