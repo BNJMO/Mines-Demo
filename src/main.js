@@ -188,30 +188,6 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
     }
 
     try {
-      await initializeSessionWebSocket({ relay: serverRelay });
-      sessionWebSocketInitialized = true;
-    } catch (error) {
-      sessionWebSocketInitialized = false;
-      console.error("WebSocket connection failed:", error);
-      if (currentGeneration !== serverInitializationGeneration) {
-        return false;
-      }
-      refreshStoredControlPanelInteractivity();
-      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
-      continue;
-    }
-
-    if (currentGeneration !== serverInitializationGeneration) {
-      return false;
-    }
-
-    await delay(600);
-
-    if (currentGeneration !== serverInitializationGeneration) {
-      return false;
-    }
-
-    try {
       await initializeGameSession({ relay: serverRelay });
       gameSessionInitialized = true;
       refreshStoredControlPanelInteractivity();
@@ -226,7 +202,25 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
       continue;
     }
 
-    if (gameSessionInitialized) {
+    if (currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    try {
+      await initializeSessionWebSocket({ relay: serverRelay });
+      sessionWebSocketInitialized = true;
+    } catch (error) {
+      sessionWebSocketInitialized = false;
+      console.error("WebSocket connection failed:", error);
+      if (currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      refreshStoredControlPanelInteractivity();
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (gameSessionInitialized && sessionWebSocketInitialized) {
       hideGameLoadingOverlay();
       return true;
     }
