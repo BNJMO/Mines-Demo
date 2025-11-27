@@ -2,6 +2,7 @@ import { ServerRelay } from "../serverRelay.js";
 
 export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
 export const DEFAULT_SCRATCH_GAME_ID = "CrashMines";
+export const DEFAULT_WEBSOCKET_URL = "wss://dev.securesocket.net:8091/";
 
 let sessionId = null;
 let sessionGameDetails = null;
@@ -11,6 +12,8 @@ let lastBetResult = null;
 let lastBetRoundId = null;
 let lastBetBalance = null;
 let lastBetRegisteredBets = [];
+let sessionWebSocket = null;
+let sessionWebSocketPromise = null;
 
 function normalizeGridCoordinate(value) {
   const numeric = Number(value);
@@ -31,6 +34,19 @@ function normalizeBaseUrl(url) {
   }
 
   return trimmed.replace(/\/+$/, "");
+}
+
+function normalizeWebSocketUrl(url) {
+  if (typeof url !== "string") {
+    return DEFAULT_WEBSOCKET_URL;
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return DEFAULT_WEBSOCKET_URL;
+  }
+
+  return trimmed;
 }
 
 function normalizeScratchGameId(id) {
@@ -78,9 +94,124 @@ export function getLastBetRegisteredBets() {
   return lastBetRegisteredBets;
 }
 
+function closeExistingWebSocket() {
+  if (sessionWebSocket) {
+    try {
+      sessionWebSocket.close();
+    } catch (error) {
+      // Swallow close errors to avoid interrupting cleanup.
+    }
+  }
+  sessionWebSocket = null;
+  sessionWebSocketPromise = null;
+}
+
 
 function isServerRelay(candidate) {
   return candidate instanceof ServerRelay;
+}
+
+export async function initializeSessionWebSocket({
+  url = DEFAULT_WEBSOCKET_URL,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    throw new Error("Cannot connect to WebSocket before the session id is initialized");
+  }
+
+  if (sessionWebSocket && sessionWebSocket.readyState === WebSocket.OPEN) {
+    return sessionWebSocket;
+  }
+
+  const endpoint = normalizeWebSocketUrl(url);
+
+  if (!sessionWebSocketPromise) {
+    sessionWebSocketPromise = new Promise((resolve, reject) => {
+      const socket = new WebSocket(endpoint);
+      sessionWebSocket = socket;
+
+      const cleanup = () => {
+        socket.removeEventListener("open", handleOpen);
+        socket.removeEventListener("error", handleError);
+        socket.removeEventListener("close", handleClose);
+        socket.removeEventListener("message", handleMessage);
+      };
+
+      const handleMessage = async (event) => {
+        if (!isServerRelay(relay)) {
+          return;
+        }
+
+        let payload = event.data;
+        if (payload instanceof Blob) {
+          try {
+            payload = await payload.text();
+          } catch (error) {
+            // If blob parsing fails, fall back to the raw payload.
+          }
+        }
+
+        if (typeof payload === "string") {
+          try {
+            const parsed = JSON.parse(payload);
+            payload = parsed;
+          } catch (error) {
+            // Not JSON; use the string payload as-is.
+          }
+        }
+
+        relay.logWebSocket("websocket:message", payload);
+      };
+
+      const handleClose = () => {
+        cleanup();
+        closeExistingWebSocket();
+      };
+
+      const handleError = () => {
+        cleanup();
+        closeExistingWebSocket();
+
+        const error = new Error("Failed to connect to game WebSocket");
+        if (isServerRelay(relay)) {
+          relay.logWebSocket("websocket:error", { message: error.message });
+        }
+        reject(error);
+      };
+
+      const handleOpen = () => {
+        const initMessage = {
+          type: "init",
+          instanceId: DEFAULT_SCRATCH_GAME_ID,
+          sessionToken: sessionId,
+          wrapMessages: false,
+        };
+
+        try {
+          socket.send(JSON.stringify(initMessage));
+        } catch (error) {
+          handleError();
+          return;
+        }
+
+        if (isServerRelay(relay)) {
+          relay.logWebSocket("websocket:connected", {
+            endpoint,
+            initMessage,
+          });
+        }
+
+        socket.addEventListener("message", handleMessage);
+        resolve(socket);
+      };
+
+      socket.addEventListener("open", handleOpen);
+      socket.addEventListener("error", handleError);
+      socket.addEventListener("close", handleClose);
+    });
+  }
+
+  return sessionWebSocketPromise;
 }
 
 export async function initializeSessionId({
@@ -1024,7 +1155,11 @@ function createLogEntry(direction, type, payload) {
   const directionLabel = document.createElement("span");
   directionLabel.className = "server__log-direction";
   directionLabel.textContent =
-    direction === "incoming" ? "Server → App" : "App → Server";
+    direction === "incoming"
+      ? "Server → App"
+      : direction === "websocket"
+        ? "WebSocket -> App"
+        : "App → Server";
   header.appendChild(directionLabel);
 
   const typeLabel = document.createElement("span");
@@ -1418,8 +1553,14 @@ export function createServer(relay, options = {}) {
     appendLog("incoming", type, payload);
   };
 
+  const webSocketHandler = (event) => {
+    const { type, payload } = event.detail ?? {};
+    appendLog("websocket", type, payload);
+  };
+
   serverRelay.addEventListener("outgoing", outgoingHandler);
   serverRelay.addEventListener("incoming", incomingHandler);
+  serverRelay.addEventListener("websocket", webSocketHandler);
 
   serverRelay.addEventListener("demomodechange", (event) => {
     setDemoMode(Boolean(event.detail?.value));
@@ -1436,6 +1577,7 @@ export function createServer(relay, options = {}) {
     destroy() {
       serverRelay.removeEventListener("outgoing", outgoingHandler);
       serverRelay.removeEventListener("incoming", incomingHandler);
+      serverRelay.removeEventListener("websocket", webSocketHandler);
       container.remove();
     },
   };

@@ -28,4 +28,9 @@ export class ServerRelay extends EventTarget {
     const message = { type, payload };
     this.dispatchEvent(new CustomEvent("incoming", { detail: message }));
   }
+
+  logWebSocket(type, payload = {}) {
+    const message = { type, payload };
+    this.dispatchEvent(new CustomEvent("websocket", { detail: message }));
+  }
 }

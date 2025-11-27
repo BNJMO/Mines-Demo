@@ -4,6 +4,7 @@ import { ServerRelay } from "./serverRelay.js";
 import {
   createServer,
   initializeSessionId,
+  initializeSessionWebSocket,
   initializeGameSession,
   submitBet,
   submitStep,
@@ -48,6 +49,7 @@ let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
+let sessionWebSocketInitialized = false;
 let gameSessionInitialized = false;
 let leaveSessionInProgress = false;
 let leaveSessionPromise = null;
@@ -163,6 +165,7 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
 
   while (currentGeneration === serverInitializationGeneration) {
     sessionIdInitialized = false;
+    sessionWebSocketInitialized = false;
     gameSessionInitialized = false;
     refreshStoredControlPanelInteractivity();
 
@@ -172,6 +175,24 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
     } catch (error) {
       sessionIdInitialized = false;
       console.error("Session ID initialization failed:", error);
+      if (currentGeneration !== serverInitializationGeneration) {
+        return false;
+      }
+      refreshStoredControlPanelInteractivity();
+      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+      continue;
+    }
+
+    if (currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    try {
+      await initializeSessionWebSocket({ relay: serverRelay });
+      sessionWebSocketInitialized = true;
+    } catch (error) {
+      sessionWebSocketInitialized = false;
+      console.error("WebSocket connection failed:", error);
       if (currentGeneration !== serverInitializationGeneration) {
         return false;
       }
