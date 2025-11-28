@@ -469,6 +469,10 @@ function extractAutoplayStatusFromPayload(payload) {
     payload?.State?.Status,
     payload?.responseData?.state?.status,
     payload?.ResponseData?.state?.status,
+    payload?.data?.Message?.status,
+    payload?.data?.message?.status,
+    payload?.data?.state?.status,
+    payload?.data?.State?.status,
   ];
 
   for (const candidate of candidates) {
