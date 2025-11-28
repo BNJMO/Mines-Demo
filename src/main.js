@@ -369,6 +369,150 @@ function applyAutoResultsFromServer(results = []) {
   game?.revealAutoSelections?.(results);
 }
 
+function getAutoSelectionSnapshot() {
+  if (Array.isArray(storedAutoSelections) && storedAutoSelections.length > 0) {
+    return storedAutoSelections.map((selection) => ({ ...selection }));
+  }
+
+  const selections = game?.getAutoSelections?.();
+  if (Array.isArray(selections) && selections.length > 0) {
+    return selections.map((selection) => ({ ...selection }));
+  }
+
+  return [];
+}
+
+function shuffleArray(values = []) {
+  for (let i = values.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+  return values;
+}
+
+function buildAutoRevealMap(selections = [], { isWin = false } = {}) {
+  const gridSize = Math.max(1, Math.floor(Number(opts?.grid ?? 5)) || 5);
+  const mines = Math.max(0, Math.floor(Number(opts?.mines ?? 0)) || 0);
+  const map = Array.from({ length: gridSize }, () => Array(gridSize).fill(1));
+
+  const selectionKeys = new Set();
+  const validSelections = [];
+
+  selections.forEach((selection) => {
+    const row = Math.max(0, Math.floor(selection?.row ?? -1));
+    const col = Math.max(0, Math.floor(selection?.col ?? -1));
+    if (row >= gridSize || col >= gridSize) {
+      return;
+    }
+    const key = `${row},${col}`;
+    if (!selectionKeys.has(key)) {
+      selectionKeys.add(key);
+      validSelections.push({ row, col });
+    }
+  });
+
+  const allPositions = [];
+  for (let row = 0; row < gridSize; row += 1) {
+    for (let col = 0; col < gridSize; col += 1) {
+      allPositions.push({ row, col });
+    }
+  }
+
+  if (isWin) {
+    const available = allPositions.filter(
+      ({ row, col }) => !selectionKeys.has(`${row},${col}`)
+    );
+    const bombsToPlace = Math.min(mines, available.length);
+    shuffleArray(available)
+      .slice(0, bombsToPlace)
+      .forEach(({ row, col }) => {
+        map[row][col] = 0;
+      });
+  } else {
+    let bombsPlaced = 0;
+    if (validSelections.length > 0) {
+      const [firstSelection] = validSelections;
+      map[firstSelection.row][firstSelection.col] = 0;
+      bombsPlaced += 1;
+    }
+
+    const remainingBombs = Math.max(0, Math.min(mines - bombsPlaced, allPositions.length));
+    const available = allPositions.filter(({ row, col }) => map[row][col] !== 0);
+    shuffleArray(available)
+      .slice(0, remainingBombs)
+      .forEach(({ row, col }) => {
+        map[row][col] = 0;
+      });
+  }
+
+  return map;
+}
+
+function buildAutoRevealResults(selections = [], { isWin = false } = {}) {
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return [];
+  }
+
+  return selections.map((selection, index) => ({
+    row: selection?.row,
+    col: selection?.col,
+    result: isWin ? "win" : index === 0 ? "lost" : "win",
+  }));
+}
+
+function extractAutoplayStatusFromPayload(payload) {
+  const candidates = [
+    payload?.status,
+    payload?.Status,
+    payload?.state?.status,
+    payload?.State?.status,
+    payload?.State?.Status,
+    payload?.responseData?.state?.status,
+    payload?.ResponseData?.state?.status,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+    const normalized = candidate.trim().toLowerCase();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function handleAutoplayWebSocketPayload(payload) {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+
+  if (controlPanelMode !== "auto" || !autoRunActive) {
+    return;
+  }
+
+  const status = extractAutoplayStatusFromPayload(payload);
+  if (status !== "won" && status !== "lost") {
+    return;
+  }
+
+  const selections = getAutoSelectionSnapshot();
+  if (selections.length === 0) {
+    return;
+  }
+
+  const isWin = status === "won";
+  const revealMap = buildAutoRevealMap(selections, { isWin });
+  if (revealMap && typeof game?.setServerRevealMap === "function") {
+    game.setServerRevealMap(revealMap);
+  }
+
+  const results = buildAutoRevealResults(selections, { isWin });
+  applyAutoResultsFromServer(results);
+}
+
 const serverMount =
   document.querySelector(".app-wrapper") ?? document.body;
 serverUI = createServer(serverRelay, {
@@ -435,6 +579,11 @@ serverRelay.addEventListener("incoming", (event) => {
         break;
     }
   });
+});
+
+serverRelay.addEventListener("websocket", (event) => {
+  const { payload } = event.detail ?? {};
+  handleAutoplayWebSocketPayload(payload);
 });
 
 serverRelay.addEventListener("demomodechange", (event) => {
