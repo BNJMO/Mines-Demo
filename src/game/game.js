@@ -1484,7 +1484,7 @@ export async function createGame(mount, opts = {}) {
       }
 
       const normalizedResult = String(entry?.result ?? "").toLowerCase();
-      const isBomb = normalizedResult === "lost";
+      const isBomb = normalizedResult === "bomb";
       if (isBomb) {
         bombHit = true;
       }

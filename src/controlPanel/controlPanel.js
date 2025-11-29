@@ -60,7 +60,6 @@ export class ControlPanel extends EventTarget {
     this.autoStartButtonState = "non-clickable";
     this.autoStartButtonMode = "start";
     this.showDummyServerPanelVisible = false;
-    this.showDummyServerButtonLocked = false;
 
     this.totalProfitMultiplier = 1;
 
@@ -1371,7 +1370,6 @@ export class ControlPanel extends EventTarget {
     this.setStopOnProfitClickable(clickable);
     this.setStopOnLossClickable(clickable);
     this.setAnimationsToggleClickable(clickable);
-    this.setShowDummyServerButtonClickable(clickable);
   }
 
   setModeToggleClickable(isClickable) {
@@ -1444,11 +1442,6 @@ export class ControlPanel extends EventTarget {
     if (this.autoNumberOfBetsStepper?.setClickable) {
       this.autoNumberOfBetsStepper.setClickable(clickable);
     }
-  }
-
-  setShowDummyServerButtonClickable(isClickable) {
-    this.showDummyServerButtonLocked = !Boolean(isClickable);
-    this.updateShowDummyServerButtonState();
   }
 
   setAdvancedToggleClickable(isClickable) {
