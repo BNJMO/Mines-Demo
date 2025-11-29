@@ -2,6 +2,9 @@ import { ServerRelay } from "../serverRelay.js";
 
 export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
 export const DEFAULT_SCRATCH_GAME_ID = "CrashMines";
+export const DEFAULT_WEBSOCKET_URL = "wss://dev.securesocket.net:8091/";
+
+export const connectToWebSocket = false;
 
 let sessionId = null;
 let sessionGameDetails = null;
@@ -11,6 +14,8 @@ let lastBetResult = null;
 let lastBetRoundId = null;
 let lastBetBalance = null;
 let lastBetRegisteredBets = [];
+let sessionWebSocket = null;
+let sessionWebSocketPromise = null;
 
 function normalizeGridCoordinate(value) {
   const numeric = Number(value);
@@ -31,6 +36,19 @@ function normalizeBaseUrl(url) {
   }
 
   return trimmed.replace(/\/+$/, "");
+}
+
+function normalizeWebSocketUrl(url) {
+  if (typeof url !== "string") {
+    return DEFAULT_WEBSOCKET_URL;
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return DEFAULT_WEBSOCKET_URL;
+  }
+
+  return trimmed;
 }
 
 function normalizeScratchGameId(id) {
@@ -78,9 +96,128 @@ export function getLastBetRegisteredBets() {
   return lastBetRegisteredBets;
 }
 
+function closeExistingWebSocket() {
+  if (sessionWebSocket) {
+    try {
+      sessionWebSocket.close();
+    } catch (error) {
+      // Swallow close errors to avoid interrupting cleanup.
+    }
+  }
+  sessionWebSocket = null;
+  sessionWebSocketPromise = null;
+}
+
+export function disconnectSessionWebSocket() {
+  closeExistingWebSocket();
+}
+
 
 function isServerRelay(candidate) {
   return candidate instanceof ServerRelay;
+}
+
+export async function initializeSessionWebSocket({
+  url = DEFAULT_WEBSOCKET_URL,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    throw new Error("Cannot connect to WebSocket before the session id is initialized");
+  }
+
+  if (sessionWebSocket && sessionWebSocket.readyState === WebSocket.OPEN) {
+    return sessionWebSocket;
+  }
+
+  const endpoint = normalizeWebSocketUrl(url);
+
+  if (!sessionWebSocketPromise) {
+    sessionWebSocketPromise = new Promise((resolve, reject) => {
+      const socket = new WebSocket(endpoint);
+      sessionWebSocket = socket;
+
+      const cleanup = () => {
+        socket.removeEventListener("open", handleOpen);
+        socket.removeEventListener("error", handleError);
+        socket.removeEventListener("close", handleClose);
+        socket.removeEventListener("message", handleMessage);
+      };
+
+      const handleMessage = async (event) => {
+        if (!isServerRelay(relay)) {
+          return;
+        }
+
+        let payload = event.data;
+        if (payload instanceof Blob) {
+          try {
+            payload = await payload.text();
+          } catch (error) {
+            // If blob parsing fails, fall back to the raw payload.
+          }
+        }
+
+        if (typeof payload === "string") {
+          try {
+            const parsed = JSON.parse(payload);
+            payload = parsed;
+          } catch (error) {
+            // Not JSON; use the string payload as-is.
+          }
+        }
+
+        relay.logWebSocket("websocket:message", payload);
+      };
+
+      const handleClose = () => {
+        cleanup();
+        closeExistingWebSocket();
+      };
+
+      const handleError = () => {
+        cleanup();
+        closeExistingWebSocket();
+
+        const error = new Error("Failed to connect to game WebSocket");
+        if (isServerRelay(relay)) {
+          relay.logWebSocket("websocket:error", { message: error.message });
+        }
+        reject(error);
+      };
+
+      const handleOpen = () => {
+        const initMessage = {
+          type: "init",
+          instanceId: DEFAULT_SCRATCH_GAME_ID,
+          sessionToken: sessionId,
+          wrapMessages: false,
+        };
+
+        try {
+          socket.send(JSON.stringify(initMessage));
+        } catch (error) {
+          handleError();
+          return;
+        }
+
+        if (isServerRelay(relay)) {
+          relay.logWebSocket("websocket:connected", {
+            endpoint,
+            initMessage,
+          });
+        }
+
+        socket.addEventListener("message", handleMessage);
+        resolve(socket);
+      };
+
+      socket.addEventListener("open", handleOpen);
+      socket.addEventListener("error", handleError);
+      socket.addEventListener("close", handleClose);
+    });
+  }
+
+  return sessionWebSocketPromise;
 }
 
 export async function initializeSessionId({
@@ -343,6 +480,22 @@ function normalizeBetAmount(amount) {
   return Math.max(0, numeric);
 }
 
+function normalizeAutoplayCount(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(numeric));
+}
+
+function normalizeAutoplaySteps(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(numeric));
+}
+
 function formatBetAmountLiteral(amount) {
   const normalized = normalizeBetAmount(amount);
   const safeDecimals = 8;
@@ -594,6 +747,219 @@ export async function submitBet({
   }
 
   return lastBetResult;
+}
+
+export async function submitAutoplay({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  amount = 0,
+  steps = 0,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot submit autobet before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  const normalizedAmount = normalizeBetAmount(amount);
+  const normalizedSteps = normalizeAutoplaySteps(steps);
+
+  const requestBody = {
+    type: "autoplay",
+    difficulty: 1,
+    steps: normalizedSteps,
+    amount: normalizedAmount,
+    count: 1,
+  };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:autoplay:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit autobet: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit autobet: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:autoplay:response", {
+      ...responsePayload,
+      ok: true,
+    });
+  }
+
+  return parsedBody ?? rawBody;
+}
+
+export async function submitStopAutoplay({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot submit stop autobet before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  const requestBody = { type: "stop_autoplay" };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:stop-autoplay:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit stop autobet: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit stop autobet: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:stop-autoplay:response", {
+      ...responsePayload,
+      ok: true,
+    });
+  }
+
+  return parsedBody ?? rawBody;
 }
 
 export async function submitStep({
@@ -1024,7 +1390,11 @@ function createLogEntry(direction, type, payload) {
   const directionLabel = document.createElement("span");
   directionLabel.className = "server__log-direction";
   directionLabel.textContent =
-    direction === "incoming" ? "Server → App" : "App → Server";
+    direction === "incoming"
+      ? "Server → App"
+      : direction === "websocket"
+        ? "WebSocket -> App"
+        : "App → Server";
   header.appendChild(directionLabel);
 
   const typeLabel = document.createElement("span");
@@ -1418,8 +1788,14 @@ export function createServer(relay, options = {}) {
     appendLog("incoming", type, payload);
   };
 
+  const webSocketHandler = (event) => {
+    const { type, payload } = event.detail ?? {};
+    appendLog("websocket", type, payload);
+  };
+
   serverRelay.addEventListener("outgoing", outgoingHandler);
   serverRelay.addEventListener("incoming", incomingHandler);
+  serverRelay.addEventListener("websocket", webSocketHandler);
 
   serverRelay.addEventListener("demomodechange", (event) => {
     setDemoMode(Boolean(event.detail?.value));
@@ -1436,6 +1812,7 @@ export function createServer(relay, options = {}) {
     destroy() {
       serverRelay.removeEventListener("outgoing", outgoingHandler);
       serverRelay.removeEventListener("incoming", incomingHandler);
+      serverRelay.removeEventListener("websocket", webSocketHandler);
       container.remove();
     },
   };

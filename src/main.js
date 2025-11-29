@@ -4,13 +4,18 @@ import { ServerRelay } from "./serverRelay.js";
 import {
   createServer,
   initializeSessionId,
+  initializeSessionWebSocket,
   initializeGameSession,
   submitBet,
+  submitAutoplay,
+  submitStopAutoplay,
   submitStep,
   submitCashout,
   leaveGameSession,
   getGameSessionDetails,
+  disconnectSessionWebSocket,
   DEFAULT_SCRATCH_GAME_ID,
+  connectToWebSocket,
 } from "./server/server.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
@@ -48,6 +53,7 @@ let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
+let sessionWebSocketInitialized = false;
 let gameSessionInitialized = false;
 let leaveSessionInProgress = false;
 let leaveSessionPromise = null;
@@ -163,6 +169,7 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
 
   while (currentGeneration === serverInitializationGeneration) {
     sessionIdInitialized = false;
+    sessionWebSocketInitialized = false;
     gameSessionInitialized = false;
     refreshStoredControlPanelInteractivity();
 
@@ -184,12 +191,6 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
       return false;
     }
 
-    await delay(600);
-
-    if (currentGeneration !== serverInitializationGeneration) {
-      return false;
-    }
-
     try {
       await initializeGameSession({ relay: serverRelay });
       gameSessionInitialized = true;
@@ -205,7 +206,29 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
       continue;
     }
 
-    if (gameSessionInitialized) {
+    if (currentGeneration !== serverInitializationGeneration) {
+      return false;
+    }
+
+    if (connectToWebSocket) {
+      try {
+        await initializeSessionWebSocket({ relay: serverRelay });
+        sessionWebSocketInitialized = true;
+      } catch (error) {
+        sessionWebSocketInitialized = false;
+        console.error("WebSocket connection failed:", error);
+        if (currentGeneration !== serverInitializationGeneration) {
+          return false;
+        }
+        refreshStoredControlPanelInteractivity();
+        await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+        continue;
+      }
+    } else {
+      sessionWebSocketInitialized = true;
+    }
+
+    if (gameSessionInitialized && sessionWebSocketInitialized) {
       hideGameLoadingOverlay();
       return true;
     }
@@ -349,6 +372,186 @@ function applyAutoResultsFromServer(results = []) {
     return;
   }
   game?.revealAutoSelections?.(results);
+}
+
+function shuffleArray(values = []) {
+  for (let i = values.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [values[i], values[j]] = [values[j], values[i]];
+  }
+  return values;
+}
+
+function buildAutoRevealMap(selections = [], { isWin = false } = {}) {
+  const gridSize = Math.max(1, Math.floor(Number(opts?.grid ?? 5)) || 5);
+  const mines = Math.max(0, Math.floor(Number(opts?.mines ?? 0)) || 0);
+  const map = Array.from({ length: gridSize }, () => Array(gridSize).fill(1));
+
+  const selectionKeys = new Set();
+  const validSelections = [];
+
+  selections.forEach((selection) => {
+    const row = Math.max(0, Math.floor(selection?.row ?? -1));
+    const col = Math.max(0, Math.floor(selection?.col ?? -1));
+    if (row >= gridSize || col >= gridSize) {
+      return;
+    }
+    const key = `${row},${col}`;
+    if (!selectionKeys.has(key)) {
+      selectionKeys.add(key);
+      validSelections.push({ row, col });
+    }
+  });
+
+  const allPositions = [];
+  for (let row = 0; row < gridSize; row += 1) {
+    for (let col = 0; col < gridSize; col += 1) {
+      allPositions.push({ row, col });
+    }
+  }
+
+  if (isWin) {
+    const available = allPositions.filter(
+      ({ row, col }) => !selectionKeys.has(`${row},${col}`)
+    );
+    const bombsToPlace = Math.min(mines, available.length);
+    shuffleArray(available)
+      .slice(0, bombsToPlace)
+      .forEach(({ row, col }) => {
+        map[row][col] = 0;
+      });
+  } else {
+    let bombsPlaced = 0;
+    if (validSelections.length > 0) {
+      const [firstSelection] = validSelections;
+      map[firstSelection.row][firstSelection.col] = 0;
+      bombsPlaced += 1;
+    }
+
+    const remainingBombs = Math.max(0, Math.min(mines - bombsPlaced, allPositions.length));
+    const available = allPositions.filter(({ row, col }) => map[row][col] !== 0);
+    shuffleArray(available)
+      .slice(0, remainingBombs)
+      .forEach(({ row, col }) => {
+        map[row][col] = 0;
+      });
+  }
+
+  return map;
+}
+
+function buildAutoRevealResults(selections = [], { isWin = false } = {}) {
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return [];
+  }
+
+  return selections.map((selection, index) => ({
+    row: selection?.row,
+    col: selection?.col,
+    result: isWin ? "win" : index === 0 ? "lost" : "win",
+  }));
+}
+
+function buildAutoResultsFromState(selections = [], { map, isWin = false } = {}) {
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return [];
+  }
+
+  if (Array.isArray(map)) {
+    return selections.map((selection) => {
+      const row = Math.max(0, Math.floor(selection?.row ?? -1));
+      const col = Math.max(0, Math.floor(selection?.col ?? -1));
+      const value = map?.[row]?.[col];
+      const isBomb = value === 0;
+      return { row, col, result: isBomb ? "lost" : "win" };
+    });
+  }
+
+  return buildAutoRevealResults(selections, { isWin });
+}
+
+function extractAutoplayStatusFromPayload(payload) {
+  const candidates = [
+    payload?.status,
+    payload?.Status,
+    payload?.state?.status,
+    payload?.State?.status,
+    payload?.State?.Status,
+    payload?.responseData?.state?.status,
+    payload?.ResponseData?.state?.status,
+    payload?.data?.Message?.status,
+    payload?.data?.message?.status,
+    payload?.data?.state?.status,
+    payload?.data?.State?.status,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") {
+      continue;
+    }
+    const normalized = candidate.trim().toLowerCase();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+}
+
+function handleAutoplayWebSocketPayload(payload) {
+  // Deprecated: WebSocket autoplay status handling is now driven by REST responses.
+}
+
+function extractAutoplayStateFromPayload(payload) {
+  if (payload?.ResponseData?.state) {
+    return payload.ResponseData.state;
+  }
+  if (payload?.responseData?.state) {
+    return payload.responseData.state;
+  }
+  if (payload?.state) {
+    return payload.state;
+  }
+  if (payload?.State) {
+    return payload.State;
+  }
+  return null;
+}
+
+function handleAutoplayResponsePayload(payload, selections = []) {
+  if (!autoRunActive || demoMode || suppressRelay) {
+    return;
+  }
+
+  const autoplayState = extractAutoplayStateFromPayload(payload);
+  const status = extractAutoplayStatusFromPayload(autoplayState ?? payload);
+
+  if (status !== "won" && status !== "lost" && status !== "win") {
+    return;
+  }
+
+  const isWin = status === "won" || status === "win";
+  const serverMap = Array.isArray(autoplayState?.map) ? autoplayState.map : null;
+
+  if (typeof game?.setServerRevealMap === "function") {
+    const revealMap = serverMap || buildAutoRevealMap(selections, { isWin });
+    if (revealMap) {
+      game.setServerRevealMap(revealMap);
+    }
+  }
+
+  const results = buildAutoResultsFromState(selections, { map: serverMap, isWin });
+  applyAutoResultsFromServer(results);
+
+  updateProfitFromServerState(autoplayState);
+
+  if (isWin) {
+    const multiplier = autoplayState?.multiplier ?? totalProfitMultiplierValue;
+    const winAmount = autoplayState?.winAmount ?? totalProfitAmountDisplayValue;
+    setTotalProfitMultiplierValue(multiplier);
+    setTotalProfitAmountValue(winAmount);
+    game?.showWinPopup?.(multiplier, winAmount);
+  }
 }
 
 const serverMount =
@@ -788,6 +991,11 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
       })),
     };
     sendRelayMessage("game:auto-round-request", payload);
+
+    (async () => {
+      await requestServerAutobetRound(selections);
+    })();
+
     return;
   }
 
@@ -1225,6 +1433,7 @@ function requestLeaveGameSession(options = {}) {
 
 window.addEventListener("beforeunload", () => {
   requestLeaveGameSession({ keepalive: true });
+  disconnectSessionWebSocket();
 });
 
 window.addEventListener("pagehide", (event) => {
@@ -1232,6 +1441,7 @@ window.addEventListener("pagehide", (event) => {
     return;
   }
   requestLeaveGameSession({ keepalive: true });
+  disconnectSessionWebSocket();
 });
 
 function handleGameStateChange(state) {
@@ -1402,12 +1612,60 @@ function handleAutoSelectionChange(count) {
   }
 }
 
+async function requestServerAutobetRound(selections = []) {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+
+  const amount = controlPanel?.getBetValue?.();
+  const steps = Array.isArray(selections) ? selections.length : 0;
+
+  try {
+    const autoplayResponse = await submitAutoplay({
+      amount,
+      count: 1,
+      steps,
+      gameId: getActiveGameId(),
+      relay: serverRelay,
+    });
+
+    handleAutoplayResponsePayload(autoplayResponse, selections);
+  } catch (error) {
+    console.error("Failed to submit autobet start request", error);
+    stopAutoBetProcess();
+    return;
+  }
+
+  try {
+    await submitStopAutoplay({
+      gameId: getActiveGameId(),
+      relay: serverRelay,
+    });
+  } catch (error) {
+    console.error("Failed to submit autobet stop request", error);
+  }
+}
+
+function requestServerAutobetStop() {
+  if (demoMode || suppressRelay) {
+    return;
+  }
+
+  submitStopAutoplay({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+  }).catch((error) => {
+    console.error("Failed to submit autobet stop request", error);
+  });
+}
+
 function handleStartAutobetClick() {
   if (autoRunActive) {
     if (!autoStopFinishing) {
       autoRunFlag = false;
       autoStopFinishing = true;
       setAutoRunUIState(true);
+      requestServerAutobetStop();
       sendRelayMessage("action:stop-autobet", { reason: "user" });
     }
     return;
