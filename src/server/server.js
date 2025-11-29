@@ -753,7 +753,6 @@ export async function submitAutoplay({
   url = DEFAULT_SERVER_URL,
   gameId = DEFAULT_SCRATCH_GAME_ID,
   amount = 0,
-  count = 0,
   steps = 0,
   relay,
 } = {}) {
@@ -775,7 +774,6 @@ export async function submitAutoplay({
   const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
 
   const normalizedAmount = normalizeBetAmount(amount);
-  const normalizedCount = normalizeAutoplayCount(count);
   const normalizedSteps = normalizeAutoplaySteps(steps);
 
   const requestBody = {
@@ -783,7 +781,7 @@ export async function submitAutoplay({
     difficulty: 1,
     steps: normalizedSteps,
     amount: normalizedAmount,
-    count: normalizedCount,
+    count: 1,
   };
 
   const requestPayload = {

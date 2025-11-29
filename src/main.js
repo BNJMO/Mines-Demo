@@ -374,19 +374,6 @@ function applyAutoResultsFromServer(results = []) {
   game?.revealAutoSelections?.(results);
 }
 
-function getAutoSelectionSnapshot() {
-  if (Array.isArray(storedAutoSelections) && storedAutoSelections.length > 0) {
-    return storedAutoSelections.map((selection) => ({ ...selection }));
-  }
-
-  const selections = game?.getAutoSelections?.();
-  if (Array.isArray(selections) && selections.length > 0) {
-    return selections.map((selection) => ({ ...selection }));
-  }
-
-  return [];
-}
-
 function shuffleArray(values = []) {
   for (let i = values.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -465,6 +452,24 @@ function buildAutoRevealResults(selections = [], { isWin = false } = {}) {
   }));
 }
 
+function buildAutoResultsFromState(selections = [], { map, isWin = false } = {}) {
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return [];
+  }
+
+  if (Array.isArray(map)) {
+    return selections.map((selection) => {
+      const row = Math.max(0, Math.floor(selection?.row ?? -1));
+      const col = Math.max(0, Math.floor(selection?.col ?? -1));
+      const value = map?.[row]?.[col];
+      const isBomb = value === 0;
+      return { row, col, result: isBomb ? "lost" : "win" };
+    });
+  }
+
+  return buildAutoRevealResults(selections, { isWin });
+}
+
 function extractAutoplayStatusFromPayload(payload) {
   const candidates = [
     payload?.status,
@@ -494,32 +499,59 @@ function extractAutoplayStatusFromPayload(payload) {
 }
 
 function handleAutoplayWebSocketPayload(payload) {
-  if (demoMode || suppressRelay) {
+  // Deprecated: WebSocket autoplay status handling is now driven by REST responses.
+}
+
+function extractAutoplayStateFromPayload(payload) {
+  if (payload?.ResponseData?.state) {
+    return payload.ResponseData.state;
+  }
+  if (payload?.responseData?.state) {
+    return payload.responseData.state;
+  }
+  if (payload?.state) {
+    return payload.state;
+  }
+  if (payload?.State) {
+    return payload.State;
+  }
+  return null;
+}
+
+function handleAutoplayResponsePayload(payload, selections = []) {
+  if (!autoRunActive || demoMode || suppressRelay) {
     return;
   }
 
-  if (controlPanelMode !== "auto" || !autoRunActive) {
+  const autoplayState = extractAutoplayStateFromPayload(payload);
+  const status = extractAutoplayStatusFromPayload(autoplayState ?? payload);
+
+  if (status !== "won" && status !== "lost" && status !== "win") {
     return;
   }
 
-  const status = extractAutoplayStatusFromPayload(payload);
-  if (status !== "won" && status !== "lost") {
-    return;
+  const isWin = status === "won" || status === "win";
+  const serverMap = Array.isArray(autoplayState?.map) ? autoplayState.map : null;
+
+  if (typeof game?.setServerRevealMap === "function") {
+    const revealMap = serverMap || buildAutoRevealMap(selections, { isWin });
+    if (revealMap) {
+      game.setServerRevealMap(revealMap);
+    }
   }
 
-  const selections = getAutoSelectionSnapshot();
-  if (selections.length === 0) {
-    return;
-  }
-
-  const isWin = status === "won";
-  const revealMap = buildAutoRevealMap(selections, { isWin });
-  if (revealMap && typeof game?.setServerRevealMap === "function") {
-    game.setServerRevealMap(revealMap);
-  }
-
-  const results = buildAutoRevealResults(selections, { isWin });
+  const results = buildAutoResultsFromState(selections, { map: serverMap, isWin });
   applyAutoResultsFromServer(results);
+
+  updateProfitFromServerState(autoplayState);
+
+  if (isWin) {
+    const multiplier = autoplayState?.multiplier ?? totalProfitMultiplierValue;
+    const winAmount = autoplayState?.winAmount ?? totalProfitAmountDisplayValue;
+    setTotalProfitMultiplierValue(multiplier);
+    setTotalProfitAmountValue(winAmount);
+    game?.showWinPopup?.(multiplier, winAmount);
+  }
 }
 
 const serverMount =
@@ -588,11 +620,6 @@ serverRelay.addEventListener("incoming", (event) => {
         break;
     }
   });
-});
-
-serverRelay.addEventListener("websocket", (event) => {
-  const { payload } = event.detail ?? {};
-  handleAutoplayWebSocketPayload(payload);
 });
 
 serverRelay.addEventListener("demomodechange", (event) => {
@@ -964,6 +991,11 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
       })),
     };
     sendRelayMessage("game:auto-round-request", payload);
+
+    (async () => {
+      await requestServerAutobetRound(selections);
+    })();
+
     return;
   }
 
@@ -1580,24 +1612,38 @@ function handleAutoSelectionChange(count) {
   }
 }
 
-function requestServerAutobetStart() {
+async function requestServerAutobetRound(selections = []) {
   if (demoMode || suppressRelay) {
     return;
   }
 
   const amount = controlPanel?.getBetValue?.();
-  const count = controlPanel?.getNumberOfBetsValue?.();
-  const steps = storedAutoSelections?.length ?? autoSelectionCount ?? 0;
+  const steps = Array.isArray(selections) ? selections.length : 0;
 
-  submitAutoplay({
-    amount,
-    count,
-    steps,
-    gameId: getActiveGameId(),
-    relay: serverRelay,
-  }).catch((error) => {
+  try {
+    const autoplayResponse = await submitAutoplay({
+      amount,
+      count: 1,
+      steps,
+      gameId: getActiveGameId(),
+      relay: serverRelay,
+    });
+
+    handleAutoplayResponsePayload(autoplayResponse, selections);
+  } catch (error) {
     console.error("Failed to submit autobet start request", error);
-  });
+    stopAutoBetProcess();
+    return;
+  }
+
+  try {
+    await submitStopAutoplay({
+      gameId: getActiveGameId(),
+      relay: serverRelay,
+    });
+  } catch (error) {
+    console.error("Failed to submit autobet stop request", error);
+  }
 }
 
 function requestServerAutobetStop() {
@@ -1629,7 +1675,6 @@ function handleStartAutobetClick() {
     return;
   }
 
-  requestServerAutobetStart();
   beginAutoBetProcess();
 }
 
