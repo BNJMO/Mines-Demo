@@ -8,6 +8,7 @@ import {
   submitBet,
   submitStep,
   submitCashout,
+  submitAutoplay,
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
@@ -342,13 +343,58 @@ function applyServerReveal(payload = {}) {
   }
 }
 
-function applyAutoResultsFromServer(results = []) {
+function applyAutoResultsFromServer(results = [], { map = null } = {}) {
   clearSelectionDelay();
   selectionPending = false;
+  if (map && typeof game?.setServerRevealMap === "function") {
+    game.setServerRevealMap(map);
+  }
   if (!Array.isArray(results) || results.length === 0) {
     return;
   }
   game?.revealAutoSelections?.(results);
+}
+
+function normalizeAutoplayStatus(status) {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "win" || normalized === "won") {
+    return "win";
+  }
+  if (normalized === "lost" || normalized === "loss") {
+    return "lost";
+  }
+  return null;
+}
+
+function buildAutoResultsFromState(state, selections) {
+  const serverMap = Array.isArray(state?.map) ? state.map : null;
+  const normalizedStatus = normalizeAutoplayStatus(state?.status);
+
+  if (!Array.isArray(selections) || selections.length === 0) {
+    return { results: [], serverMap, status: normalizedStatus };
+  }
+
+  const results = selections.map((selection, index) => {
+    const rowIndex = selection?.row;
+    const colIndex = selection?.col;
+    const mapRow = Array.isArray(serverMap?.[rowIndex])
+      ? serverMap[rowIndex]
+      : null;
+    const mapValue = mapRow ? mapRow[colIndex] : null;
+    const numericValue = Number(mapValue);
+    const hasNumericValue = Number.isFinite(numericValue);
+    const isBomb = hasNumericValue
+      ? numericValue === 0
+      : normalizedStatus === "lost" && index === 0;
+
+    return {
+      row: rowIndex,
+      col: colIndex,
+      result: isBomb ? "bomb" : "diamond",
+    };
+  });
+
+  return { results, serverMap, status: normalizedStatus };
 }
 
 const serverMount =
@@ -388,7 +434,7 @@ serverRelay.addEventListener("incoming", (event) => {
         applyServerReveal(payload);
         break;
       case "auto-bet-result":
-        applyAutoResultsFromServer(payload?.results);
+        applyAutoResultsFromServer(payload?.results, { map: payload?.map });
         break;
       case "stop-autobet":
         stopAutoBetProcess({ completed: Boolean(payload?.completed) });
@@ -788,6 +834,36 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
       })),
     };
     sendRelayMessage("game:auto-round-request", payload);
+
+    (async () => {
+      try {
+        const autoplayResult = await submitAutoplay({
+          amount: controlPanel?.getBetValue?.(),
+          steps: selections.length,
+          difficulty: controlPanel?.getMinesValue?.(),
+          gameId: getActiveGameId(),
+          relay: serverRelay,
+        });
+
+        const state =
+          autoplayResult?.state ?? autoplayResult?.responseData?.state ?? null;
+        const { results, serverMap, status } = buildAutoResultsFromState(
+          state,
+          selections
+        );
+
+        applyAutoResultsFromServer(results, { map: serverMap });
+
+        if (status === "win" && typeof game?.showWinPopup === "function") {
+          game.showWinPopup(state?.multiplier, state?.winAmount);
+        }
+      } catch (error) {
+        console.error("Failed to submit autoplay", error);
+        selectionPending = false;
+        autoRoundInProgress = false;
+        stopAutoBetProcess();
+      }
+    })();
     return;
   }
 
