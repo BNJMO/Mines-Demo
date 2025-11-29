@@ -4,6 +4,8 @@ export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
 export const DEFAULT_SCRATCH_GAME_ID = "CrashMines";
 export const DEFAULT_WEBSOCKET_URL = "wss://dev.securesocket.net:8091/";
 
+export const connectToWebSocket = false;
+
 let sessionId = null;
 let sessionGameDetails = null;
 let sessionGameUrl = null;

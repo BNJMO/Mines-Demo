@@ -15,6 +15,7 @@ import {
   getGameSessionDetails,
   disconnectSessionWebSocket,
   DEFAULT_SCRATCH_GAME_ID,
+  connectToWebSocket,
 } from "./server/server.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
@@ -209,18 +210,22 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
       return false;
     }
 
-    try {
-      await initializeSessionWebSocket({ relay: serverRelay });
-      sessionWebSocketInitialized = true;
-    } catch (error) {
-      sessionWebSocketInitialized = false;
-      console.error("WebSocket connection failed:", error);
-      if (currentGeneration !== serverInitializationGeneration) {
-        return false;
+    if (connectToWebSocket) {
+      try {
+        await initializeSessionWebSocket({ relay: serverRelay });
+        sessionWebSocketInitialized = true;
+      } catch (error) {
+        sessionWebSocketInitialized = false;
+        console.error("WebSocket connection failed:", error);
+        if (currentGeneration !== serverInitializationGeneration) {
+          return false;
+        }
+        refreshStoredControlPanelInteractivity();
+        await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
+        continue;
       }
-      refreshStoredControlPanelInteractivity();
-      await delay(SERVER_INITIALIZATION_RETRY_DELAY_MS);
-      continue;
+    } else {
+      sessionWebSocketInitialized = true;
     }
 
     if (gameSessionInitialized && sessionWebSocketInitialized) {
