@@ -1451,6 +1451,14 @@ export class ControlPanel extends EventTarget {
     this.updateShowDummyServerButtonState();
   }
 
+  updateShowDummyServerButtonState() {
+    if (!this.showServerButton) return;
+    const disabled = this.showDummyServerButtonLocked;
+    this.showServerButton.disabled = disabled;
+    this.showServerButton.classList.toggle("is-disabled", disabled);
+    this.showServerButton.setAttribute("aria-disabled", String(disabled));
+  }
+
   setAdvancedToggleClickable(isClickable) {
     const clickable = Boolean(isClickable);
     if (this.autoAdvancedToggle) {
