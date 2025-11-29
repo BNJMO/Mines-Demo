@@ -788,15 +788,11 @@ export async function submitAutoplay({
 
   const normalizedAmount = normalizeBetAmount(amount);
   const normalizedSteps = normalizeInteger(steps, { defaultValue: 0, min: 0 });
-  const normalizedDifficulty = normalizeInteger(difficulty, {
-    defaultValue: 1,
-    min: 0,
-  });
   const normalizedCount = normalizeInteger(count, { defaultValue: 1, min: 1 });
 
   const requestBody = {
     type: "autoplay",
-    difficulty: normalizedDifficulty,
+    difficulty: 1,
     steps: normalizedSteps,
     amount: normalizedAmount,
     count: normalizedCount,

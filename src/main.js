@@ -840,7 +840,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
         const autoplayResult = await submitAutoplay({
           amount: controlPanel?.getBetValue?.(),
           steps: selections.length,
-          difficulty: controlPanel?.getMinesValue?.(),
+          difficulty: 1,
           gameId: getActiveGameId(),
           relay: serverRelay,
         });
