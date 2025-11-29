@@ -366,32 +366,129 @@ function normalizeAutoplayStatus(status) {
   return null;
 }
 
-function buildAutoResultsFromState(state, selections) {
-  const serverMap = Array.isArray(state?.map) ? state.map : null;
-  const normalizedStatus = normalizeAutoplayStatus(state?.status);
+function normalizeGridSize(value) {
+  const numeric = Math.floor(Number(value));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 5;
+}
 
-  if (!Array.isArray(selections) || selections.length === 0) {
-    return { results: [], serverMap, status: normalizedStatus };
+function normalizeMinesForGrid(mines, gridSize) {
+  const totalTiles = gridSize * gridSize;
+  const maxMines = Math.max(1, totalTiles - 1);
+  const numeric = Math.floor(Number(mines));
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.min(Math.max(numeric, 1), maxMines);
+}
+
+function shuffleInPlace(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function buildAutoRoundAssignments({ status, selections, gridSize, mines }) {
+  const size = normalizeGridSize(gridSize);
+  const mineCount = normalizeMinesForGrid(mines, size);
+  const isWin = status === "win";
+  const selectionKeys = new Set();
+
+  const normalizedSelections = Array.isArray(selections)
+    ? selections
+        .map((selection) => ({
+          row: Math.floor(Number(selection?.row)),
+          col: Math.floor(Number(selection?.col)),
+        }))
+        .filter((selection) =>
+          Number.isInteger(selection.row) &&
+          Number.isInteger(selection.col) &&
+          selection.row >= 0 &&
+          selection.col >= 0 &&
+          selection.row < size &&
+          selection.col < size
+        )
+        .filter((selection) => {
+          const key = `${selection.row},${selection.col}`;
+          if (selectionKeys.has(key)) {
+            return false;
+          }
+          selectionKeys.add(key);
+          return true;
+        })
+    : [];
+
+  const allPositions = [];
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      allPositions.push({ row, col });
+    }
   }
 
-  const results = selections.map((selection, index) => {
-    const rowIndex = selection?.row;
-    const colIndex = selection?.col;
-    const mapRow = Array.isArray(serverMap?.[rowIndex])
-      ? serverMap[rowIndex]
-      : null;
-    const mapValue = mapRow ? mapRow[colIndex] : null;
-    const numericValue = Number(mapValue);
-    const hasNumericValue = Number.isFinite(numericValue);
-    const isBomb = hasNumericValue
-      ? numericValue === 0
-      : normalizedStatus === "lost" && index === 0;
+  const bombPositions = new Set();
+  const selectionArray = Array.from(selectionKeys);
 
+  if (isWin) {
+    const available = allPositions.filter(
+      (pos) => !selectionKeys.has(`${pos.row},${pos.col}`)
+    );
+    shuffleInPlace(available);
+    const bombsToAssign = Math.min(mineCount, available.length);
+    for (let i = 0; i < bombsToAssign; i++) {
+      const position = available[i];
+      bombPositions.add(`${position.row},${position.col}`);
+    }
+  } else {
+    if (selectionArray.length > 0) {
+      const forcedBombIndex = Math.floor(Math.random() * selectionArray.length);
+      bombPositions.add(selectionArray[forcedBombIndex]);
+    }
+
+    const available = allPositions.filter(
+      (pos) => !bombPositions.has(`${pos.row},${pos.col}`)
+    );
+    shuffleInPlace(available);
+    const bombsRemaining = Math.max(mineCount - bombPositions.size, 0);
+    for (let i = 0; i < bombsRemaining && i < available.length; i++) {
+      const position = available[i];
+      bombPositions.add(`${position.row},${position.col}`);
+    }
+  }
+
+  const results = normalizedSelections.map((selection) => {
+    const key = `${selection.row},${selection.col}`;
+    const isBomb = bombPositions.has(key);
     return {
-      row: rowIndex,
-      col: colIndex,
+      row: selection.row,
+      col: selection.col,
       result: isBomb ? "bomb" : "diamond",
     };
+  });
+
+  const serverMap = [];
+  for (let row = 0; row < size; row++) {
+    const rowValues = [];
+    for (let col = 0; col < size; col++) {
+      const key = `${row},${col}`;
+      rowValues.push(bombPositions.has(key) ? 0 : 2);
+    }
+    serverMap.push(rowValues);
+  }
+
+  return { results, serverMap };
+}
+
+function buildAutoResultsFromState(state, selections) {
+  const normalizedStatus = normalizeAutoplayStatus(state?.status);
+  const gridSize = normalizeGridSize(opts?.grid);
+  const mines = normalizeMinesForGrid(opts?.mines, gridSize);
+
+  const { results, serverMap } = buildAutoRoundAssignments({
+    status: normalizedStatus,
+    selections,
+    gridSize,
+    mines,
   });
 
   return { results, serverMap, status: normalizedStatus };
