@@ -8,6 +8,8 @@ import {
   submitBet,
   submitStep,
   submitCashout,
+  submitAutoplay,
+  submitStopAutoplay,
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
@@ -46,6 +48,9 @@ let autoBetsRemaining = Infinity;
 let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
+let autoRoundWinPopupHandled = false;
+let autoStopRequestInFlight = false;
+let autoRoundReadyForNext = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
@@ -97,6 +102,14 @@ function handleKeyboardShortcuts(event) {
 
 function isControlPanelInteractivityAllowed() {
   return demoMode || gameSessionInitialized;
+}
+
+function isAutoControlsInteractivityAllowed() {
+  if (autoRunActive) {
+    return isControlPanelInteractivityAllowed();
+  }
+
+  return true;
 }
 
 const gameRoot = document.querySelector("#game");
@@ -342,13 +355,183 @@ function applyServerReveal(payload = {}) {
   }
 }
 
-function applyAutoResultsFromServer(results = []) {
+function applyAutoResultsFromServer(results = [], { map = null } = {}) {
   clearSelectionDelay();
   selectionPending = false;
+  if (map && typeof game?.setServerRevealMap === "function") {
+    game.setServerRevealMap(map);
+  }
   if (!Array.isArray(results) || results.length === 0) {
     return;
   }
   game?.revealAutoSelections?.(results);
+}
+
+function tryScheduleAutoRound() {
+  if (!autoRunActive || !autoRoundReadyForNext) {
+    return;
+  }
+
+  if (!demoMode && !suppressRelay && autoStopRequestInFlight) {
+    return;
+  }
+
+  scheduleNextAutoBetRound();
+}
+
+function requestServerStopAutoplay() {
+  autoStopRequestInFlight = true;
+
+  submitStopAutoplay({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+  })
+    .catch((error) => {
+      console.error("Failed to submit stop autoplay", error);
+    })
+    .finally(() => {
+      autoStopRequestInFlight = false;
+      tryScheduleAutoRound();
+    });
+}
+
+function normalizeAutoplayStatus(status) {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "win" || normalized === "won") {
+    return "win";
+  }
+  if (normalized === "lost" || normalized === "loss") {
+    return "lost";
+  }
+  return null;
+}
+
+function normalizeGridSize(value) {
+  const numeric = Math.floor(Number(value));
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : 5;
+}
+
+function normalizeMinesForGrid(mines, gridSize) {
+  const totalTiles = gridSize * gridSize;
+  const maxMines = Math.max(1, totalTiles - 1);
+  const numeric = Math.floor(Number(mines));
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.min(Math.max(numeric, 1), maxMines);
+}
+
+function shuffleInPlace(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function buildAutoRoundAssignments({ status, selections, gridSize, mines }) {
+  const size = normalizeGridSize(gridSize);
+  const mineCount = normalizeMinesForGrid(mines, size);
+  const isWin = status === "win";
+  const selectionKeys = new Set();
+
+  const normalizedSelections = Array.isArray(selections)
+    ? selections
+        .map((selection) => ({
+          row: Math.floor(Number(selection?.row)),
+          col: Math.floor(Number(selection?.col)),
+        }))
+        .filter((selection) =>
+          Number.isInteger(selection.row) &&
+          Number.isInteger(selection.col) &&
+          selection.row >= 0 &&
+          selection.col >= 0 &&
+          selection.row < size &&
+          selection.col < size
+        )
+        .filter((selection) => {
+          const key = `${selection.row},${selection.col}`;
+          if (selectionKeys.has(key)) {
+            return false;
+          }
+          selectionKeys.add(key);
+          return true;
+        })
+    : [];
+
+  const allPositions = [];
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      allPositions.push({ row, col });
+    }
+  }
+
+  const bombPositions = new Set();
+  const selectionArray = Array.from(selectionKeys);
+
+  if (isWin) {
+    const available = allPositions.filter(
+      (pos) => !selectionKeys.has(`${pos.row},${pos.col}`)
+    );
+    shuffleInPlace(available);
+    const bombsToAssign = Math.min(mineCount, available.length);
+    for (let i = 0; i < bombsToAssign; i++) {
+      const position = available[i];
+      bombPositions.add(`${position.row},${position.col}`);
+    }
+  } else {
+    if (selectionArray.length > 0) {
+      const forcedBombIndex = Math.floor(Math.random() * selectionArray.length);
+      bombPositions.add(selectionArray[forcedBombIndex]);
+    }
+
+    const available = allPositions.filter(
+      (pos) => !bombPositions.has(`${pos.row},${pos.col}`)
+    );
+    shuffleInPlace(available);
+    const bombsRemaining = Math.max(mineCount - bombPositions.size, 0);
+    for (let i = 0; i < bombsRemaining && i < available.length; i++) {
+      const position = available[i];
+      bombPositions.add(`${position.row},${position.col}`);
+    }
+  }
+
+  const results = normalizedSelections.map((selection) => {
+    const key = `${selection.row},${selection.col}`;
+    const isBomb = bombPositions.has(key);
+    return {
+      row: selection.row,
+      col: selection.col,
+      result: isBomb ? "bomb" : "diamond",
+    };
+  });
+
+  const serverMap = [];
+  for (let row = 0; row < size; row++) {
+    const rowValues = [];
+    for (let col = 0; col < size; col++) {
+      const key = `${row},${col}`;
+      rowValues.push(bombPositions.has(key) ? 0 : 2);
+    }
+    serverMap.push(rowValues);
+  }
+
+  return { results, serverMap };
+}
+
+function buildAutoResultsFromState(state, selections) {
+  const normalizedStatus = normalizeAutoplayStatus(state?.status);
+  const gridSize = normalizeGridSize(opts?.grid);
+  const mines = normalizeMinesForGrid(opts?.mines, gridSize);
+
+  const { results, serverMap } = buildAutoRoundAssignments({
+    status: normalizedStatus,
+    selections,
+    gridSize,
+    mines,
+  });
+
+  return { results, serverMap, status: normalizedStatus };
 }
 
 const serverMount =
@@ -388,7 +571,7 @@ serverRelay.addEventListener("incoming", (event) => {
         applyServerReveal(payload);
         break;
       case "auto-bet-result":
-        applyAutoResultsFromServer(payload?.results);
+        applyAutoResultsFromServer(payload?.results, { map: payload?.map });
         break;
       case "stop-autobet":
         stopAutoBetProcess({ completed: Boolean(payload?.completed) });
@@ -510,7 +693,7 @@ function setControlPanelNumberOfBetsClickable(
   if (store) {
     controlPanelInteractivityState.numberOfBets = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setNumberOfBetsClickable?.(clickable);
 }
 
@@ -522,7 +705,7 @@ function setControlPanelAdvancedToggleClickable(
   if (store) {
     controlPanelInteractivityState.advancedToggle = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setAdvancedToggleClickable?.(clickable);
 }
 
@@ -534,7 +717,7 @@ function setControlPanelAdvancedStrategyControlsClickable(
   if (store) {
     controlPanelInteractivityState.advancedStrategy = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setAdvancedStrategyControlsClickable?.(clickable);
 }
 
@@ -546,7 +729,7 @@ function setControlPanelStopOnProfitClickable(
   if (store) {
     controlPanelInteractivityState.stopOnProfit = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setStopOnProfitClickable?.(clickable);
 }
 
@@ -558,7 +741,7 @@ function setControlPanelStopOnLossClickable(
   if (store) {
     controlPanelInteractivityState.stopOnLoss = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setStopOnLossClickable?.(clickable);
 }
 
@@ -757,6 +940,8 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
+  autoRoundReadyForNext = false;
+
   if (ensurePrepared && !startAutoRoundIfNeeded()) {
     stopAutoBetProcess({ completed: autoStopShouldComplete });
     autoStopShouldComplete = false;
@@ -771,6 +956,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
+  autoRoundWinPopupHandled = false;
   autoRoundInProgress = true;
   selectionPending = true;
   setControlPanelBetState(false);
@@ -788,6 +974,39 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
       })),
     };
     sendRelayMessage("game:auto-round-request", payload);
+
+    (async () => {
+      try {
+        const autoplayResult = await submitAutoplay({
+          amount: controlPanel?.getBetValue?.(),
+          steps: selections.length,
+          difficulty: 1,
+          gameId: getActiveGameId(),
+          relay: serverRelay,
+        });
+
+        const state =
+          autoplayResult?.state ?? autoplayResult?.responseData?.state ?? null;
+        const { results, serverMap, status } = buildAutoResultsFromState(
+          state,
+          selections
+        );
+
+        applyAutoResultsFromServer(results, { map: serverMap });
+
+        if (status === "win" && typeof game?.showWinPopup === "function") {
+          autoRoundWinPopupHandled = true;
+          game.showWinPopup(state?.multiplier, state?.winAmount);
+        }
+
+        requestServerStopAutoplay();
+      } catch (error) {
+        console.error("Failed to submit autoplay", error);
+        selectionPending = false;
+        autoRoundInProgress = false;
+        stopAutoBetProcess();
+      }
+    })();
     return;
   }
 
@@ -848,14 +1067,16 @@ function scheduleNextAutoBetRound() {
       return;
     }
 
-    autoStopFinishing = false;
-    setAutoRunUIState(true);
-    executeAutoBetRound({ ensurePrepared: true });
-  }, autoResetDelayMs);
+      autoStopFinishing = false;
+      setAutoRunUIState(true);
+      executeAutoBetRound({ ensurePrepared: true });
+    }, autoResetDelayMs);
 }
 
 function handleAutoRoundFinished() {
   autoRoundInProgress = false;
+
+  autoRoundReadyForNext = true;
 
   if (!autoRunActive) {
     return;
@@ -881,7 +1102,7 @@ function handleAutoRoundFinished() {
     }
   }
 
-  scheduleNextAutoBetRound();
+  tryScheduleAutoRound();
 }
 
 function beginAutoBetProcess() {
@@ -941,6 +1162,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
   autoRunActive = false;
   autoRunFlag = false;
   autoRoundInProgress = false;
+  autoRoundReadyForNext = false;
   autoStopShouldComplete = false;
   if (!wasActive && !completed) {
     autoStopFinishing = false;
@@ -1256,10 +1478,15 @@ function handleGameOver() {
 
 function handleGameWin() {
   game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
+  const shouldSkipWinPopup =
+    !demoMode && autoRoundInProgress && autoRoundWinPopupHandled;
+
+  if (!shouldSkipWinPopup) {
+    game?.showWinPopup?.(
+      totalProfitMultiplierValue,
+      totalProfitAmountDisplayValue
+    );
+  }
   markManualRoundForReset();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();

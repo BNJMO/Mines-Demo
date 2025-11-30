@@ -78,6 +78,14 @@ export function getLastBetRegisteredBets() {
   return lastBetRegisteredBets;
 }
 
+function normalizeInteger(value, { min = 0, defaultValue = 0 } = {}) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return defaultValue;
+  }
+  return Math.max(min, Math.floor(numeric));
+}
+
 
 function isServerRelay(candidate) {
   return candidate instanceof ServerRelay;
@@ -748,6 +756,294 @@ export async function submitStep({
     isSuccess,
     responseData,
     state,
+    raw: parsedBody,
+  };
+}
+
+export async function submitAutoplay({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+  amount = 0,
+  steps = 0,
+  difficulty = 1,
+  count = 1,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot submit autoplay before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  const normalizedAmount = normalizeBetAmount(amount);
+  const normalizedSteps = normalizeInteger(steps, { defaultValue: 0, min: 0 });
+  const normalizedCount = normalizeInteger(count, { defaultValue: 1, min: 1 });
+
+  const requestBody = {
+    type: "autoplay",
+    difficulty: 1,
+    steps: normalizedSteps,
+    amount: normalizedAmount,
+    count: normalizedCount,
+  };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:autoplay:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit autoplay: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit autoplay: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (!parsedBody || typeof parsedBody !== "object") {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Autoplay response was not valid JSON",
+      });
+    }
+    throw new Error("Autoplay response was not valid JSON");
+  }
+
+  const isSuccess = Boolean(parsedBody?.IsSuccess);
+  const responseData = parsedBody?.ResponseData ?? null;
+  const state = responseData?.state ?? null;
+  const status = state?.status ?? null;
+
+  if (!responseData) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Autoplay response did not include response data",
+      });
+    }
+    throw new Error("Autoplay response did not include response data");
+  }
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:autoplay:response", {
+      ...responsePayload,
+      ok: true,
+      autoplay: {
+        success: isSuccess,
+        state,
+        status,
+      },
+    });
+  }
+
+  return {
+    isSuccess,
+    responseData,
+    state,
+    raw: parsedBody,
+  };
+}
+
+export async function submitStopAutoplay({
+  url = DEFAULT_SERVER_URL,
+  gameId = DEFAULT_SCRATCH_GAME_ID,
+  relay,
+} = {}) {
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    const error = new Error(
+      "Cannot submit stop autoplay before the session id is initialized"
+    );
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ok: false,
+        error: error.message,
+      });
+    }
+    throw error;
+  }
+
+  const baseUrl = normalizeBaseUrl(url);
+  const normalizedGameId = normalizeScratchGameId(gameId);
+  const endpoint = `${baseUrl}/post/${encodeURIComponent(normalizedGameId)}`;
+
+  const requestBody = {
+    type: "stop_autoplay",
+  };
+
+  const requestPayload = {
+    method: "POST",
+    url: endpoint,
+    gameId: normalizedGameId,
+    body: requestBody,
+  };
+
+  if (isServerRelay(relay)) {
+    relay.send("api:stop-autoplay:request", requestPayload);
+  }
+
+  let response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Content-Type": "application/json",
+        "X-CASINOTV-TOKEN": sessionId,
+        "X-CASINOTV-PROTOCOL-VERSION": "1.1",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (networkError) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ok: false,
+        error: networkError?.message ?? "Network error",
+        request: requestPayload,
+      });
+    }
+    throw networkError;
+  }
+
+  const rawBody = await response.text();
+  let parsedBody = null;
+
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch (error) {
+      // Response body was not JSON; leave parsedBody as null.
+    }
+  }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: parsedBody ?? rawBody,
+    request: requestPayload,
+  };
+
+  if (!response.ok) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: `Failed to submit stop autoplay: ${response.status} ${response.statusText}`,
+      });
+    }
+    throw new Error(
+      `Failed to submit stop autoplay: ${response.status} ${response.statusText}`
+    );
+  }
+
+  if (!parsedBody || typeof parsedBody !== "object") {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Stop autoplay response was not valid JSON",
+      });
+    }
+    throw new Error("Stop autoplay response was not valid JSON");
+  }
+
+  const isSuccess = Boolean(parsedBody?.IsSuccess);
+  const responseData = parsedBody?.ResponseData ?? null;
+
+  if (!responseData) {
+    if (isServerRelay(relay)) {
+      relay.deliver("api:stop-autoplay:response", {
+        ...responsePayload,
+        ok: false,
+        error: "Stop autoplay response did not include response data",
+      });
+    }
+    throw new Error("Stop autoplay response did not include response data");
+  }
+
+  if (isServerRelay(relay)) {
+    relay.deliver("api:stop-autoplay:response", {
+      ...responsePayload,
+      ok: true,
+      stopAutoplay: {
+        success: isSuccess,
+        responseData,
+      },
+    });
+  }
+
+  return {
+    isSuccess,
+    responseData,
     raw: parsedBody,
   };
 }
