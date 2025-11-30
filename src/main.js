@@ -101,6 +101,14 @@ function isControlPanelInteractivityAllowed() {
   return demoMode || gameSessionInitialized;
 }
 
+function isAutoControlsInteractivityAllowed() {
+  if (autoRunActive) {
+    return isControlPanelInteractivityAllowed();
+  }
+
+  return true;
+}
+
 const gameRoot = document.querySelector("#game");
 let gameLoadingOverlay = gameRoot?.querySelector(".loading") ?? null;
 if (!demoMode && gameRoot && gameLoadingOverlay) {
@@ -654,7 +662,7 @@ function setControlPanelNumberOfBetsClickable(
   if (store) {
     controlPanelInteractivityState.numberOfBets = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setNumberOfBetsClickable?.(clickable);
 }
 
@@ -666,7 +674,7 @@ function setControlPanelAdvancedToggleClickable(
   if (store) {
     controlPanelInteractivityState.advancedToggle = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setAdvancedToggleClickable?.(clickable);
 }
 
@@ -678,7 +686,7 @@ function setControlPanelAdvancedStrategyControlsClickable(
   if (store) {
     controlPanelInteractivityState.advancedStrategy = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setAdvancedStrategyControlsClickable?.(clickable);
 }
 
@@ -690,7 +698,7 @@ function setControlPanelStopOnProfitClickable(
   if (store) {
     controlPanelInteractivityState.stopOnProfit = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setStopOnProfitClickable?.(clickable);
 }
 
@@ -702,7 +710,7 @@ function setControlPanelStopOnLossClickable(
   if (store) {
     controlPanelInteractivityState.stopOnLoss = normalized;
   }
-  const clickable = normalized && isControlPanelInteractivityAllowed();
+  const clickable = normalized && isAutoControlsInteractivityAllowed();
   controlPanel?.setStopOnLossClickable?.(clickable);
 }
 
