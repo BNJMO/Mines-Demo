@@ -9,6 +9,7 @@ import {
   submitStep,
   submitCashout,
   submitAutoplay,
+  submitStopAutoplay,
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
@@ -48,6 +49,8 @@ let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
 let autoRoundWinPopupHandled = false;
+let autoStopRequestInFlight = false;
+let autoRoundReadyForNext = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
@@ -362,6 +365,34 @@ function applyAutoResultsFromServer(results = [], { map = null } = {}) {
     return;
   }
   game?.revealAutoSelections?.(results);
+}
+
+function tryScheduleAutoRound() {
+  if (!autoRunActive || !autoRoundReadyForNext) {
+    return;
+  }
+
+  if (!demoMode && !suppressRelay && autoStopRequestInFlight) {
+    return;
+  }
+
+  scheduleNextAutoBetRound();
+}
+
+function requestServerStopAutoplay() {
+  autoStopRequestInFlight = true;
+
+  submitStopAutoplay({
+    gameId: getActiveGameId(),
+    relay: serverRelay,
+  })
+    .catch((error) => {
+      console.error("Failed to submit stop autoplay", error);
+    })
+    .finally(() => {
+      autoStopRequestInFlight = false;
+      tryScheduleAutoRound();
+    });
 }
 
 function normalizeAutoplayStatus(status) {
@@ -909,6 +940,8 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
+  autoRoundReadyForNext = false;
+
   if (ensurePrepared && !startAutoRoundIfNeeded()) {
     stopAutoBetProcess({ completed: autoStopShouldComplete });
     autoStopShouldComplete = false;
@@ -965,6 +998,8 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
           autoRoundWinPopupHandled = true;
           game.showWinPopup(state?.multiplier, state?.winAmount);
         }
+
+        requestServerStopAutoplay();
       } catch (error) {
         console.error("Failed to submit autoplay", error);
         selectionPending = false;
@@ -1032,14 +1067,16 @@ function scheduleNextAutoBetRound() {
       return;
     }
 
-    autoStopFinishing = false;
-    setAutoRunUIState(true);
-    executeAutoBetRound({ ensurePrepared: true });
-  }, autoResetDelayMs);
+      autoStopFinishing = false;
+      setAutoRunUIState(true);
+      executeAutoBetRound({ ensurePrepared: true });
+    }, autoResetDelayMs);
 }
 
 function handleAutoRoundFinished() {
   autoRoundInProgress = false;
+
+  autoRoundReadyForNext = true;
 
   if (!autoRunActive) {
     return;
@@ -1065,7 +1102,7 @@ function handleAutoRoundFinished() {
     }
   }
 
-  scheduleNextAutoBetRound();
+  tryScheduleAutoRound();
 }
 
 function beginAutoBetProcess() {
@@ -1125,6 +1162,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
   autoRunActive = false;
   autoRunFlag = false;
   autoRoundInProgress = false;
+  autoRoundReadyForNext = false;
   autoStopShouldComplete = false;
   if (!wasActive && !completed) {
     autoStopFinishing = false;
