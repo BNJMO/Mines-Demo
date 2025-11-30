@@ -47,6 +47,7 @@ let autoBetsRemaining = Infinity;
 let autoResetTimer = null;
 let autoStopShouldComplete = false;
 let autoStopFinishing = false;
+let autoRoundWinPopupHandled = false;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
@@ -914,6 +915,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
     return;
   }
 
+  autoRoundWinPopupHandled = false;
   autoRoundInProgress = true;
   selectionPending = true;
   setControlPanelBetState(false);
@@ -952,6 +954,7 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
         applyAutoResultsFromServer(results, { map: serverMap });
 
         if (status === "win" && typeof game?.showWinPopup === "function") {
+          autoRoundWinPopupHandled = true;
           game.showWinPopup(state?.multiplier, state?.winAmount);
         }
       } catch (error) {
@@ -1429,10 +1432,15 @@ function handleGameOver() {
 
 function handleGameWin() {
   game?.revealRemainingTiles?.();
-  game?.showWinPopup?.(
-    totalProfitMultiplierValue,
-    totalProfitAmountDisplayValue
-  );
+  const shouldSkipWinPopup =
+    !demoMode && autoRoundInProgress && autoRoundWinPopupHandled;
+
+  if (!shouldSkipWinPopup) {
+    game?.showWinPopup?.(
+      totalProfitMultiplierValue,
+      totalProfitAmountDisplayValue
+    );
+  }
   markManualRoundForReset();
   finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
   handleAutoRoundFinished();
