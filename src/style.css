@@ -2,7 +2,7 @@
 @import "./game/gameStyle.css";
 @import "./controlPanel/controlPanelStyle.css";
 @import "./stepper/stepperStyle.css";
-@import "./server/serverStyles.css";
+@import "./server/serverPanel.css";
 
 * {
   margin: 0;

@@ -2,7 +2,6 @@ import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
 import {
-  createServer,
   initializeSessionId,
   initializeGameSession,
   submitBet,
@@ -14,6 +13,7 @@ import {
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
 } from "./server/server.js";
+import { ServerPanel } from "./server/serverPanel.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -537,7 +537,7 @@ function buildAutoResultsFromState(state, selections) {
 
 const serverMount =
   document.querySelector(".app-wrapper") ?? document.body;
-serverUI = createServer(serverRelay, {
+serverUI = new ServerPanel(serverRelay, {
   mount: serverMount,
   onDemoModeToggle: (value) => {
     const betValue = getCurrentBetValue();
