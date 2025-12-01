@@ -1430,6 +1430,40 @@ export class ControlPanel extends EventTarget {
     this.updateNumberOfBetsIcon();
   }
 
+  isAdvancedModeEnabled() {
+    return Boolean(this.isAdvancedEnabled);
+  }
+
+  getOnWinStrategyMode() {
+    return this.onWinMode;
+  }
+
+  getOnLossStrategyMode() {
+    return this.onLossMode;
+  }
+
+  getOnWinStrategyValue() {
+    const numeric = Number.parseFloat(this.onWinInput?.value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  getOnLossStrategyValue() {
+    const numeric = Number.parseFloat(this.onLossInput?.value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  getStopOnProfitValue() {
+    if (!this.autoStopOnProfitField?.input) return 0;
+    const numeric = Number(this.parseBetValue(this.autoStopOnProfitField.input.value));
+    return Number.isFinite(numeric) ? clampToZero(numeric) : 0;
+  }
+
+  getStopOnLossValue() {
+    if (!this.autoStopOnLossField?.input) return 0;
+    const numeric = Number(this.parseBetValue(this.autoStopOnLossField.input.value));
+    return Number.isFinite(numeric) ? clampToZero(numeric) : 0;
+  }
+
   setNumberOfBetsClickable(isClickable) {
     const clickable = Boolean(isClickable);
     if (this.autoNumberOfBetsField) {
