@@ -2,6 +2,7 @@ import { ServerRelay } from "../serverRelay.js";
 
 export const DEFAULT_SERVER_URL = "https://dev.securesocket.net:8443";
 export const DEFAULT_SCRATCH_GAME_ID = "CrashMines";
+export const SESSION_EXPIRED_MESSAGE = "SESSION_EXPIRED";
 
 let sessionId = null;
 let sessionGameDetails = null;
@@ -86,6 +87,44 @@ function normalizeInteger(value, { min = 0, defaultValue = 0 } = {}) {
   return Math.max(min, Math.floor(numeric));
 }
 
+function createSessionExpiredError() {
+  const error = new Error(SESSION_EXPIRED_MESSAGE);
+  error.code = SESSION_EXPIRED_MESSAGE;
+  return error;
+}
+
+function isSessionExpiredResponse(body) {
+  return Boolean(
+    body &&
+    typeof body === "object" &&
+    body.Message === SESSION_EXPIRED_MESSAGE
+  );
+}
+
+function handlePossibleSessionExpiration({
+  parsedBody,
+  relay,
+  responsePayload,
+  relayType,
+}) {
+  if (!isSessionExpiredResponse(parsedBody)) {
+    return false;
+  }
+
+  const error = createSessionExpiredError();
+
+  if (isServerRelay(relay)) {
+    relay.deliver(relayType, {
+      ...responsePayload,
+      ok: false,
+      error: error.message,
+      sessionExpired: true,
+    });
+  }
+
+  throw error;
+}
+
 
 function isServerRelay(candidate) {
   return candidate instanceof ServerRelay;
@@ -129,17 +168,11 @@ export async function initializeSessionId({
 
   const rawBody = await response.text();
   let nextSessionId = rawBody;
-
-  const responsePayload = {
-    ok: response.ok,
-    status: response.status,
-    statusText: response.statusText,
-    body: rawBody,
-    request: requestPayload,
-  };
+  let parsedBodyForExpiration = null;
 
   try {
     const parsed = JSON.parse(rawBody);
+    parsedBodyForExpiration = parsed;
     if (typeof parsed === "string") {
       nextSessionId = parsed;
     } else if (
@@ -152,6 +185,21 @@ export async function initializeSessionId({
   } catch (error) {
     // Response is not JSON; treat raw body as the session id string.
   }
+
+  const responsePayload = {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    body: rawBody,
+    request: requestPayload,
+  };
+
+  handlePossibleSessionExpiration({
+    parsedBody: parsedBodyForExpiration,
+    relay,
+    responsePayload,
+    relayType: "api:get_session_id:response",
+  });
 
   if (typeof nextSessionId !== "string" || nextSessionId.length === 0) {
     if (isServerRelay(relay)) {
@@ -266,6 +314,13 @@ export async function initializeGameSession({
     body: parsedBody ?? rawBody,
     request: requestPayload,
   };
+
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:join:response",
+  });
 
   if (!response.ok) {
     if (isServerRelay(relay)) {
@@ -516,6 +571,13 @@ export async function submitBet({
     request: requestPayload,
   };
 
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:bet:response",
+  });
+
   if (!response.ok) {
     if (isServerRelay(relay)) {
       relay.deliver("api:bet:response", {
@@ -702,6 +764,13 @@ export async function submitStep({
     request: requestPayload,
   };
 
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:step:response",
+  });
+
   if (!response.ok) {
     if (isServerRelay(relay)) {
       relay.deliver("api:step:response", {
@@ -852,6 +921,13 @@ export async function submitAutoplay({
     request: requestPayload,
   };
 
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:autoplay:response",
+  });
+
   if (!response.ok) {
     if (isServerRelay(relay)) {
       relay.deliver("api:autoplay:response", {
@@ -992,6 +1068,13 @@ export async function submitStopAutoplay({
     request: requestPayload,
   };
 
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:stop-autoplay:response",
+  });
+
   if (!response.ok) {
     if (isServerRelay(relay)) {
       relay.deliver("api:stop-autoplay:response", {
@@ -1126,6 +1209,13 @@ export async function submitCashout({
     request: requestPayload,
   };
 
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:cashout:response",
+  });
+
   if (!response.ok) {
     if (isServerRelay(relay)) {
       relay.deliver("api:cashout:response", {
@@ -1247,6 +1337,13 @@ export async function leaveGameSession({
     body: parsedBody ?? rawBody,
     request: requestPayload,
   };
+
+  handlePossibleSessionExpiration({
+    parsedBody,
+    relay,
+    responsePayload,
+    relayType: "api:leave:response",
+  });
 
   if (!response.ok) {
     if (isServerRelay(relay)) {
