@@ -2,7 +2,6 @@ import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
 import {
-  createServer,
   initializeSessionId,
   initializeGameSession,
   submitBet,
@@ -13,7 +12,9 @@ import {
   leaveGameSession,
   getGameSessionDetails,
   DEFAULT_SCRATCH_GAME_ID,
+  SESSION_EXPIRED_MESSAGE,
 } from "./server/server.js";
+import { ServerPanel } from "./server/serverPanel.js";
 
 import diamondTextureUrl from "../assets/sprites/Diamond.png";
 import bombTextureUrl from "../assets/sprites/Bomb.png";
@@ -57,6 +58,7 @@ let gameSessionInitialized = false;
 let leaveSessionInProgress = false;
 let leaveSessionPromise = null;
 let gameInitialized = false;
+let sessionExpirationRecoveryTask = null;
 
 const controlPanelInteractivityState = {
   betButton: false,
@@ -248,6 +250,62 @@ function startServerInitialization(options = {}) {
   return promise;
 }
 
+function isSessionExpiredError(error) {
+  if (!error) {
+    return false;
+  }
+  return (
+    error?.code === SESSION_EXPIRED_MESSAGE ||
+    error?.message === SESSION_EXPIRED_MESSAGE
+  );
+}
+
+function resetGameStateAfterSessionRecovery() {
+  stopAutoBetProcess();
+  autoRoundReadyForNext = false;
+  autoRoundWinPopupHandled = false;
+  storedAutoSelections = [];
+  autoSelectionCount = 0;
+  selectionPending = false;
+  manualRoundNeedsReset = false;
+  clearSelectionDelay();
+  finalizeRound();
+  game?.reset?.({ preserveAutoSelections: false });
+}
+
+function recoverFromSessionExpiration() {
+  if (sessionExpirationRecoveryTask) {
+    return sessionExpirationRecoveryTask;
+  }
+
+  sessionIdInitialized = false;
+  gameSessionInitialized = false;
+  refreshStoredControlPanelInteractivity();
+  showGameLoadingOverlay();
+
+  const promise = startServerInitialization({ showLoading: true })
+    .then((initialized) => {
+      if (initialized) {
+        resetGameStateAfterSessionRecovery();
+      }
+      return initialized;
+    })
+    .finally(() => {
+      sessionExpirationRecoveryTask = null;
+    });
+
+  sessionExpirationRecoveryTask = promise;
+  return promise;
+}
+
+function handleSessionExpiredError(error) {
+  if (!isSessionExpiredError(error)) {
+    return false;
+  }
+  recoverFromSessionExpiration();
+  return true;
+}
+
 function withRelaySuppressed(callback) {
   suppressRelay = true;
   try {
@@ -388,10 +446,15 @@ function requestServerStopAutoplay() {
     relay: serverRelay,
   })
     .catch((error) => {
-      console.error("Failed to submit stop autoplay", error);
+      if (!handleSessionExpiredError(error)) {
+        console.error("Failed to submit stop autoplay", error);
+      }
     })
     .finally(() => {
       autoStopRequestInFlight = false;
+      if (sessionExpirationRecoveryTask) {
+        return;
+      }
       tryScheduleAutoRound();
     });
 }
@@ -537,7 +600,7 @@ function buildAutoResultsFromState(state, selections) {
 
 const serverMount =
   document.querySelector(".app-wrapper") ?? document.body;
-serverUI = createServer(serverRelay, {
+serverUI = new ServerPanel(serverRelay, {
   mount: serverMount,
   onDemoModeToggle: (value) => {
     const betValue = getCurrentBetValue();
@@ -1018,10 +1081,14 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
 
         requestServerStopAutoplay();
       } catch (error) {
-        console.error("Failed to submit autoplay", error);
+        if (!handleSessionExpiredError(error)) {
+          console.error("Failed to submit autoplay", error);
+        }
         selectionPending = false;
         autoRoundInProgress = false;
-        stopAutoBetProcess();
+        if (!sessionExpirationRecoveryTask) {
+          stopAutoBetProcess();
+        }
       }
     })();
     return;
@@ -1361,6 +1428,9 @@ function handleCashout() {
         finalizeRound({ preserveAutoSelections: controlPanelMode === "auto" });
         handleAutoRoundFinished();
       } catch (error) {
+        if (handleSessionExpiredError(error)) {
+          return;
+        }
         console.error("Failed to submit cashout", error);
         setControlPanelBetState(true);
         setControlPanelRandomState(true);
@@ -1416,6 +1486,9 @@ async function handleBet() {
       });
       performBet();
     } catch (error) {
+      if (handleSessionExpiredError(error)) {
+        return;
+      }
       console.error("Failed to submit bet", error);
       setControlPanelBetState(true);
       setControlPanelRandomState(controlPanelMode === "manual");
@@ -1458,7 +1531,9 @@ function requestLeaveGameSession(options = {}) {
       return true;
     })
     .catch((error) => {
-      console.error("Failed to leave game session", error);
+      if (!handleSessionExpiredError(error)) {
+        console.error("Failed to leave game session", error);
+      }
       return false;
     })
     .finally(() => {
@@ -1565,6 +1640,9 @@ async function requestServerSelectionReveal(selection) {
       serverMap: shouldRevealMap ? serverMap : null,
     });
   } catch (error) {
+    if (handleSessionExpiredError(error)) {
+      return;
+    }
     console.error("Failed to reveal tile via server:", error);
     scheduleSelectionResolution({ isBomb: true });
   }
