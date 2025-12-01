@@ -52,6 +52,10 @@ let autoStopFinishing = false;
 let autoRoundWinPopupHandled = false;
 let autoStopRequestInFlight = false;
 let autoRoundReadyForNext = false;
+let autoRoundLastStatus = null;
+let autoRoundProfitDelta = 0;
+let autoRoundBetAmount = 0;
+let autoSessionNetProfit = 0;
 let manualRoundNeedsReset = false;
 let sessionIdInitialized = false;
 let gameSessionInitialized = false;
@@ -78,6 +82,14 @@ const controlPanelInteractivityState = {
 function hasPositiveBetAmount(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0;
+}
+
+function clampToZero(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, numeric);
 }
 
 function getCurrentBetValue() {
@@ -387,6 +399,104 @@ function updateProfitFromServerState(state) {
 
   if (state.winAmount != null) {
     setTotalProfitAmountValue(state.winAmount);
+  }
+}
+
+function setCurrentAutoRoundBetAmount(value) {
+  const numeric = Number(value);
+  autoRoundBetAmount = Number.isFinite(numeric) ? numeric : 0;
+}
+
+function recordAutoRoundOutcome({ status, winAmount }) {
+  autoRoundLastStatus = normalizeAutoplayStatus(status);
+  const betAmount = clampToZero(autoRoundBetAmount);
+  const numericWinAmount = clampToZero(winAmount);
+
+  if (autoRoundLastStatus === "win") {
+    autoRoundProfitDelta = numericWinAmount - betAmount;
+  } else if (autoRoundLastStatus === "lost") {
+    autoRoundProfitDelta = -betAmount;
+  } else {
+    autoRoundProfitDelta = 0;
+  }
+
+  if (!demoMode && autoRunActive) {
+    autoSessionNetProfit += autoRoundProfitDelta;
+  }
+}
+
+function applyAutoAdvancedBetAdjustments() {
+  if (!autoRunActive) {
+    return;
+  }
+
+  if (!controlPanel?.isAdvancedModeEnabled?.()) {
+    return;
+  }
+
+  if (autoRoundLastStatus !== "win" && autoRoundLastStatus !== "lost") {
+    return;
+  }
+
+  const isWin = autoRoundLastStatus === "win";
+  const strategyMode = isWin
+    ? controlPanel?.getOnWinStrategyMode?.()
+    : controlPanel?.getOnLossStrategyMode?.();
+
+  if (strategyMode !== "increase") {
+    return;
+  }
+
+  const percentage = isWin
+    ? controlPanel?.getOnWinStrategyValue?.()
+    : controlPanel?.getOnLossStrategyValue?.();
+
+  const numericPercentage = Number(percentage);
+  const currentBet = Number(controlPanel?.getBetValue?.());
+
+  if (!Number.isFinite(numericPercentage) || numericPercentage <= 0) {
+    return;
+  }
+
+  if (!Number.isFinite(currentBet) || currentBet <= 0) {
+    return;
+  }
+
+  const nextBet = clampToZero(currentBet * (1 + numericPercentage / 100));
+  controlPanel?.setBetInputValue?.(nextBet);
+}
+
+function shouldStopAutoRunForLimits() {
+  if (!autoRunActive) {
+    return false;
+  }
+
+  if (!controlPanel?.isAdvancedModeEnabled?.()) {
+    return false;
+  }
+
+  const profitTarget = clampToZero(controlPanel?.getStopOnProfitValue?.());
+  const lossLimit = clampToZero(controlPanel?.getStopOnLossValue?.());
+
+  if (profitTarget > 0 && autoSessionNetProfit >= profitTarget) {
+    return true;
+  }
+
+  if (lossLimit > 0 && -autoSessionNetProfit >= lossLimit) {
+    return true;
+  }
+
+  return false;
+}
+
+function stopAutoRunForLimit(reason) {
+  autoRunFlag = false;
+  autoStopShouldComplete = true;
+  autoStopFinishing = true;
+  setAutoRunUIState(true);
+
+  if (!demoMode && !suppressRelay) {
+    sendRelayMessage("action:stop-autobet", { reason });
   }
 }
 
@@ -1036,6 +1146,10 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
 
   autoRoundReadyForNext = false;
 
+  setCurrentAutoRoundBetAmount(controlPanel?.getBetValue?.());
+  autoRoundLastStatus = null;
+  autoRoundProfitDelta = 0;
+
   if (ensurePrepared && !startAutoRoundIfNeeded()) {
     stopAutoBetProcess({ completed: autoStopShouldComplete });
     autoStopShouldComplete = false;
@@ -1085,6 +1199,9 @@ function executeAutoBetRound({ ensurePrepared = true } = {}) {
           state,
           selections
         );
+
+        updateProfitFromServerState(state);
+        recordAutoRoundOutcome({ status, winAmount: state?.winAmount });
 
         applyAutoResultsFromServer(results, { map: serverMap });
 
@@ -1201,6 +1318,15 @@ function handleAutoRoundFinished() {
     }
   }
 
+  if (!demoMode) {
+    applyAutoAdvancedBetAdjustments();
+
+    if (shouldStopAutoRunForLimits()) {
+      const reason = autoSessionNetProfit >= 0 ? "profit-limit" : "loss-limit";
+      stopAutoRunForLimit(reason);
+    }
+  }
+
   tryScheduleAutoRound();
 }
 
@@ -1223,6 +1349,10 @@ function beginAutoBetProcess() {
   } else {
     autoBetsRemaining = Infinity;
   }
+
+  autoSessionNetProfit = 0;
+  autoRoundLastStatus = null;
+  autoRoundProfitDelta = 0;
 
   autoRunFlag = true;
   autoRunActive = true;
@@ -1263,6 +1393,9 @@ function stopAutoBetProcess({ completed = false } = {}) {
   autoRoundInProgress = false;
   autoRoundReadyForNext = false;
   autoStopShouldComplete = false;
+  autoRoundLastStatus = null;
+  autoRoundProfitDelta = 0;
+  autoSessionNetProfit = 0;
   if (!wasActive && !completed) {
     autoStopFinishing = false;
     handleAutoSelectionChange(autoSelectionCount);
