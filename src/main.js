@@ -56,6 +56,7 @@ let sessionIdInitialized = false;
 let gameSessionInitialized = false;
 let leaveSessionInProgress = false;
 let leaveSessionPromise = null;
+let gameInitialized = false;
 
 const controlPanelInteractivityState = {
   betButton: false,
@@ -69,6 +70,7 @@ const controlPanelInteractivityState = {
   advancedStrategy: false,
   stopOnProfit: false,
   stopOnLoss: false,
+  animationsToggle: true,
 };
 
 function hasPositiveBetAmount(value) {
@@ -101,6 +103,9 @@ function handleKeyboardShortcuts(event) {
 }
 
 function isControlPanelInteractivityAllowed() {
+  if (!gameInitialized) {
+    return false;
+  }
   return demoMode || gameSessionInitialized;
 }
 
@@ -741,6 +746,18 @@ function setControlPanelStopOnLossClickable(
   controlPanel?.setStopOnLossClickable?.(clickable);
 }
 
+function setControlPanelAnimationsToggleClickable(
+  isClickable,
+  { store = true } = {}
+) {
+  const normalized = Boolean(isClickable);
+  if (store) {
+    controlPanelInteractivityState.animationsToggle = normalized;
+  }
+  const clickable = normalized && isControlPanelInteractivityAllowed();
+  controlPanel?.setAnimationsToggleClickable?.(clickable);
+}
+
 function refreshStoredControlPanelInteractivity() {
   setControlPanelBetState(controlPanelInteractivityState.betButton, {
     store: false,
@@ -780,6 +797,10 @@ function refreshStoredControlPanelInteractivity() {
   );
   setControlPanelStopOnLossClickable(
     controlPanelInteractivityState.stopOnLoss,
+    { store: false }
+  );
+  setControlPanelAnimationsToggleClickable(
+    controlPanelInteractivityState.animationsToggle,
     { store: false }
   );
 }
@@ -1763,6 +1784,7 @@ const opts = {
       maxMines,
       initialMines,
     });
+    refreshStoredControlPanelInteractivity();
     syncDemoModeWithBetAmount(controlPanel?.getBetValue?.());
     controlPanelMode = controlPanel?.getMode?.() ?? "manual";
     controlPanel.addEventListener("modechange", (event) => {
@@ -1885,6 +1907,8 @@ const opts = {
   // Initialize Game
   try {
     game = await createGame("#game", opts);
+    gameInitialized = true;
+    refreshStoredControlPanelInteractivity();
     window.game = game;
     autoResetDelayMs = Number(
       game?.getAutoResetDelay?.() ?? AUTO_RESET_DELAY_MS
@@ -1900,6 +1924,7 @@ const opts = {
     }
   } catch (e) {
     console.error("Game initialization failed:", e);
+    gameInitialized = false;
     const gameDiv = document.querySelector("#game");
     if (gameDiv) {
       gameDiv.innerHTML = `
@@ -1911,6 +1936,6 @@ const opts = {
       `;
     }
   } finally {
-    controlPanel?.setInteractable?.(true);
+    refreshStoredControlPanelInteractivity();
   }
 })();
