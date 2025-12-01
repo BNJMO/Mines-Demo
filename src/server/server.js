@@ -438,7 +438,7 @@ export async function submitBet({
   const amountLiteral = formatBetAmountLiteral(normalizedAmount);
 
   const betInfo = {
-    id: 4,
+    id: normalizedRate,
     title: {
       key: "straight",
       value: {},
