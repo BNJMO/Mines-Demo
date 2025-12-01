@@ -1056,7 +1056,8 @@ function scheduleNextAutoBetRound() {
         !demoMode &&
         !suppressRelay &&
         controlPanelMode === "auto" &&
-        autoStopFinishing
+        autoStopFinishing &&
+        autoRoundInProgress
       ) {
         return;
       }
