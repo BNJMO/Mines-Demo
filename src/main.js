@@ -73,9 +73,9 @@ const controlPanelInteractivityState = {
   betControls: false,
   numberOfBets: true,
   advancedToggle: true,
-  advancedStrategy: false,
-  stopOnProfit: false,
-  stopOnLoss: false,
+  advancedStrategy: true,
+  stopOnProfit: true,
+  stopOnLoss: true,
   animationsToggle: true,
 };
 
