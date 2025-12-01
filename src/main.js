@@ -425,6 +425,11 @@ function recordAutoRoundOutcome({ status, winAmount }) {
   }
 }
 
+function resetAutoSessionProfit() {
+  autoRoundProfitDelta = 0;
+  autoSessionNetProfit = 0;
+}
+
 function applyAutoAdvancedBetAdjustments() {
   if (!autoRunActive) {
     return;
@@ -1350,9 +1355,8 @@ function beginAutoBetProcess() {
     autoBetsRemaining = Infinity;
   }
 
-  autoSessionNetProfit = 0;
+  resetAutoSessionProfit();
   autoRoundLastStatus = null;
-  autoRoundProfitDelta = 0;
 
   autoRunFlag = true;
   autoRunActive = true;
@@ -1896,6 +1900,7 @@ function handleStartAutobetClick() {
     return;
   }
 
+  resetAutoSessionProfit();
   beginAutoBetProcess();
 }
 
