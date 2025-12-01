@@ -211,13 +211,6 @@ async function runServerInitializationLoop({ showLoading = true } = {}) {
     if (currentGeneration !== serverInitializationGeneration) {
       return false;
     }
-
-    await delay(600);
-
-    if (currentGeneration !== serverInitializationGeneration) {
-      return false;
-    }
-
     try {
       await initializeGameSession({ relay: serverRelay });
       gameSessionInitialized = true;
