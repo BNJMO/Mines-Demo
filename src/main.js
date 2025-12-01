@@ -105,11 +105,7 @@ function isControlPanelInteractivityAllowed() {
 }
 
 function isAutoControlsInteractivityAllowed() {
-  if (autoRunActive) {
-    return isControlPanelInteractivityAllowed();
-  }
-
-  return true;
+  return isControlPanelInteractivityAllowed();
 }
 
 const gameRoot = document.querySelector("#game");
