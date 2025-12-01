@@ -1172,21 +1172,28 @@ function stopAutoBetProcess({ completed = false } = {}) {
   }
 
   const shouldPreserveSelections = controlPanelMode === "auto" || wasActive;
-  if (shouldPreserveSelections) {
-    const selections = game?.getAutoSelections?.();
-    if (Array.isArray(selections) && selections.length > 0) {
-      storedAutoSelections = selections.map((selection) => ({ ...selection }));
-    }
-  }
+  const currentSelections = shouldPreserveSelections
+    ? game?.getAutoSelections?.()
+    : null;
+  const preservedSelections = shouldPreserveSelections
+    ? (Array.isArray(currentSelections) && currentSelections.length > 0
+        ? currentSelections
+        : storedAutoSelections
+      ).map((selection) => ({ ...selection }))
+    : [];
 
-  finalizeRound({ preserveAutoSelections: shouldPreserveSelections });
+  finalizeRound({
+    preserveAutoSelections:
+      shouldPreserveSelections && preservedSelections.length > 0,
+  });
 
-  game?.reset?.({ preserveAutoSelections: shouldPreserveSelections });
+  game?.reset?.({ preserveAutoSelections: false });
 
   autoStopFinishing = false;
   setAutoRunUIState(false);
 
-  if (shouldPreserveSelections) {
+  if (shouldPreserveSelections && preservedSelections.length > 0) {
+    storedAutoSelections = preservedSelections;
     prepareForNewRoundState({ preserveAutoSelections: true });
     if (
       Array.isArray(storedAutoSelections) &&
@@ -1195,6 +1202,8 @@ function stopAutoBetProcess({ completed = false } = {}) {
     ) {
       game.applyAutoSelections(storedAutoSelections, { emit: true });
     }
+  } else if (shouldPreserveSelections) {
+    prepareForNewRoundState({ preserveAutoSelections: false });
   }
 }
 
