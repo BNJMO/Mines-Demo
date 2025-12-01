@@ -339,6 +339,7 @@ function setTotalProfitMultiplierValue(value) {
   const normalized = numeric != null && numeric > 0 ? numeric : 1;
   totalProfitMultiplierValue = normalized;
   controlPanel?.setTotalProfitMultiplier?.(normalized);
+  refreshDisplayedTotalProfit();
 }
 
 function normalizeTotalProfitAmount(value) {
@@ -360,6 +361,19 @@ function setTotalProfitAmountValue(value) {
   const normalized = normalizeTotalProfitAmount(value);
   totalProfitAmountDisplayValue = normalized;
   controlPanel?.setProfitValue?.(normalized);
+}
+
+function refreshDisplayedTotalProfit() {
+  const betAmount = controlPanel?.getBetValue?.();
+  const numericBet = Number(betAmount);
+  const numericMultiplier = Number(totalProfitMultiplierValue);
+
+  if (!Number.isFinite(numericBet) || !Number.isFinite(numericMultiplier)) {
+    return;
+  }
+
+  const totalProfit = Math.max(0, numericBet * numericMultiplier);
+  setTotalProfitAmountValue(totalProfit);
 }
 
 function updateProfitFromServerState(state) {
@@ -1904,6 +1918,7 @@ const opts = {
         event.detail?.numericValue ?? event.detail?.value
       );
       console.debug(`Bet value updated to ${event.detail.value}`);
+      refreshDisplayedTotalProfit();
       sendRelayMessage("control:bet-value", {
         value: event.detail?.value,
         numericValue: event.detail?.numericValue,
