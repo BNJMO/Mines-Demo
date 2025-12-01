@@ -1171,7 +1171,7 @@ function stopAutoBetProcess({ completed = false } = {}) {
     return;
   }
 
-  const shouldPreserveSelections = controlPanelMode === "auto";
+  const shouldPreserveSelections = controlPanelMode === "auto" || wasActive;
   if (shouldPreserveSelections) {
     const selections = game?.getAutoSelections?.();
     if (Array.isArray(selections) && selections.length > 0) {
