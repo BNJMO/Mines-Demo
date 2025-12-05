@@ -188,6 +188,12 @@ export async function createGame(mount, opts = {}) {
   const winSoundPath = opts.winSoundPath ?? winSoundUrl;
   const diamondRevealPitchMin = Number(opts.diamondRevealPitchMin ?? 1.0);
   const diamondRevealPitchMax = Number(opts.diamondRevealPitchMax ?? 1.5);
+  const diamondScaleFactor = Number.isFinite(Number(opts.diamondScaleFactor))
+    ? Number(opts.diamondScaleFactor)
+    : 1;
+  const bombScaleFactor = Number.isFinite(Number(opts.bombScaleFactor))
+    ? Number(opts.bombScaleFactor)
+    : 1;
 
   const soundEffectPaths = {
     tileTapDown: tileTapDownSoundPath,
@@ -441,6 +447,64 @@ export async function createGame(mount, opts = {}) {
   // Game functions
   function getDeviceRatio() {
     return window.devicePixelRatio || 1;
+  }
+
+  function getTextureSize(texture) {
+    if (!texture) {
+      return { width: 1, height: 1 };
+    }
+
+    const source = texture.source ?? texture.baseTexture?.resource?.source;
+    const width =
+      Number(texture.width ?? texture.orig?.width ?? texture.baseTexture?.width) ||
+      Number(source?.naturalWidth ?? source?.width) ||
+      1;
+    const height =
+      Number(texture.height ?? texture.orig?.height ?? texture.baseTexture?.height) ||
+      Number(source?.naturalHeight ?? source?.height) ||
+      1;
+
+    return {
+      width: Math.max(1, width),
+      height: Math.max(1, height),
+    };
+  }
+
+  function setIconSize(icon, texture, targetSize, scaleFactor = 1) {
+    if (!icon) return;
+
+    const maxSize = Math.max(0, targetSize * scaleFactor);
+
+    if (!texture) {
+      icon.width = maxSize;
+      icon.height = maxSize;
+      return;
+    }
+
+    const { width: texW, height: texH } = getTextureSize(texture);
+    const aspect = texW / (texH || 1);
+
+    let width = maxSize;
+    let height = aspect >= 1 ? maxSize / (aspect || 1) : maxSize;
+
+    if (aspect < 1) {
+      width = maxSize * aspect;
+    }
+
+    if (width > maxSize) {
+      const scale = maxSize / width;
+      width = maxSize;
+      height *= scale;
+    }
+
+    if (height > maxSize) {
+      const scale = maxSize / height;
+      height = maxSize;
+      width *= scale;
+    }
+
+    icon.width = width || maxSize;
+    icon.height = height || maxSize;
   }
 
   function createWinPopup() {
@@ -1678,10 +1742,8 @@ export async function createGame(mount, opts = {}) {
             const iconSizeFactor = revealedByPlayer
               ? 1.0
               : iconRevealedSizeFactor;
-            const maxW = tile._tileSize * iconSizePercentage * iconSizeFactor;
-            const maxH = tile._tileSize * iconSizePercentage * iconSizeFactor;
-            icon.width = maxW;
-            icon.height = maxH;
+            const maxSize =
+              tile._tileSize * iconSizePercentage * iconSizeFactor;
             const flippedTexture = useSelectedTextures
               ? tileTextureSelectedFlipped ?? tileTextureFlipped
               : tileTextureFlipped;
@@ -1694,6 +1756,7 @@ export async function createGame(mount, opts = {}) {
 
             if (face === "bomb") {
               icon.texture = bombTexture;
+              setIconSize(icon, bombTexture, maxSize, bombScaleFactor);
 
               if (revealedByPlayer) {
                 spawnExplosionSheetOnTile(tile);
@@ -1703,6 +1766,7 @@ export async function createGame(mount, opts = {}) {
             } else {
               // Diamond
               icon.texture = diamondTexture;
+              setIconSize(icon, diamondTexture, maxSize, diamondScaleFactor);
 
               if (revealedByPlayer) {
                 const minPitch = Math.max(0.01, Number(diamondRevealPitchMin));
