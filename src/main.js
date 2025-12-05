@@ -64,7 +64,7 @@ let leaveSessionPromise = null;
 let gameInitialized = false;
 let sessionExpirationRecoveryTask = null;
 const diamondScaleFactor = 1;
-const bombScaleFactor = 1;
+const bombScaleFactor = 1.3;
 
 const controlPanelInteractivityState = {
   betButton: false,
