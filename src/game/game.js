@@ -300,7 +300,6 @@ export async function createGame(mount, opts = {}) {
   }
 
   // PIXI app
-  let rendererResolution = getRendererResolution();
   const app = new Application();
   try {
     const { width: startWidth, height: startHeight } = measureRootSize();
@@ -309,7 +308,8 @@ export async function createGame(mount, opts = {}) {
       width: startWidth,
       height: startHeight,
       antialias: true,
-      resolution: rendererResolution,
+      autoDensity: true,
+      resolution: getDeviceRatio(),
     });
 
     // Clear the loading message

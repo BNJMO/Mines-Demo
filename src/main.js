@@ -1,3 +1,4 @@
+import buildConfig from "../buildConfig.json";
 import { createGame } from "./game/game.js";
 import { ControlPanel } from "./controlPanel/controlPanel.js";
 import { ServerRelay } from "./serverRelay.js";
@@ -25,6 +26,15 @@ import tileHoverSoundUrl from "../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../assets/sounds/DiamondRevealed.wav";
 import bombRevealedSoundUrl from "../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../assets/sounds/Win.wav";
+
+/* Build Log */
+const buildId = buildConfig?.buildId ?? "0.0.0";
+const buildDate = buildConfig?.buildDate ?? "Unknown";
+const buildEnvironment = buildConfig?.environment ?? "Production";
+
+console.info(`🚀 Build: ${buildId}`);
+console.info(`📅 Date: ${buildDate}`);
+console.info(`🌐 Environment: ${buildEnvironment}`);
 
 let game;
 let controlPanel;
