@@ -1,5 +1,10 @@
 {
   "buildId": "0.0.1",
   "buildDate": "Initial build",
-  "environment": "Production"
+  "environment": "Production",
+  "vite": {
+    "vitePath": "/Mines-Demo/",
+    "localVitePath": "/Mines-Demo/",
+    "exportVitePath": "/_Games/dice_crash/"
+  }
 }
