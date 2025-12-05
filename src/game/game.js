@@ -13,8 +13,8 @@ import {
 
 // Sound will be loaded inside createGame function
 import Ease from "../ease.js";
-import diamondTextureUrl from "../../assets/sprites/Diamond.png";
-import bombTextureUrl from "../../assets/sprites/Bomb.png";
+import diamondTextureUrl from "../../assets/sprites/Diamond.svg";
+import bombTextureUrl from "../../assets/sprites/Bomb.svg";
 import tileUnflippedTextureUrl from "../../assets/sprites/tile_unflipped.svg";
 import tileHoveredTextureUrl from "../../assets/sprites/tile_hovered.svg";
 import tileFlippedTextureUrl from "../../assets/sprites/tile_flipped.svg";

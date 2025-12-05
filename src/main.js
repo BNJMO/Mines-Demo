@@ -16,8 +16,8 @@ import {
 } from "./server/server.js";
 import { ServerPanel } from "./server/serverPanel.js";
 
-import diamondTextureUrl from "../assets/sprites/Diamond.png";
-import bombTextureUrl from "../assets/sprites/Bomb.png";
+import diamondTextureUrl from "../assets/sprites/Diamond.svg";
+import bombTextureUrl from "../assets/sprites/Bomb.svg";
 import explosionSheetUrl from "../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../assets/sounds/TileFlip.wav";
