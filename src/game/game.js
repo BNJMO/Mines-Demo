@@ -294,6 +294,7 @@ export async function createGame(mount, opts = {}) {
   }
 
   // PIXI app
+  let rendererResolution = getRendererResolution();
   const app = new Application();
   try {
     const { width: startWidth, height: startHeight } = measureRootSize();
@@ -302,8 +303,7 @@ export async function createGame(mount, opts = {}) {
       width: startWidth,
       height: startHeight,
       antialias: true,
-      autoDensity: true,
-      resolution: getDeviceRatio(),
+      resolution: rendererResolution,
     });
 
     // Clear the loading message
@@ -428,6 +428,15 @@ export async function createGame(mount, opts = {}) {
     selectedTile = null;
     revealTileWithFlip(tile, "bomb");
   }
+
+  function getRendererResolution() {
+  if (typeof window === "undefined") {
+    return 1;
+  }
+
+  const dpr = window.devicePixelRatio ?? 1;
+  return Math.max(1, dpr);
+}
 
   // Game functions
   function getDeviceRatio() {
