@@ -119,7 +119,7 @@ export class ControlPanel extends EventTarget {
     this.buildGemsLabel();
     this.buildGemsDisplay();
     this.buildModeSections();
-    this.buildFooter();
+    // this.buildFooter();
 
     this.setBetAmountDisplay(this.options.initialBetAmountDisplay);
     this.setProfitOnWinDisplay(this.options.initialProfitOnWinDisplay);
