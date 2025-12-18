@@ -436,17 +436,17 @@ export async function createGame(mount, opts = {}) {
   }
 
   function getRendererResolution() {
-  if (typeof window === "undefined") {
-    return 1;
-  }
+    if (typeof window === "undefined") {
+      return 1;
+    }
 
-  const dpr = window.devicePixelRatio ?? 1;
-  return Math.max(1, dpr);
-}
+    const dpr = window.devicePixelRatio ?? 1;
+    return Math.max(1, Math.round(dpr));
+  }
 
   // Game functions
   function getDeviceRatio() {
-    return window.devicePixelRatio || 1;
+    return getRendererResolution();
   }
 
   function getTextureSize(texture) {
