@@ -1,10 +1,10 @@
 {
-  "buildId": "0.1.4",
-  "buildDate": "12/18/2025, 11:30:53 AM",
+  "buildId": "0.1.6",
+  "buildDate": "2/7/2026, 3:45:16 AM",
   "environment": "Production",
   "vite": {
     "vitePath": "/Mines-Demo/",
     "localVitePath": "/Mines-Demo/",
-    "exportVitePath": "/_Games/mine_crash/"
+    "exportVitePath": "/_Games/crash_mine/"
   }
 }
