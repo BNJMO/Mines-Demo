@@ -596,7 +596,7 @@ export async function createGame(mount, opts = {}) {
       align: "center",
     });
     const amountText = new Text({
-      text: "0.0",
+      text: "0.00",
       style: amountTextStyle,
     });
     amountText.anchor.set(0.5);
@@ -744,10 +744,15 @@ export async function createGame(mount, opts = {}) {
   }
 
   function formatAmount(amountValue) {
-    if (typeof amountValue === "number" && Number.isFinite(amountValue)) {
-      return amountValue.toLocaleString("en-US", {
+    const raw =
+      typeof amountValue === "string"
+        ? amountValue.replace(/[^\d.-]/g, "")
+        : amountValue;
+    const numeric = Number(raw);
+    if (Number.isFinite(numeric)) {
+      return numeric.toLocaleString("en-US", {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 8,
+        maximumFractionDigits: 2,
       });
     }
 

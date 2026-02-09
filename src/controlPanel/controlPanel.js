@@ -25,6 +25,22 @@ function clampToZero(value) {
   return Math.max(0, value);
 }
 
+function normalizeDisplayAmount(value) {
+  const raw =
+    typeof value === "string" ? value.replace(/[^\d.-]/g, "") : value;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return clampToZero(numeric).toFixed(2);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return "0.00";
+}
+
 export class ControlPanel extends EventTarget {
     enableSelectAllOnFocus(input) {
     if (!input) return;
@@ -50,9 +66,9 @@ export class ControlPanel extends EventTarget {
       initialTotalProfitMultiplier:
         options.initialTotalProfitMultiplier ?? 1,
       initialBetValue: options.initialBetValue ?? "0.00000000",
-      initialBetAmountDisplay: options.initialBetAmountDisplay ?? "$0.00",
-      initialProfitOnWinDisplay: options.initialProfitOnWinDisplay ?? "$0.00",
-      initialProfitValue: options.initialProfitValue ?? "0.00000000",
+      initialBetAmountDisplay: options.initialBetAmountDisplay ?? "0.00",
+      initialProfitOnWinDisplay: options.initialProfitOnWinDisplay ?? "0.00",
+      initialProfitValue: options.initialProfitValue ?? "0.00",
       initialMode: options.initialMode ?? "manual",
       gameName: options.gameName ?? "Game Name",
       minesLabel: options.minesLabel ?? "Mines",
@@ -1291,26 +1307,19 @@ export class ControlPanel extends EventTarget {
 
   setBetAmountDisplay(value) {
     if (this.betAmountValue) {
-      this.betAmountValue.textContent = value;
+      this.betAmountValue.textContent = normalizeDisplayAmount(value);
     }
   }
 
   setProfitOnWinDisplay(value) {
     if (this.profitOnWinValue) {
-      this.profitOnWinValue.textContent = value;
+      this.profitOnWinValue.textContent = normalizeDisplayAmount(value);
     }
   }
 
   setProfitValue(value) {
     if (!this.profitValue) return;
-    if (Number.isFinite(Number(value))) {
-      const numeric = Number(value);
-      this.profitValue.textContent = clampToZero(numeric).toFixed(8);
-    } else if (typeof value === "string") {
-      this.profitValue.textContent = value;
-    } else {
-      this.profitValue.textContent = "0.00000000";
-    }
+    this.profitValue.textContent = normalizeDisplayAmount(value);
   }
 
   setGameName(name) {
