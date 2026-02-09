@@ -20,7 +20,6 @@ import tileHoveredTextureUrl from "../../assets/sprites/tile_hovered.svg";
 import tileFlippedTextureUrl from "../../assets/sprites/tile_flipped.svg";
 import tileSelectedTextureUrl from "../../assets/sprites/tile_selected.svg";
 import tileSelectedFlippedTextureUrl from "../../assets/sprites/tile_selectedFlipped.svg";
-import bitcoinIconUrl from "../../assets/sprites/controlPanel/BitCoin.svg";
 import explosionSheetUrl from "../../assets/sprites/Explosion_Spritesheet.png";
 import tileTapDownSoundUrl from "../../assets/sounds/TileTapDown.wav";
 import tileFlipSoundUrl from "../../assets/sounds/TileFlip.wav";
@@ -28,6 +27,11 @@ import tileHoverSoundUrl from "../../assets/sounds/TileHover.wav";
 import diamondRevealedSoundUrl from "../../assets/sounds/DiamondRevealed.wav";
 import bombRevealedSoundUrl from "../../assets/sounds/BombRevealed.wav";
 import winSoundUrl from "../../assets/sounds/Win.wav";
+import {
+  getBitcoinAsset,
+  getDollarAsset,
+  getEuroAsset,
+} from "../currencyProvider.js";
 
 const PALETTE = {
   appBg: 0x091b26, // page/canvas background
@@ -111,6 +115,9 @@ export async function createGame(mount, opts = {}) {
       ? (count) => opts.onAutoSelectionChange(count)
       : () => {};
   const backgroundColor = opts.backgroundColor ?? PALETTE.appBg;
+  const currencyRelay = opts.currencyRelay ?? null;
+  const currencyVariation = opts.currencyVariation ?? "orange";
+  const initialCurrencyName = opts.initialCurrencyName ?? "Bitcoin";
 
   // Visuals
   const diamondTexturePath = opts.dimaondTexturePath ?? diamondTextureUrl;
@@ -256,13 +263,28 @@ export async function createGame(mount, opts = {}) {
     console.error("loadExplosionFrames failed", e);
   }
 
+  function resolveCurrencyAsset(currencyName) {
+    switch (currencyName) {
+      case "Euro":
+        return getEuroAsset(currencyVariation) ?? getBitcoinAsset(currencyVariation);
+      case "Dollar":
+        return getDollarAsset(currencyVariation) ?? getBitcoinAsset(currencyVariation);
+      case "Bitcoin":
+      default:
+        return getBitcoinAsset(currencyVariation);
+    }
+  }
+
+  let currencyName = initialCurrencyName;
+  let currencyIconUrl = resolveCurrencyAsset(currencyName);
+  let currencySvgMarkup = null;
+  let currencySvgMarkupPromise = null;
+
   let diamondTexture = null;
   let coinTexture = null;
   let coinTextureTargetSize = 0;
   let coinTexturePromise = null;
   let coinTexturePromiseTargetSize = 0;
-  let bitcoinSvgMarkup = null;
-  let bitcoinSvgMarkupPromise = null;
   try {
     await loadDiamondTexture();
   } catch (e) {
@@ -329,6 +351,7 @@ export async function createGame(mount, opts = {}) {
 
   const winPopup = createWinPopup();
   ui.addChild(winPopup.container);
+  subscribeToCurrencyUpdates();
 
   let tiles = [];
   let bombPositions = new Set();
@@ -637,7 +660,7 @@ export async function createGame(mount, opts = {}) {
           coinSprite.texture = Texture.EMPTY;
           coinSprite.visible = false;
         }
-        console.error("Failed to refresh bitcoin icon texture", err);
+        console.error("Failed to refresh currency icon texture", err);
       } finally {
         if (refreshId === coinRefreshSequence) {
           layoutAmountRow();
@@ -657,6 +680,42 @@ export async function createGame(mount, opts = {}) {
       layoutAmountRow,
       refreshCoinIcon,
     };
+  }
+
+  function setCurrencyName(nextCurrency) {
+    if (typeof nextCurrency !== "string" || !nextCurrency.trim()) {
+      return;
+    }
+    if (currencyName === nextCurrency) {
+      return;
+    }
+    currencyName = nextCurrency;
+    currencyIconUrl = resolveCurrencyAsset(currencyName);
+    currencySvgMarkup = null;
+    currencySvgMarkupPromise = null;
+
+    if (coinTexture) {
+      coinTexture.destroy(true);
+    }
+    coinTexture = null;
+    coinTextureTargetSize = 0;
+    coinTexturePromise = null;
+    coinTexturePromiseTargetSize = 0;
+
+    winPopup?.refreshCoinIcon?.();
+  }
+
+  function subscribeToCurrencyUpdates() {
+    if (!currencyRelay?.addEventListener) {
+      return;
+    }
+    currencyRelay.addEventListener("incoming", (event) => {
+      const { type, payload } = event?.detail ?? {};
+      if (type !== "currencyUpdated") {
+        return;
+      }
+      setCurrencyName(payload?.currency);
+    });
   }
 
   function positionWinPopup() {
@@ -728,32 +787,34 @@ export async function createGame(mount, opts = {}) {
     diamondTexture = await Assets.load(diamondTexturePath);
   }
 
-  async function fetchBitcoinSvgMarkup() {
-    if (bitcoinSvgMarkup) {
-      return bitcoinSvgMarkup;
+  async function fetchCurrencySvgMarkup() {
+    if (currencySvgMarkup) {
+      return currencySvgMarkup;
     }
 
-    if (bitcoinSvgMarkupPromise) {
-      return bitcoinSvgMarkupPromise;
+    if (currencySvgMarkupPromise) {
+      return currencySvgMarkupPromise;
     }
 
-    bitcoinSvgMarkupPromise = (async () => {
-      const response = await fetch(bitcoinIconUrl);
+    const iconUrl = currencyIconUrl ?? resolveCurrencyAsset(currencyName);
+
+    currencySvgMarkupPromise = (async () => {
+      const response = await fetch(iconUrl);
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch bitcoin icon SVG: ${response.status} ${response.statusText}`
+          `Failed to fetch currency icon SVG: ${response.status} ${response.statusText}`
         );
       }
 
       const svgText = await response.text();
-      bitcoinSvgMarkup = svgText;
+      currencySvgMarkup = svgText;
       return svgText;
     })();
 
     try {
-      return await bitcoinSvgMarkupPromise;
+      return await currencySvgMarkupPromise;
     } finally {
-      bitcoinSvgMarkupPromise = null;
+      currencySvgMarkupPromise = null;
     }
   }
 
@@ -779,12 +840,12 @@ export async function createGame(mount, opts = {}) {
     }
 
     const loadPromise = (async () => {
-      const svgMarkup = await fetchBitcoinSvgMarkup();
+      const svgMarkup = await fetchCurrencySvgMarkup();
       const parser = new DOMParser();
       const doc = parser.parseFromString(svgMarkup, "image/svg+xml");
       const parserError = doc.querySelector("parsererror");
       if (parserError) {
-        throw new Error("Failed to parse bitcoin icon SVG");
+        throw new Error("Failed to parse currency icon SVG");
       }
 
       const svgElement = doc.documentElement;

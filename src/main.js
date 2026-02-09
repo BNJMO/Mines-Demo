@@ -1991,6 +1991,9 @@ const opts = {
   winPopupShowDuration: 260,
   winPopupWidth: 260,
   winPopupHeight: 200,
+  currencyRelay: serverRelay,
+  currencyVariation: "orange",
+  initialCurrencyName: "Euro",
 
   // Event callback for when a card is selected
   getMode: () => controlPanelMode,
