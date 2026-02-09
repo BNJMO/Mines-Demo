@@ -40,14 +40,11 @@ export class ServerPanel {
   constructor(relay, options = {}) {
     this.serverRelay = ensureRelay(relay);
     this.onVisibilityChange = options.onVisibilityChange ?? (() => {});
-    this.onDemoModeToggle = options.onDemoModeToggle ?? (() => {});
     this.visible = !(options.initialHidden ?? false);
     this.collapsed = Boolean(options.initialCollapsed ?? false);
 
     const mount =
       options.mount ?? document.querySelector(".app-wrapper") ?? document.body;
-    const initialDemoMode = Boolean(options.initialDemoMode ?? true);
-
     this.container = document.createElement("div");
     this.container.className = "server";
     if (this.collapsed) {
@@ -69,20 +66,6 @@ export class ServerPanel {
     const headerControls = document.createElement("div");
     headerControls.className = "server__header-controls";
     header.appendChild(headerControls);
-
-    this.toggleLabel = document.createElement("label");
-    this.toggleLabel.className = "server__toggle";
-    this.toggleLabel.textContent = "Demo Mode";
-
-    this.toggleInput = document.createElement("input");
-    this.toggleInput.type = "checkbox";
-    this.toggleInput.checked = initialDemoMode;
-    this.toggleInput.addEventListener("change", () => {
-      this.onDemoModeToggle(Boolean(this.toggleInput.checked));
-    });
-
-    this.toggleLabel.appendChild(this.toggleInput);
-    headerControls.appendChild(this.toggleLabel);
 
     this.minimizeButton = document.createElement("button");
     this.minimizeButton.type = "button";
@@ -150,10 +133,6 @@ export class ServerPanel {
     this.serverRelay.addEventListener("outgoing", this.outgoingHandler);
     this.serverRelay.addEventListener("incoming", this.incomingHandler);
 
-    this.demoModeHandler = (event) => {
-      this.setDemoMode(Boolean(event.detail?.value));
-    };
-    this.serverRelay.addEventListener("demomodechange", this.demoModeHandler);
   }
 
   toggleCollapsed() {
@@ -189,17 +168,9 @@ export class ServerPanel {
     return Boolean(this.visible);
   }
 
-  setDemoMode(enabled) {
-    const normalized = Boolean(enabled);
-    if (this.toggleInput.checked !== normalized) {
-      this.toggleInput.checked = normalized;
-    }
-  }
-
   destroy() {
     this.serverRelay.removeEventListener("outgoing", this.outgoingHandler);
     this.serverRelay.removeEventListener("incoming", this.incomingHandler);
-    this.serverRelay.removeEventListener("demomodechange", this.demoModeHandler);
     this.container.remove();
   }
 }
