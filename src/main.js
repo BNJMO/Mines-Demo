@@ -1543,6 +1543,9 @@ function handleBetButtonClick() {
   if (betButtonMode === "cashout") {
     handleCashout();
   } else {
+    if (!hasPositiveBetAmount(getCurrentBetValue())) {
+      return;
+    }
     handleBet();
   }
 }
