@@ -2020,6 +2020,8 @@ const opts = {
       totalTiles,
       maxMines,
       initialMines,
+      initialCurrencyName: "Euro",
+      relay: serverRelay,
     });
     refreshStoredControlPanelInteractivity();
     syncDemoModeWithBetAmount(controlPanel?.getBetValue?.());
