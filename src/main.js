@@ -146,7 +146,7 @@ if (!demoMode && gameRoot && gameLoadingOverlay) {
 }
 
 let totalProfitMultiplierValue = 1;
-let totalProfitAmountDisplayValue = "0.00000000";
+let totalProfitAmountDisplayValue = "0.00";
 
 const AUTO_RESET_DELAY_MS = 1500;
 let autoResetDelayMs = AUTO_RESET_DELAY_MS;
@@ -363,7 +363,7 @@ function normalizeTotalProfitAmount(value) {
   const numeric = coerceNumericValue(value);
   if (numeric != null) {
     const clamped = Math.max(0, numeric);
-    return clamped.toFixed(8);
+    return clamped.toFixed(2);
   }
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -371,7 +371,7 @@ function normalizeTotalProfitAmount(value) {
       return trimmed;
     }
   }
-  return "0.00000000";
+  return "0.00";
 }
 
 function setTotalProfitAmountValue(value) {
@@ -2127,10 +2127,10 @@ const opts = {
     controlPanel.addEventListener("randompick", handleRandomPickClick);
     controlPanel.addEventListener("startautobet", handleStartAutobetClick);
     finalizeRound();
-    controlPanel.setBetAmountDisplay("$0.00");
+    controlPanel.setBetAmountDisplay("0.00");
     setTotalProfitMultiplierValue(0.0);
-    controlPanel.setProfitOnWinDisplay("$0.00");
-    setTotalProfitAmountValue("0.00000000");
+    controlPanel.setProfitOnWinDisplay("0.00");
+    setTotalProfitAmountValue("0.00");
     handleAutoSelectionChange(autoSelectionCount);
     opts.disableAnimations = !(controlPanel.getAnimationsEnabled?.() ?? true);
     controlPanel.setServerPanelVisibility(
