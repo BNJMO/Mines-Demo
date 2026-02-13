@@ -323,6 +323,34 @@ export async function createGame(mount, opts = {}) {
 
   // PIXI app
   const app = new Application();
+
+  function getCanvasElement() {
+    return app?.canvas ?? app?.renderer?.view ?? null;
+  }
+
+  function applyCanvasBaseStyles() {
+    const canvas = getCanvasElement();
+    if (!canvas) return;
+    const style = canvas.style;
+    if (!style) return;
+    style.display = style.display || "block";
+    style.maxWidth = style.maxWidth || "100%";
+    style.maxHeight = style.maxHeight || "100%";
+  }
+
+  function updateCanvasCssSize(size) {
+    const canvas = getCanvasElement();
+    if (!canvas) return;
+    const style = canvas.style;
+    if (!style) return;
+    const cssSize = `${size}px`;
+    if (style.width !== cssSize) {
+      style.width = cssSize;
+    }
+    if (style.height !== cssSize) {
+      style.height = cssSize;
+    }
+  }
   try {
     const { width: startWidth, height: startHeight } = measureRootSize();
     await app.init({
@@ -339,6 +367,12 @@ export async function createGame(mount, opts = {}) {
 
     // Append canvas
     root.appendChild(app.canvas);
+    applyCanvasBaseStyles();
+    const initialCanvasSize = Math.max(
+      1,
+      Math.floor(Math.min(startWidth, startHeight))
+    );
+    updateCanvasCssSize(initialCanvasSize);
   } catch (e) {
     console.error("PIXI init failed", e);
     throw e;
@@ -2074,6 +2108,7 @@ export async function createGame(mount, opts = {}) {
       app.renderer.resolution = deviceRatio;
     }
     app.renderer.resize(size, size);
+    updateCanvasCssSize(size);
     if (!tiles.length) {
       buildBoard();
     } else {
